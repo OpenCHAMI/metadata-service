@@ -1,0 +1,85 @@
+package client_test
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
+
+	"github.com/OpenCHAMI/cloud-init/pkg/client"
+	"github.com/stretchr/testify/require"
+)
+
+func startTestServer() string {
+	// Assumes server is running at localhost:27777
+	return "http://localhost:27777"
+}
+
+func TestGroupTemplateValidation(t *testing.T) {
+	baseURL := startTestServer()
+	c, _ := client.NewClient(baseURL, &http.Client{Timeout: 5 * time.Second})
+	ctx := context.Background()
+
+	// 1. Create group with missing required variable
+	badTemplate := "#cloud-config\nhostname: {{missing_var}}"
+	reqBad := client.CreateGroupRequest{
+		GroupSpec: group.GroupSpec{
+			Template: badTemplate,
+			MetaData: map[string]string{"hostname": "test-host"},
+		},
+		Name: "test-bad",
+	}
+	_, err := c.CreateGroup(ctx, reqBad)
+	require.Error(t, err, "Expected validation error for missing variable")
+
+	// 2. Create group with all required variables present
+	goodTemplate := "#cloud-config\nhostname: {{hostname}}"
+	reqGood := client.CreateGroupRequest{
+		GroupSpec: group.GroupSpec{
+			Template: goodTemplate,
+			MetaData: map[string]string{"hostname": "test-host"},
+		},
+		Name: "test-good",
+	}
+	created, err := c.CreateGroup(ctx, reqGood)
+	require.NoError(t, err, "Expected successful creation with valid template")
+	require.True(t, created.Status.Valid, "Status.Valid should be true")
+
+	// 3. Update group with invalid YAML after rendering
+	invalidYAML := "#cloud-config\nhostname: {{hostname}}\nfoo: ["
+	reqUpdate := client.UpdateGroupRequest{
+		GroupSpec: group.GroupSpec{
+			Template: invalidYAML,
+			MetaData: map[string]string{"hostname": "test-host"},
+		},
+		Name: "test-good",
+	}
+	_, err = c.UpdateGroup(ctx, created.Metadata.UID, reqUpdate)
+	require.Error(t, err, "Expected validation error for invalid YAML")
+
+	// 4. Bulk validation: create multiple groups, some valid, some invalid
+	for i := 0; i < 3; i++ {
+		tmpl := goodTemplate
+		name := fmt.Sprintf("bulk-%d", i)
+		if i == 2 {
+			tmpl = badTemplate
+			name = "bulk-bad"
+		}
+		req := client.CreateGroupRequest{
+			GroupSpec: group.GroupSpec{
+				Template: tmpl,
+				MetaData: map[string]string{"hostname": "bulk-host"},
+			},
+			Name: name,
+		}
+		_, err := c.CreateGroup(ctx, req)
+		if i == 2 {
+			require.Error(t, err, "Expected error for bulk invalid group")
+		} else {
+			require.NoError(t, err, "Expected success for bulk valid group")
+		}
+	}
+}
