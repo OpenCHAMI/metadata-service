@@ -112,18 +112,31 @@ func extractTemplateVariables(tmpl string) []string {
 }
 
 // sampleMetadata returns example metadata for validation
+// This includes variables that will be provided at runtime from:
+// - ClusterDefaults: cluster_name, base_url, cloud_provider, region, availability_zone
+// - SMD Component: instance_id, hostname, nid, role, mac, ip
 func sampleMetadata() map[string]string {
 	return map[string]string{
+		// Runtime variables from ClusterDefaults
+		"cluster_name":      "test-cluster",
+		"base_url":          "http://cloud-init.local",
+		"cloud_provider":    "OpenCHAMI",
+		"region":            "us-west-1",
+		"availability_zone": "us-west-1a",
+
+		// Runtime variables from SMD Component
 		"hostname":    "test-host",
-		"ip":          "192.0.2.1",
-		"group":       "default",
-		"instance_id": "i-abcdef123456",
+		"instance_id": "x1000c0s0b0n0",
+		"nid":         "1000",
+		"role":        "compute",
 		"mac":         "00:11:22:33:44:55",
-		"domain":      "example.com",
-		"cluster":     "main-cluster",
-		"os_version":  "ubuntu-22.04",
-		"ssh_keys":    "ssh-rsa AAAAB3Nza...",
-		"tags":        "role=compute,env=prod",
+		"ip":          "192.0.2.1",
+
+		// Additional common variables
+		"domain":     "example.com",
+		"os_version": "ubuntu-22.04",
+		"ssh_keys":   "ssh-rsa AAAAB3Nza...",
+		"tags":       "role=compute,env=prod",
 	}
 }
 

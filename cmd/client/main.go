@@ -278,13 +278,21 @@ var clusterdefaultsCreateCmd = &cobra.Command{
 
 Examples:
   # Create from stdin
-  echo '{"description": "Example description"}' | client clusterdefaults create
+  echo '{"description": "Example description", "base_url": "https://example.com", "cloud_provider": "example-value", "region": "example-value", "availability_zone": "example-value", "cluster_name": "example-name", "short_name": "example-name", "nid_length": 42, "public_keys": ["["item1","item2"]"]}' | client clusterdefaults create
 
   # Create with --spec flag
-  client clusterdefaults create --spec '{"description": "Example description"}'
+  client clusterdefaults create --spec '{"description": "Example description", "base_url": "https://example.com", "cloud_provider": "example-value", "region": "example-value", "availability_zone": "example-value", "cluster_name": "example-name", "short_name": "example-name", "nid_length": 42, "public_keys": ["["item1","item2"]"]}'
 
 Spec fields:
   description (string)
+  base_url (string) [required]
+  cloud_provider (string)
+  region (string)
+  availability_zone (string)
+  cluster_name (string) [required]
+  short_name (string)
+  nid_length (int)
+  public_keys ([]string)
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
@@ -328,13 +336,21 @@ var clusterdefaultsUpdateCmd = &cobra.Command{
 
 Examples:
   # Update from stdin
-  echo '{"description": "Example description"}' | client clusterdefaults update <uid>
+  echo '{"description": "Example description", "base_url": "https://example.com", "cloud_provider": "example-value", "region": "example-value", "availability_zone": "example-value", "cluster_name": "example-name", "short_name": "example-name", "nid_length": 42, "public_keys": ["["item1","item2"]"]}' | client clusterdefaults update <uid>
 
   # Update with --spec flag
-  client clusterdefaults update <uid> --spec '{"description": "Example description"}'
+  client clusterdefaults update <uid> --spec '{"description": "Example description", "base_url": "https://example.com", "cloud_provider": "example-value", "region": "example-value", "availability_zone": "example-value", "cluster_name": "example-name", "short_name": "example-name", "nid_length": 42, "public_keys": ["["item1","item2"]"]}'
 
 Spec fields:
   description (string)
+  base_url (string) [required]
+  cloud_provider (string)
+  region (string)
+  availability_zone (string)
+  cluster_name (string) [required]
+  short_name (string)
+  nid_length (int)
+  public_keys ([]string)
 `,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -612,13 +628,16 @@ var groupCreateCmd = &cobra.Command{
 
 Examples:
   # Create from stdin
-  echo '{"description": "Example description"}' | client group create
+  echo '{"description": "Example description", "template": "example-value", "metaData": {"{"key":"value"}": "value"}, "osVersion": "example-value"}' | client group create
 
   # Create with --spec flag
-  client group create --spec '{"description": "Example description"}'
+  client group create --spec '{"description": "Example description", "template": "example-value", "metaData": {"{"key":"value"}": "value"}, "osVersion": "example-value"}'
 
 Spec fields:
   description (string)
+  template (string) [required]
+  metaData (map[string]string)
+  osVersion (string)
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
@@ -662,13 +681,16 @@ var groupUpdateCmd = &cobra.Command{
 
 Examples:
   # Update from stdin
-  echo '{"description": "Example description"}' | client group update <uid>
+  echo '{"description": "Example description", "template": "example-value", "metaData": {"{"key":"value"}": "value"}, "osVersion": "example-value"}' | client group update <uid>
 
   # Update with --spec flag
-  client group update <uid> --spec '{"description": "Example description"}'
+  client group update <uid> --spec '{"description": "Example description", "template": "example-value", "metaData": {"{"key":"value"}": "value"}, "osVersion": "example-value"}'
 
 Spec fields:
   description (string)
+  template (string) [required]
+  metaData (map[string]string)
+  osVersion (string)
 `,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -946,13 +968,18 @@ var instanceinfoCreateCmd = &cobra.Command{
 
 Examples:
   # Create from stdin
-  echo '{"description": "Example description"}' | client instanceinfo create
+  echo '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"]}' | client instanceinfo create
 
   # Create with --spec flag
-  client instanceinfo create --spec '{"description": "Example description"}'
+  client instanceinfo create --spec '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"]}'
 
 Spec fields:
   description (string)
+  instance_id (string) [required]
+  local_hostname (string)
+  hostname (string)
+  cloud_init_base_url (string)
+  public_keys ([]string)
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
@@ -996,13 +1023,18 @@ var instanceinfoUpdateCmd = &cobra.Command{
 
 Examples:
   # Update from stdin
-  echo '{"description": "Example description"}' | client instanceinfo update <uid>
+  echo '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"]}' | client instanceinfo update <uid>
 
   # Update with --spec flag
-  client instanceinfo update <uid> --spec '{"description": "Example description"}'
+  client instanceinfo update <uid> --spec '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"]}'
 
 Spec fields:
   description (string)
+  instance_id (string) [required]
+  local_hostname (string)
+  hostname (string)
+  cloud_init_base_url (string)
+  public_keys ([]string)
 `,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

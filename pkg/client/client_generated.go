@@ -55,14 +55,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/OpenCHAMI/cloud-init/pkg/resources/clusterdefaults"
+	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
+	"github.com/OpenCHAMI/cloud-init/pkg/resources/instanceinfo"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
-
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/clusterdefaults"
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/instanceinfo"
 )
 
 // Client provides access to the inventory API

@@ -6,6 +6,7 @@ package clusterdefaults
 
 import (
 	"context"
+
 	"github.com/openchami/fabrica/pkg/resource"
 )
 
@@ -18,15 +19,22 @@ type ClusterDefaults struct {
 
 // ClusterDefaultsSpec defines the desired state of ClusterDefaults
 type ClusterDefaultsSpec struct {
-	Description string `json:"description,omitempty" validate:"max=200"`
-	// Add your spec fields here
+	Description      string   `json:"description,omitempty" validate:"max=200"`
+	BaseURL          string   `json:"base_url" validate:"required,url"`
+	CloudProvider    string   `json:"cloud_provider,omitempty"`
+	Region           string   `json:"region,omitempty"`
+	AvailabilityZone string   `json:"availability_zone,omitempty"`
+	ClusterName      string   `json:"cluster_name" validate:"required"`
+	ShortName        string   `json:"short_name,omitempty"`
+	NidLength        int      `json:"nid_length,omitempty" validate:"gte=0,lte=10"`
+	PublicKeys       []string `json:"public_keys,omitempty"`
 }
 
 // ClusterDefaultsStatus defines the observed state of ClusterDefaults
 type ClusterDefaultsStatus struct {
-	Phase      string `json:"phase,omitempty"`
-	Message    string `json:"message,omitempty"`
-	Ready      bool   `json:"ready"`
+	Phase   string `json:"phase,omitempty"`
+	Message string `json:"message,omitempty"`
+	Ready   bool   `json:"ready"`
 	// Add your status fields here
 }
 
@@ -40,11 +48,12 @@ func (r *ClusterDefaults) Validate(ctx context.Context) error {
 
 	return nil
 }
+
 // GetKind returns the kind of the resource
 func (r *ClusterDefaults) GetKind() string {
 	return "ClusterDefaults"
 }
-	
+
 // GetName returns the name of the resource
 func (r *ClusterDefaults) GetName() string {
 	return r.Metadata.Name

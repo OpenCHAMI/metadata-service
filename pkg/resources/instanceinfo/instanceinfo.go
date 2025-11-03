@@ -6,6 +6,7 @@ package instanceinfo
 
 import (
 	"context"
+
 	"github.com/openchami/fabrica/pkg/resource"
 )
 
@@ -18,15 +19,19 @@ type InstanceInfo struct {
 
 // InstanceInfoSpec defines the desired state of InstanceInfo
 type InstanceInfoSpec struct {
-	Description string `json:"description,omitempty" validate:"max=200"`
-	// Add your spec fields here
+	Description      string   `json:"description,omitempty" validate:"max=200"`
+	InstanceID       string   `json:"instance_id" validate:"required"`
+	LocalHostname    string   `json:"local_hostname,omitempty"`
+	Hostname         string   `json:"hostname,omitempty"`
+	CloudInitBaseURL string   `json:"cloud_init_base_url,omitempty" validate:"omitempty,url"`
+	PublicKeys       []string `json:"public_keys,omitempty"`
 }
 
 // InstanceInfoStatus defines the observed state of InstanceInfo
 type InstanceInfoStatus struct {
-	Phase      string `json:"phase,omitempty"`
-	Message    string `json:"message,omitempty"`
-	Ready      bool   `json:"ready"`
+	Phase   string `json:"phase,omitempty"`
+	Message string `json:"message,omitempty"`
+	Ready   bool   `json:"ready"`
 	// Add your status fields here
 }
 
@@ -40,11 +45,12 @@ func (r *InstanceInfo) Validate(ctx context.Context) error {
 
 	return nil
 }
+
 // GetKind returns the kind of the resource
 func (r *InstanceInfo) GetKind() string {
 	return "InstanceInfo"
 }
-	
+
 // GetName returns the name of the resource
 func (r *InstanceInfo) GetName() string {
 	return r.Metadata.Name

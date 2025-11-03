@@ -172,6 +172,13 @@ func runServer(cmd *cobra.Command, args []string) error {
 	RegisterGeneratedRoutes(r)
 	r.Get("/health", healthHandler)
 
+	// Initialize SMD client and storage adapter
+	smdClient := initSMDClient()
+	storeAdapter := NewStorageAdapter()
+
+	// Register cloud-init metadata server routes
+	RegisterCloudInitRoutes(r, smdClient, storeAdapter)
+
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
 	server := &http.Server{
