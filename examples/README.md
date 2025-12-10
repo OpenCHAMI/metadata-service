@@ -27,48 +27,56 @@ The demo works with the following pre-configured mock nodes:
 The `demo.sh` script demonstrates the complete lifecycle of the cloud-init metadata API:
 
 ### 1. **Creates ClusterDefaults**
-   - Sets up cluster-wide configuration
-   - Defines base URL, cloud provider, region
-   - Configures hostname generation parameters
-   - Adds cluster-wide SSH public keys
+
+- Sets up cluster-wide configuration
+- Defines base URL, cloud provider, region
+- Configures hostname generation parameters
+- Adds cluster-wide SSH public keys
 
 ### 2. **Creates Group Templates**
+
    The demo creates four different group types, each with realistic configurations:
 
-   - **Compute Nodes** (`compute-nodes`)
-     - GPU-enabled compute configuration
-     - HPC network optimizations
-     - Slurm integration
-     - Shared filesystem mounts
-     - Development tools
+**Compute Nodes** (`compute-nodes`)
 
-   - **Storage Nodes** (`storage-nodes`)
-     - Lustre/ZFS storage configuration
-     - NFS server setup
-     - RAID configuration
-     - Export definitions
+- GPU-enabled compute configuration
+- HPC network optimizations
+- Slurm integration
+- Shared filesystem mounts
+- Development tools
 
-   - **Login Nodes** (`login-nodes`)
-     - Development environment
-     - Build tools and compilers
-     - Python scientific stack
-     - Module system setup
-     - Custom MOTD
+**Storage Nodes** (`storage-nodes`)
 
-   - **GPU Nodes** (`gpu-nodes`)
-     - NVIDIA driver installation
-     - CUDA toolkit
-     - Docker with GPU support
-     - Slurm GRES configuration
+- Lustre/ZFS storage configuration
+- NFS server setup
+- RAID configuration
+- Export definitions
+
+**Login Nodes** (`login-nodes`)
+
+- Development environment
+- Build tools and compilers
+- Python scientific stack
+- Module system setup
+- Custom MOTD
+
+**GPU Nodes** (`gpu-nodes`)
+
+- NVIDIA driver installation
+- CUDA toolkit
+- Docker with GPU support
+- Slurm GRES configuration
 
 ### 3. **Demonstrates Template Features**
+
    Each template showcases different cloud-init capabilities:
-   - Variable substitution (`{{ hostname }}`, `{{ instance_id }}`, `{{ nid }}`, etc.)
-   - Package installation
-   - File creation with dynamic content
-   - User configuration
-   - Network mount setup
-   - Custom metadata fields
+
+- Variable substitution (`{{ hostname }}`, `{{ instance_id }}`, `{{ nid }}`, etc.)
+- Package installation
+- File creation with dynamic content
+- User configuration
+- Network mount setup
+- Custom metadata fields
 
 ### 4. **Tests Cloud-Init Endpoints**
    - `/meta-data` - Instance metadata with merged defaults

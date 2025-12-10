@@ -6,8 +6,10 @@ package group
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"regexp"
+	"time"
 
 	pongo2 "github.com/flosch/pongo2/v6"
 	"github.com/openchami/fabrica/pkg/resource"
@@ -32,15 +34,16 @@ type GroupSpec struct {
 
 // GroupStatus defines the observed state of Group
 type GroupStatus struct {
-	LastApplied       string                `json:"lastApplied,omitempty"`
-	Valid             bool                  `json:"valid"`
-	ErrorMessage      string                `json:"errorMessage,omitempty"`
-	ErrorDetails      string                `json:"errorDetails,omitempty"`
-	TemplateHash      string                `json:"templateHash,omitempty"`
-	TemplateVersion   string                `json:"templateVersion,omitempty"`
-	Version           string                `json:"version,omitempty"`
-	TemplateHistory   []TemplateVersionInfo `json:"templateHistory,omitempty"`
-	RequiredVariables []string              `json:"requiredVariables,omitempty"`
+	LastApplied            string                `json:"lastApplied,omitempty"`
+	Valid                  bool                  `json:"valid"`
+	ErrorMessage           string                `json:"errorMessage,omitempty"`
+	ErrorDetails           string                `json:"errorDetails,omitempty"`
+	TemplateHash           string                `json:"templateHash,omitempty"`
+	TemplateVersion        string                `json:"templateVersion,omitempty"`
+	CurrentTemplateVersion string                `json:"currentTemplateVersion,omitempty"`
+	Version                string                `json:"version,omitempty"`
+	TemplateHistory        []TemplateVersionInfo `json:"templateHistory,omitempty"`
+	RequiredVariables      []string              `json:"requiredVariables,omitempty"`
 	// ...other status/history fields
 
 }
@@ -154,8 +157,10 @@ func (r *Group) Validate(ctx context.Context) error {
 	if r.Spec.Template == "" {
 		r.Status.Valid = false
 		r.Status.ErrorMessage = "template is required"
+		r.trackTemplateVersion(false, "template is required")
 		return fmt.Errorf("template is required")
 	}
+
 	vars := extractTemplateVariables(r.Spec.Template)
 	r.Status.RequiredVariables = vars
 	merged := MergeMetadata(sampleMetadata(), r.Spec.MetaData)
@@ -168,22 +173,77 @@ func (r *Group) Validate(ctx context.Context) error {
 	if len(missing) > 0 {
 		r.Status.Valid = false
 		r.Status.ErrorMessage = "missing required variables: " + fmt.Sprintf("%v", missing)
+		r.trackTemplateVersion(false, r.Status.ErrorMessage)
 		return fmt.Errorf(r.Status.ErrorMessage)
 	}
+
 	rendered, err := RenderTemplate(r.Spec.Template, merged)
 	if err != nil {
 		r.Status.Valid = false
 		r.Status.ErrorMessage = "template render error: " + err.Error()
+		r.trackTemplateVersion(false, r.Status.ErrorMessage)
 		return fmt.Errorf(r.Status.ErrorMessage)
 	}
+
 	if err := validateYAML(rendered); err != nil {
 		r.Status.Valid = false
 		r.Status.ErrorMessage = "template YAML invalid after rendering: " + err.Error()
+		r.trackTemplateVersion(false, r.Status.ErrorMessage)
 		return fmt.Errorf(r.Status.ErrorMessage)
 	}
+
 	r.Status.Valid = true
 	r.Status.ErrorMessage = ""
+	r.trackTemplateVersion(true, "")
+	// Debug: Print template history length
+	fmt.Printf("DEBUG: Template history length after tracking: %d, current version: %s\n", len(r.Status.TemplateHistory), r.Status.CurrentTemplateVersion)
 	return nil
+}
+
+// trackTemplateVersion adds a new entry to the template history
+func (r *Group) trackTemplateVersion(valid bool, errorMsg string) {
+	// Generate version string based on template hash
+	version := generateTemplateVersion(r.Spec.Template)
+	timestamp := time.Now().UTC().Format(time.RFC3339)
+
+	// Create new version entry
+	versionInfo := TemplateVersionInfo{
+		Version:      version,
+		Timestamp:    timestamp,
+		Valid:        valid,
+		ErrorMessage: errorMsg,
+	}
+
+	// Initialize history if needed
+	if r.Status.TemplateHistory == nil {
+		r.Status.TemplateHistory = make([]TemplateVersionInfo, 0)
+	}
+
+	// Check if this version already exists (avoid duplicates on re-validation)
+	for i, existing := range r.Status.TemplateHistory {
+		if existing.Version == version {
+			// Update existing entry
+			r.Status.TemplateHistory[i] = versionInfo
+			r.Status.CurrentTemplateVersion = version
+			return
+		}
+	}
+
+	// Add new version to history
+	r.Status.TemplateHistory = append(r.Status.TemplateHistory, versionInfo)
+	r.Status.CurrentTemplateVersion = version
+
+	// Keep only last 10 versions to avoid unbounded growth
+	if len(r.Status.TemplateHistory) > 10 {
+		r.Status.TemplateHistory = r.Status.TemplateHistory[len(r.Status.TemplateHistory)-10:]
+	}
+}
+
+// generateTemplateVersion creates a version string from template content
+func generateTemplateVersion(template string) string {
+	// Use first 8 chars of SHA256 hash as version
+	hash := sha256.Sum256([]byte(template))
+	return fmt.Sprintf("v-%x", hash[:4])
 }
 
 // GetKind returns the kind of the resource
