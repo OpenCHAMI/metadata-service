@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/OpenCHAMI/cloud-init/pkg/handlers"
@@ -75,9 +76,16 @@ func TestMetaDataHandler(t *testing.T) {
 			"compute": {
 				Spec: group.GroupSpec{
 					Description: "Compute nodes",
+					Template:    "#cloud-config\npackages:\n  - git\n",
 					MetaData: map[string]string{
 						"custom_key": "custom_value",
 					},
+				},
+			},
+			"green": {
+				Spec: group.GroupSpec{
+					Description: "Green nodes",
+					Template:    "#cloud-config\nruncmd:\n  - echo green\n",
 				},
 			},
 		},
@@ -271,7 +279,18 @@ func TestVendorDataHandler(t *testing.T) {
 			BaseURL: "http://test.local",
 		},
 		instanceInfo: map[string]*handlers.InstanceInfo{},
-		groupData:    map[string]*group.Group{},
+		groupData: map[string]*group.Group{
+			"compute": {
+				Spec: group.GroupSpec{
+					Template: "#cloud-config\npackages: []\n",
+				},
+			},
+			"green": {
+				Spec: group.GroupSpec{
+					Template: "#cloud-config\nruncmd: []\n",
+				},
+			},
+		},
 	}
 
 	// Create handler
@@ -407,5 +426,350 @@ func TestGroupUserDataHandler_NotMember(t *testing.T) {
 	resp := w.Result()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("Expected status 404, got %d", resp.StatusCode)
+	}
+}
+
+// TestMetaDataHandler_Issue100_FilterEmptyGroups verifies that groups with empty templates
+// are excluded from vendor_data.Groups to prevent issue #100 (empty cloud-config MIME parts)
+func TestMetaDataHandler_Issue100_FilterEmptyGroups(t *testing.T) {
+	// Setup mock SMD client
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		IP:   "10.0.0.100",
+	})
+
+	// Setup mock store with groups - some empty, some with content
+	store := &mockStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			BaseURL:       "http://localhost:8888",
+			ClusterName:   "testcluster",
+			CloudProvider: "OpenCHAMI",
+			Region:        "us-west-1",
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{},
+		groupData: map[string]*group.Group{
+			"compute": {
+				Spec: group.GroupSpec{
+					Template:    "#cloud-config\npackages:\n  - git\n",
+					Description: "Compute nodes",
+				},
+			},
+			"empty-group": {
+				Spec: group.GroupSpec{
+					Template:    "", // Empty template
+					Description: "Empty group",
+				},
+			},
+			"storage": {
+				Spec: group.GroupSpec{
+					Template:    "#cloud-config\nvolume_groups: []\n",
+					Description: "Storage nodes",
+				},
+			},
+		},
+	}
+
+	// Add node to multiple groups including empty one
+	smd.AddGroupMembership("x1000c0s0b0n0", []string{"compute", "empty-group", "storage"})
+
+	// Create handler and request
+	handler := handlers.MetaDataHandler(smd, store)
+	req := httptest.NewRequest("GET", "/meta-data", nil)
+	req.RemoteAddr = "10.0.0.100:12345"
+	w := httptest.NewRecorder()
+
+	// Execute
+	handler(w, req)
+
+	// Verify response
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	// Parse YAML response
+	var metadata handlers.MetaData
+	if err := yaml.Unmarshal(body, &metadata); err != nil {
+		t.Fatalf("Failed to unmarshal metadata: %v", err)
+	}
+
+	// Verify empty groups are NOT included in vendor_data
+	if _, ok := metadata.InstanceData.V1.VendorData.Groups["empty-group"]; ok {
+		t.Error("Empty group should not be in vendor_data")
+	}
+
+	// Verify non-empty groups ARE included
+	if _, ok := metadata.InstanceData.V1.VendorData.Groups["compute"]; !ok {
+		t.Error("Compute group should be in vendor_data")
+	}
+	if _, ok := metadata.InstanceData.V1.VendorData.Groups["storage"]; !ok {
+		t.Error("Storage group should be in vendor_data")
+	}
+}
+
+// TestVendorDataHandler_Issue100_FilterEmptyGroups verifies that groups with empty templates
+// are excluded from vendor-data include list to prevent issue #100
+func TestVendorDataHandler_Issue100_FilterEmptyGroups(t *testing.T) {
+	// Setup mock SMD client
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		IP:   "10.0.0.100",
+	})
+
+	// Setup mock store with groups
+	store := &mockStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			BaseURL: "http://localhost:8888",
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{},
+		groupData: map[string]*group.Group{
+			"compute": {
+				Spec: group.GroupSpec{
+					Template: "#cloud-config\npackages: [git]\n",
+				},
+			},
+			"empty-group": {
+				Spec: group.GroupSpec{
+					Template: "", // Empty
+				},
+			},
+			"storage": {
+				Spec: group.GroupSpec{
+					Template: "#cloud-config\nvolume_groups: []\n",
+				},
+			},
+		},
+	}
+
+	smd.AddGroupMembership("x1000c0s0b0n0", []string{"compute", "empty-group", "storage"})
+
+	handler := handlers.VendorDataHandler(smd, store)
+	req := httptest.NewRequest("GET", "/vendor-data", nil)
+	req.RemoteAddr = "10.0.0.100:12345"
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	response := string(body)
+
+	// Verify format
+	if !strings.HasPrefix(response, "#include\n") {
+		t.Error("Response should start with #include")
+	}
+
+	// Verify empty group is NOT in include list
+	if strings.Contains(response, "empty-group.yaml") {
+		t.Error("Empty group should not be in vendor-data include list")
+	}
+
+	// Verify non-empty groups ARE in include list
+	if !strings.Contains(response, "compute.yaml") {
+		t.Error("Compute group should be in vendor-data include list")
+	}
+	if !strings.Contains(response, "storage.yaml") {
+		t.Error("Storage group should be in vendor-data include list")
+	}
+}
+
+// TestVendorDataHandler_Issue100_AllGroupsEmpty verifies behavior when all groups are empty
+func TestVendorDataHandler_Issue100_AllGroupsEmpty(t *testing.T) {
+	// Setup mock SMD client
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		IP:   "10.0.0.100",
+	})
+
+	// Setup mock store
+	store := &mockStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			BaseURL: "http://localhost:8888",
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{},
+		groupData: map[string]*group.Group{
+			"empty1": {
+				Spec: group.GroupSpec{
+					Template: "",
+				},
+			},
+			"empty2": {
+				Spec: group.GroupSpec{
+					Template: "",
+				},
+			},
+		},
+	}
+
+	smd.AddGroupMembership("x1000c0s0b0n0", []string{"empty1", "empty2"})
+
+	handler := handlers.VendorDataHandler(smd, store)
+	req := httptest.NewRequest("GET", "/vendor-data", nil)
+	req.RemoteAddr = "10.0.0.100:12345"
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	response := strings.TrimSpace(string(body))
+
+	// Should only have header, no group includes
+	lines := strings.Split(response, "\n")
+	if len(lines) != 1 {
+		t.Errorf("Should only have #include header, got %d lines", len(lines))
+	}
+	if lines[0] != "#include" {
+		t.Errorf("Expected '#include', got '%s'", lines[0])
+	}
+}
+
+// TestMetaDataHandler_Issue100_MissingGroupData verifies that groups with missing data
+// are excluded from vendor_data.Groups
+func TestMetaDataHandler_Issue100_MissingGroupData(t *testing.T) {
+	// Setup mock SMD client
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		IP:   "10.0.0.100",
+	})
+
+	// Setup mock store - compute group exists, missing-group does not
+	store := &mockStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			BaseURL: "http://localhost:8888",
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{},
+		groupData: map[string]*group.Group{
+			"compute": {
+				Spec: group.GroupSpec{
+					Template: "#cloud-config\npackages: []\n",
+				},
+			},
+			// "missing-group" intentionally not in map
+		},
+	}
+
+	// Add node to both groups
+	smd.AddGroupMembership("x1000c0s0b0n0", []string{"compute", "missing-group"})
+
+	handler := handlers.MetaDataHandler(smd, store)
+	req := httptest.NewRequest("GET", "/meta-data", nil)
+	req.RemoteAddr = "10.0.0.100:12345"
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	var metadata handlers.MetaData
+	if err := yaml.Unmarshal(body, &metadata); err != nil {
+		t.Fatalf("Failed to unmarshal metadata: %v", err)
+	}
+
+	// Verify missing group is NOT included
+	if _, ok := metadata.InstanceData.V1.VendorData.Groups["missing-group"]; ok {
+		t.Error("Missing group should not be in vendor_data")
+	}
+	if _, ok := metadata.InstanceData.V1.VendorData.Groups["compute"]; !ok {
+		t.Error("Existing group should be in vendor_data")
+	}
+}
+
+// TestVendorDataHandler_Issue100_MissingGroupData verifies that groups with missing data
+// are excluded from vendor-data include list
+func TestVendorDataHandler_Issue100_MissingGroupData(t *testing.T) {
+	// Setup mock SMD client
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		IP:   "10.0.0.100",
+	})
+
+	// Setup mock store
+	store := &mockStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			BaseURL: "http://localhost:8888",
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{},
+		groupData: map[string]*group.Group{
+			"compute": {
+				Spec: group.GroupSpec{
+					Template: "#cloud-config\npackages: []\n",
+				},
+			},
+			// "missing-group" not in map
+		},
+	}
+
+	smd.AddGroupMembership("x1000c0s0b0n0", []string{"compute", "missing-group"})
+
+	handler := handlers.VendorDataHandler(smd, store)
+	req := httptest.NewRequest("GET", "/vendor-data", nil)
+	req.RemoteAddr = "10.0.0.100:12345"
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	response := string(body)
+
+	// Verify missing group is NOT in include list
+	if strings.Contains(response, "missing-group.yaml") {
+		t.Error("Missing group should not be in vendor-data include list")
+	}
+	if !strings.Contains(response, "compute.yaml") {
+		t.Error("Existing group should be in vendor-data include list")
 	}
 }
