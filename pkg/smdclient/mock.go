@@ -79,8 +79,8 @@ func (m *MockSMDClient) ComponentInformation(id string) (*Component, error) {
 	defer m.mu.RUnlock()
 	if component, ok := m.components[id]; ok {
 		// Return a copy to prevent modification
-		copy := *component
-		return &copy, nil
+		componentCopy := *component
+		return &componentCopy, nil
 	}
 	return nil, fmt.Errorf("no component found for ID %s", id)
 }

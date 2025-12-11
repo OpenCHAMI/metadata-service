@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Cloud-Init Metadata Service - AI Coding Agent Instructions
 
 ## Project Overview
@@ -140,7 +146,7 @@ go run ./cmd/client/main.go --server http://localhost:8888 group create --spec "
 ```
 
 ### Adding New Resources
-1. Create struct in `pkg/resources/newtype/` 
+1. Create struct in `pkg/resources/newtype/`
 2. Implement custom `Validate()` if needed
 3. Run `fabrica generate`
 4. Handlers, storage, client auto-generated
@@ -148,7 +154,7 @@ go run ./cmd/client/main.go --server http://localhost:8888 group create --spec "
 ## Production Considerations
 
 - Set `SMD_URL` environment variable for real SMD integration
-- Configure `--data-dir` for persistent storage location  
+- Configure `--data-dir` for persistent storage location
 - Template validation runs on every create/update operation
 - Group membership authorization enforced via SMD for `/{group}.yaml` endpoints
 
@@ -239,7 +245,7 @@ Both services produce identical nocloud-net datasource responses:
 
 **8. Missing nid/role/mac in Group Template Context**
 - **Legacy**: Group templates have access to `vendor_data.nid`, `vendor_data.role` from meta-data merge
-- **New**: Template context includes `nid`, `role` directly but NOT `mac` or `ip` 
+- **New**: Template context includes `nid`, `role` directly but NOT `mac` or `ip`
 - **Impact**: Templates using `{{ mac }}` or `{{ ip }}` will fail validation (need to add these to template context)
 
 ### 🔧 Migration Checklist

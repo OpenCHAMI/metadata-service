@@ -277,7 +277,7 @@ func generateHostname(clusterName, shortName string, nidLength int, component *s
 
 // UserDataHandler returns user-data for the requesting node
 // For OpenCHAMI, this is always blank to preserve user override capability
-func UserDataHandler(w http.ResponseWriter, r *http.Request) {
+func UserDataHandler(w http.ResponseWriter, r *http.Request) { //nolint: revive
 	w.Header().Set("Content-Type", "text/cloud-config")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write([]byte("#cloud-config\n")); err != nil {
@@ -383,7 +383,7 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 			log.Warn().Err(err).Msgf("No data for group %s, returning empty cloud-config", groupName)
 			w.Header().Set("Content-Type", "text/cloud-config")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("#cloud-config\n"))
+			w.Write([]byte("#cloud-config\n")) //nolint: errcheck
 			return
 		}
 

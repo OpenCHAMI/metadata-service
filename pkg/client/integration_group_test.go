@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
 package client_test
 
 import (
@@ -13,6 +17,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func isServerAvailable(url string) bool {
+	client := &http.Client{Timeout: 1 * time.Second}
+	resp, err := client.Get(url + "/openapi.yaml")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close() // nolint:errcheck
+	return resp.StatusCode == http.StatusOK
+}
+
+func skipIfServerUnavailable(t *testing.T, baseURL string) {
+	if !isServerAvailable(baseURL) {
+		t.Skipf("Test server at %s is not available, skipping integration test", baseURL)
+	}
+}
+
 func startTestServer() string {
 	// Assumes server is running at localhost:27777
 	return "http://localhost:27777"
@@ -20,6 +40,8 @@ func startTestServer() string {
 
 func TestGroupTemplateValidation(t *testing.T) {
 	baseURL := startTestServer()
+	skipIfServerUnavailable(t, baseURL)
+
 	c, _ := client.NewClient(baseURL, &http.Client{Timeout: 5 * time.Second})
 	ctx := context.Background()
 

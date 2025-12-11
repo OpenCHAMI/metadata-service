@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+// Package clusterdefaults provides the ClusterDefaults resource definition and management.
 package clusterdefaults
 
 import (
@@ -18,7 +19,7 @@ type ClusterDefaults struct {
 }
 
 // ClusterDefaultsSpec defines the desired state of ClusterDefaults
-type ClusterDefaultsSpec struct {
+type ClusterDefaultsSpec struct { //nolint: revive
 	Description      string   `json:"description,omitempty" validate:"max=200"`
 	BaseURL          string   `json:"base_url" validate:"required,url"`
 	CloudProvider    string   `json:"cloud_provider,omitempty"`
@@ -31,7 +32,7 @@ type ClusterDefaultsSpec struct {
 }
 
 // ClusterDefaultsStatus defines the observed state of ClusterDefaults
-type ClusterDefaultsStatus struct {
+type ClusterDefaultsStatus struct { //nolint: revive
 	Phase   string `json:"phase,omitempty"`
 	Message string `json:"message,omitempty"`
 	Ready   bool   `json:"ready"`
@@ -39,7 +40,7 @@ type ClusterDefaultsStatus struct {
 }
 
 // Validate implements custom validation logic for ClusterDefaults
-func (r *ClusterDefaults) Validate(ctx context.Context) error {
+func (r *ClusterDefaults) Validate(ctx context.Context) error { //nolint: revive
 	// Add custom validation logic here
 	// Example:
 	// if r.Spec.Name == "forbidden" {

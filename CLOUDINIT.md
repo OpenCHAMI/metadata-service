@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Cloud-Init Metadata Server Endpoints
 
 This service implements a cloud-init metadata server compatible with the nocloud-net datasource.
@@ -158,7 +164,7 @@ go test ./pkg/resources/group/ -v
 When `SMD_URL` is not configured, the service uses a mock SMD client with sample data:
 
 - `x1000c0s0b0n0` (10.0.0.100) - compute, green groups
-- `x1000c0s0b0n1` (10.0.0.101) - compute, blue groups  
+- `x1000c0s0b0n1` (10.0.0.101) - compute, blue groups
 - `x1000c0s1b0n0` (10.0.0.102) - storage group
 
 You can test endpoints using curl with the X-Forwarded-For header:

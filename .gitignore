@@ -1,8 +1,11 @@
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 # Binaries
 bin/
 *.exe
-*.exe~
-*.dll
+*.exe*.dll
 *.so
 *.dylib
 

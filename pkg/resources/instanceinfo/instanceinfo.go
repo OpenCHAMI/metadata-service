@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+// Package instanceinfo provides the InstanceInfo resource definition and management.
 package instanceinfo
 
 import (
@@ -18,7 +19,7 @@ type InstanceInfo struct {
 }
 
 // InstanceInfoSpec defines the desired state of InstanceInfo
-type InstanceInfoSpec struct {
+type InstanceInfoSpec struct { //nolint: revive
 	Description      string   `json:"description,omitempty" validate:"max=200"`
 	InstanceID       string   `json:"instance_id" validate:"required"`
 	LocalHostname    string   `json:"local_hostname,omitempty"`
@@ -28,7 +29,7 @@ type InstanceInfoSpec struct {
 }
 
 // InstanceInfoStatus defines the observed state of InstanceInfo
-type InstanceInfoStatus struct {
+type InstanceInfoStatus struct { //nolint: revive
 	Phase   string `json:"phase,omitempty"`
 	Message string `json:"message,omitempty"`
 	Ready   bool   `json:"ready"`
@@ -36,7 +37,7 @@ type InstanceInfoStatus struct {
 }
 
 // Validate implements custom validation logic for InstanceInfo
-func (r *InstanceInfo) Validate(ctx context.Context) error {
+func (r *InstanceInfo) Validate(ctx context.Context) error { //nolint: revive
 	// Add custom validation logic here
 	// Example:
 	// if r.Spec.Name == "forbidden" {
