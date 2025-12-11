@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Cloud-Init Metadata API Demo
 
 This directory contains a demonstration script that showcases the cloud-init metadata API functionality using the generated Go client.

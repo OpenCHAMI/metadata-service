@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 # quick-test.sh - Quick test of the API with minimal resources
 set -e
 

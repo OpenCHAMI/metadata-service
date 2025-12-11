@@ -24,7 +24,7 @@ type Group struct {
 }
 
 // GroupSpec defines the desired state of Group
-type GroupSpec struct {
+type GroupSpec struct { //nolint: revive
 	Description string            `json:"description,omitempty"`
 	Template    string            `json:"template" validate:"required"`
 	MetaData    map[string]string `json:"metaData,omitempty"`
@@ -33,7 +33,7 @@ type GroupSpec struct {
 }
 
 // GroupStatus defines the observed state of Group
-type GroupStatus struct {
+type GroupStatus struct { //nolint: revive
 	LastApplied            string                `json:"lastApplied,omitempty"`
 	Valid                  bool                  `json:"valid"`
 	ErrorMessage           string                `json:"errorMessage,omitempty"`
@@ -152,7 +152,7 @@ type TemplateVersionInfo struct {
 }
 
 // Validate implements custom validation logic for Group
-func (r *Group) Validate(ctx context.Context) error {
+func (r *Group) Validate(ctx context.Context) error { //nolint: revive
 	// Shared template validation logic
 	if r.Spec.Template == "" {
 		r.Status.Valid = false

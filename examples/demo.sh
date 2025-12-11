@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 # demo.sh - Demonstrates the cloud-init metadata API using the generated client
 set -e
 

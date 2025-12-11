@@ -78,6 +78,7 @@ type VendorData struct {
 	ClusterName      string                    `json:"cluster_name,omitempty" yaml:"cluster_name,omitempty"`
 	Nid              int64                     `json:"nid,omitempty" yaml:"nid,omitempty"`
 	Role             string                    `json:"role,omitempty" yaml:"role,omitempty"`
+	MAC              string                    `json:"mac,omitempty" yaml:"mac,omitempty"`
 	Groups           map[string]map[string]any `json:"groups,omitempty" yaml:"groups,omitempty"`
 }
 
@@ -211,6 +212,7 @@ func generateMetaData(component *smdclient.Component, groups []string, bootIP, b
 	instanceData.V1.VendorData.ClusterName = clusterDefaults.ClusterName
 	instanceData.V1.VendorData.Nid = component.NID
 	instanceData.V1.VendorData.Role = component.Role
+	instanceData.V1.VendorData.MAC = bootMAC
 
 	// Set cloud-init base URL
 	if instanceInfo.CloudInitBaseURL != "" {
@@ -219,16 +221,19 @@ func generateMetaData(component *smdclient.Component, groups []string, bootIP, b
 		instanceData.V1.VendorData.CloudInitBaseURL = clusterDefaults.BaseURL
 	}
 
-	// Add group data to vendor data
+	// Add group data to vendor data (only groups with content)
 	if len(groups) > 0 {
 		instanceData.V1.VendorData.Groups = make(map[string]map[string]any)
 		for _, groupName := range groups {
 			groupData, err := store.GetGroupData(groupName)
 			if err != nil {
-				log.Warn().Err(err).Msgf("Failed to get data for group %s", groupName)
-				instanceData.V1.VendorData.Groups[groupName] = map[string]any{
-					"description": "No description found",
-				}
+				log.Warn().Err(err).Msgf("Skipping group %s with no data", groupName)
+				continue
+			}
+
+			// Skip groups with empty templates (issue #100 fix)
+			if groupData.Spec.Template == "" {
+				log.Debug().Msgf("Skipping group %s with empty template", groupName)
 				continue
 			}
 
@@ -272,7 +277,7 @@ func generateHostname(clusterName, shortName string, nidLength int, component *s
 
 // UserDataHandler returns user-data for the requesting node
 // For OpenCHAMI, this is always blank to preserve user override capability
-func UserDataHandler(w http.ResponseWriter, r *http.Request) {
+func UserDataHandler(w http.ResponseWriter, r *http.Request) { //nolint: revive
 	w.Header().Set("Content-Type", "text/cloud-config")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write([]byte("#cloud-config\n")); err != nil {
@@ -314,9 +319,15 @@ func VendorDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 			baseURL = instanceInfo.CloudInitBaseURL
 		}
 
-		// Build include list
+		// Build include list, filtering out groups with no content (issue #100 fix)
 		payload := "#include\n"
 		for _, groupName := range groups {
+			// Skip groups with no content to avoid empty cloud-config MIME parts
+			groupData, err := store.GetGroupData(groupName)
+			if err != nil || groupData.Spec.Template == "" {
+				log.Debug().Msgf("Skipping empty group %s from vendor-data include list", groupName)
+				continue
+			}
 			payload += fmt.Sprintf("%s/%s.yaml\n", baseURL, groupName)
 		}
 
@@ -372,7 +383,7 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 			log.Warn().Err(err).Msgf("No data for group %s, returning empty cloud-config", groupName)
 			w.Header().Set("Content-Type", "text/cloud-config")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("#cloud-config\n"))
+			w.Write([]byte("#cloud-config\n")) //nolint: errcheck
 			return
 		}
 
@@ -391,12 +402,18 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 			clusterDefaults = &ClusterDefaults{}
 		}
 
+		// Get boot IP and MAC for template context
+		bootIP, _ := smd.IPfromID(id)
+		bootMAC, _ := smd.MACfromID(id)
+
 		// Build metadata context for template rendering
 		defaultMeta := map[string]string{
 			"hostname":    generateHostname(clusterDefaults.ClusterName, clusterDefaults.ShortName, clusterDefaults.NidLength, component),
 			"instance_id": component.ID,
 			"nid":         fmt.Sprintf("%d", component.NID),
 			"role":        component.Role,
+			"mac":         bootMAC,
+			"ip":          bootIP,
 		}
 
 		// Merge with group metadata
