@@ -8,6 +8,31 @@ SPDX-License-Identifier: MIT
 
 This service implements a cloud-init metadata server compatible with the nocloud-net datasource.
 
+## Quick start
+
+1. Start the server with the default mock SMD client (no `SMD_URL` needed):
+  ```bash
+  go run ./cmd/server serve --port 8888
+  ```
+2. Call the endpoints using a mock node IP via `X-Forwarded-For`:
+  ```bash
+  curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/meta-data
+  curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/vendor-data
+  curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/compute.yaml
+  ```
+3. Reset state by clearing `./data/` (file-backed storage):
+  ```bash
+  rm -rf ./data/*
+  ```
+
+Mock SMD nodes available out of the box:
+
+| Component ID  | IP           | Groups           |
+|---------------|--------------|------------------|
+| x1000c0s0b0n0 | 10.0.0.100   | compute, green   |
+| x1000c0s0b0n1 | 10.0.0.101   | compute, blue    |
+| x1000c0s1b0n0 | 10.0.0.102   | storage          |
+
 ## Endpoints
 
 ### `/meta-data`

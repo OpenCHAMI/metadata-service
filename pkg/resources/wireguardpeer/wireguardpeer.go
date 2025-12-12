@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
 
+// Package wireguardpeer defines the Fabrica resource for managing WireGuard peers.
 package wireguardpeer
 
 import (

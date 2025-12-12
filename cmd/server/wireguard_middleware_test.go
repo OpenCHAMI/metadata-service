@@ -17,9 +17,11 @@ func TestWireGuardOnlyMiddlewareWithValidIP(t *testing.T) {
 	_, network, _ := net.ParseCIDR("100.97.0.0/16")
 	ctrl := &wireguard.Controller{Network: *network}
 
-	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("allowed"))
+		if _, err := w.Write([]byte("allowed")); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	}))
 
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -41,7 +43,7 @@ func TestWireGuardOnlyMiddlewareWithInvalidIP(t *testing.T) {
 	_, network, _ := net.ParseCIDR("100.97.0.0/16")
 	ctrl := &wireguard.Controller{Network: *network}
 
-	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -58,7 +60,7 @@ func TestWireGuardOnlyMiddlewareWithInvalidIP(t *testing.T) {
 
 // TestWireGuardOnlyMiddlewareWithNilController allows all when controller is nil.
 func TestWireGuardOnlyMiddlewareWithNilController(t *testing.T) {
-	handler := wireGuardOnlyMiddleware(nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := wireGuardOnlyMiddleware(nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -78,7 +80,7 @@ func TestWireGuardOnlyMiddlewareEdgeCaseLocalhost(t *testing.T) {
 	_, network, _ := net.ParseCIDR("127.0.0.0/8")
 	ctrl := &wireguard.Controller{Network: *network}
 
-	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -98,7 +100,7 @@ func TestWireGuardOnlyMiddlewareIPv6(t *testing.T) {
 	_, network, _ := net.ParseCIDR("2001:db8::/32")
 	ctrl := &wireguard.Controller{Network: *network}
 
-	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -118,7 +120,7 @@ func TestWireGuardOnlyMiddlewareRejectsIPv6OutOfNetwork(t *testing.T) {
 	_, network, _ := net.ParseCIDR("2001:db8::/32")
 	ctrl := &wireguard.Controller{Network: *network}
 
-	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -138,7 +140,7 @@ func TestWireGuardOnlyMiddlewareInvalidRemoteAddr(t *testing.T) {
 	_, network, _ := net.ParseCIDR("100.97.0.0/16")
 	ctrl := &wireguard.Controller{Network: *network}
 
-	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -158,7 +160,7 @@ func TestWireGuardOnlyMiddlewareNetworkBoundary(t *testing.T) {
 	_, network, _ := net.ParseCIDR("192.168.0.0/24")
 	ctrl := &wireguard.Controller{Network: *network}
 
-	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := wireGuardOnlyMiddleware(ctrl)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 

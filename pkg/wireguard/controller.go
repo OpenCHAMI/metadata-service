@@ -15,9 +15,11 @@ import (
 
 type contextKey string
 
+// ControllerContextKey tags request contexts with an attached WireGuard controller.
 const ControllerContextKey contextKey = "wireguard-controller"
 
 // Controller manages peer lifecycle with userspace device
+// Controller manages peers, allocations, and device configuration.
 type Controller struct {
 	Device      DeviceAPI
 	Network     net.IPNet
@@ -28,6 +30,7 @@ type Controller struct {
 	Persistence *Persistence
 }
 
+// PeerState tracks the configured state for a peer.
 type PeerState struct {
 	PublicKey string
 	VPNIP     string
@@ -35,6 +38,7 @@ type PeerState struct {
 	AllowedIP string
 }
 
+// NewController initializes a WireGuard controller with userspace device and optional persistence.
 func NewController(interfaceName string, serverIP net.IP, network *net.IPNet, listenPort int, persistenceFile string) (*Controller, error) {
 	dev, err := NewDevice(interfaceName, listenPort)
 	if err != nil {
@@ -94,11 +98,9 @@ func NewController(interfaceName string, serverIP net.IP, network *net.IPNet, li
 	dev.SetPublicKeyValue(pubKey)
 
 	// Restore persisted peers to the device
-	if peers != nil {
-		for _, peer := range peers {
-			if err := dev.AddPeer(peer.PublicKey, peer.AllowedIP); err != nil {
-				fmt.Printf("Warning: failed to restore peer %s: %v\n", peer.PublicKey, err)
-			}
+	for _, peer := range peers {
+		if err := dev.AddPeer(peer.PublicKey, peer.AllowedIP); err != nil {
+			fmt.Printf("Warning: failed to restore peer %s: %v\n", peer.PublicKey, err)
 		}
 	}
 
@@ -117,6 +119,7 @@ func NewController(interfaceName string, serverIP net.IP, network *net.IPNet, li
 	}, nil
 }
 
+// AddPeer allocates a VPN IP and configures a peer keyed by client IP.
 func (c *Controller) AddPeer(clientIP, publicKey string) (string, error) {
 	c.PeersMutex.Lock()
 	defer c.PeersMutex.Unlock()
@@ -150,6 +153,7 @@ func (c *Controller) AddPeer(clientIP, publicKey string) (string, error) {
 
 // UpsertPeer configures a peer using a provided allowed IP (CIDR) and identifier.
 // This is used by the WireGuardPeer resource reconciliation path.
+// UpsertPeer configures a peer keyed by an identifier with an explicit allowed CIDR.
 func (c *Controller) UpsertPeer(peerID, publicKey, allowedIP string) error {
 	c.PeersMutex.Lock()
 	defer c.PeersMutex.Unlock()
@@ -194,6 +198,7 @@ func (c *Controller) UpsertPeer(peerID, publicKey, allowedIP string) error {
 	return nil
 }
 
+// RemovePeerByID removes a peer tracked by resource ID.
 func (c *Controller) RemovePeerByID(peerID string) error {
 	c.PeersMutex.Lock()
 	defer c.PeersMutex.Unlock()
@@ -215,6 +220,7 @@ func (c *Controller) RemovePeerByID(peerID string) error {
 	return nil
 }
 
+// RemovePeer removes a peer tracked by client IP and releases its allocation.
 func (c *Controller) RemovePeer(clientIP string) error {
 	c.PeersMutex.Lock()
 	defer c.PeersMutex.Unlock()
@@ -237,8 +243,13 @@ func (c *Controller) RemovePeer(clientIP string) error {
 	return nil
 }
 
-func (c *Controller) PublicKey() string      { return c.Device.PublicKeyValue() }
-func (c *Controller) ListenPort() int        { return c.Device.ListenPortValue() }
+// PublicKey returns the controller's server public key.
+func (c *Controller) PublicKey() string { return c.Device.PublicKeyValue() }
+
+// ListenPort returns the configured WireGuard listen port.
+func (c *Controller) ListenPort() int { return c.Device.ListenPortValue() }
+
+// ServerIPString returns the server IP as a string.
 func (c *Controller) ServerIPString() string { return c.ServerIP.String() }
 
 // generateKeypair creates base64-encoded private and public keys compatible with wireguard-go IPC

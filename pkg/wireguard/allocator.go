@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
 
+// Package wireguard implements userspace WireGuard helpers and utilities.
 package wireguard
 
 import (
@@ -9,6 +10,7 @@ import (
 	"sync"
 )
 
+// IPAllocator manages sequential IP reservations within a CIDR.
 type IPAllocator struct {
 	network       *net.IPNet
 	used          map[string]bool
@@ -17,6 +19,7 @@ type IPAllocator struct {
 	broadcastAddr net.IP
 }
 
+// NewIPAllocator constructs an allocator for the provided CIDR.
 func NewIPAllocator(cidr string) (*IPAllocator, error) {
 	_, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
@@ -35,6 +38,7 @@ func NewIPAllocator(cidr string) (*IPAllocator, error) {
 	}, nil
 }
 
+// Reserve marks an IP as used if it is within the configured network.
 func (a *IPAllocator) Reserve(addr net.IPAddr) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -45,6 +49,7 @@ func (a *IPAllocator) Reserve(addr net.IPAddr) error {
 	return nil
 }
 
+// NextAvailable returns the next free IP address within the network.
 func (a *IPAllocator) NextAvailable() (net.IPAddr, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -61,6 +66,7 @@ func (a *IPAllocator) NextAvailable() (net.IPAddr, error) {
 	return net.IPAddr{}, errors.New("no available IPs")
 }
 
+// Release frees a previously reserved IP address.
 func (a *IPAllocator) Release(addr net.IPAddr) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()

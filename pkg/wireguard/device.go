@@ -55,7 +55,10 @@ func NewDevice(name string, listenPort int) (*Device, error) {
 		wgDev.Close()
 		return nil, fmt.Errorf("failed to configure device: %w", err)
 	}
-	wgDev.Up()
+	if err := wgDev.Up(); err != nil {
+		wgDev.Close()
+		return nil, fmt.Errorf("failed to bring up device: %w", err)
+	}
 
 	return &Device{
 		TUN:        tunDev,
@@ -100,7 +103,11 @@ func (d *Device) ListenPortValue() int { return d.listenPort }
 
 // Close closes the device and TUN interface.
 func (d *Device) Close() error {
-	d.WG.Down()
+	downErr := d.WG.Down()
 	d.WG.Close()
-	return d.TUN.Close()
+	tunErr := d.TUN.Close()
+	if downErr != nil {
+		return downErr
+	}
+	return tunErr
 }
