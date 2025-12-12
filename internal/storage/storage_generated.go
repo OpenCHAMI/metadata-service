@@ -26,6 +26,7 @@ import (
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/clusterdefaults"
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/instanceinfo"
+	"github.com/OpenCHAMI/cloud-init/pkg/resources/wireguardpeer"
 )
 
 // Backend is the storage backend used by all storage operations.
@@ -566,6 +567,173 @@ func ListInstanceInfoUIDs(ctx context.Context) ([]string, error) {
 	return uids, nil
 }
 
+// WireGuardPeer storage operations
+
+// LoadAllWireGuardPeers retrieves all WireGuardPeer resources.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
+// Returns:
+//   - []*wireguardpeer.WireGuardPeer: Slice of WireGuardPeer resources
+//   - error: Any error that occurred during loading
+func LoadAllWireGuardPeers(ctx context.Context) ([]*wireguardpeer.WireGuardPeer, error) {
+	ensureBackend()
+
+	rawData, err := Backend.LoadAll(ctx, "WireGuardPeer")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load all wireguardpeers: %w", err)
+	}
+
+	wireguardpeers := make([]*wireguardpeer.WireGuardPeer, 0, len(rawData))
+	for _, raw := range rawData {
+		wireGuardPeer := &wireguardpeer.WireGuardPeer{}
+		if err := json.Unmarshal(raw, wireGuardPeer); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal WireGuardPeer: %w", err)
+		}
+		wireguardpeers = append(wireguardpeers, wireGuardPeer)
+	}
+
+	return wireguardpeers, nil
+}
+
+// LoadWireGuardPeer retrieves a single WireGuardPeer resource by UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the WireGuardPeer resource
+//
+// Returns:
+//   - *wireguardpeer.WireGuardPeer: The WireGuardPeer resource
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func LoadWireGuardPeer(ctx context.Context, uid string) (*wireguardpeer.WireGuardPeer, error) {
+	ensureBackend()
+
+	rawData, err := Backend.Load(ctx, "WireGuardPeer", uid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load WireGuardPeer %s: %w", uid, err)
+	}
+
+	wireGuardPeer := &wireguardpeer.WireGuardPeer{}
+	if err := json.Unmarshal(rawData, wireGuardPeer); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal WireGuardPeer: %w", err)
+	}
+
+	return wireGuardPeer, nil
+}
+
+// SaveWireGuardPeer stores a WireGuardPeer resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - wireGuardPeer: The WireGuardPeer resource to save
+//
+// Returns:
+//   - error: Any error that occurred during saving
+func SaveWireGuardPeer(ctx context.Context, wireGuardPeer *wireguardpeer.WireGuardPeer) error {
+	ensureBackend()
+
+	data, err := json.Marshal(wireGuardPeer)
+	if err != nil {
+		return fmt.Errorf("failed to marshal WireGuardPeer: %w", err)
+	}
+
+	if err := Backend.Save(ctx, "WireGuardPeer", wireGuardPeer.Metadata.UID, data); err != nil {
+		return fmt.Errorf("failed to save WireGuardPeer: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateWireGuardPeer updates an existing WireGuardPeer resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - wireGuardPeer: The WireGuardPeer resource to update
+//
+// Returns:
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func UpdateWireGuardPeer(ctx context.Context, wireGuardPeer *wireguardpeer.WireGuardPeer) error {
+	ensureBackend()
+
+	// Check if resource exists first
+	exists, err := Backend.Exists(ctx, "WireGuardPeer", wireGuardPeer.Metadata.UID)
+	if err != nil {
+		return fmt.Errorf("failed to check WireGuardPeer existence: %w", err)
+	}
+	if !exists {
+		return fabricaStorage.ErrNotFound
+	}
+
+	data, err := json.Marshal(wireGuardPeer)
+	if err != nil {
+		return fmt.Errorf("failed to marshal WireGuardPeer: %w", err)
+	}
+
+	if err := Backend.Save(ctx, "WireGuardPeer", wireGuardPeer.Metadata.UID, data); err != nil {
+		return fmt.Errorf("failed to update WireGuardPeer: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteWireGuardPeer removes a WireGuardPeer resource by UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the WireGuardPeer resource
+//
+// Returns:
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func DeleteWireGuardPeer(ctx context.Context, uid string) error {
+	ensureBackend()
+
+	if err := Backend.Delete(ctx, "WireGuardPeer", uid); err != nil {
+		return fmt.Errorf("failed to delete WireGuardPeer %s: %w", uid, err)
+	}
+
+	return nil
+}
+
+// ExistsWireGuardPeer checks if a WireGuardPeer resource exists.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the WireGuardPeer resource
+//
+// Returns:
+//   - bool: true if the resource exists
+//   - error: Any error that occurred during the check
+func ExistsWireGuardPeer(ctx context.Context, uid string) (bool, error) {
+	ensureBackend()
+
+	exists, err := Backend.Exists(ctx, "WireGuardPeer", uid)
+	if err != nil {
+		return false, fmt.Errorf("failed to check WireGuardPeer existence: %w", err)
+	}
+
+	return exists, nil
+}
+
+// ListWireGuardPeerUIDs returns UIDs of all WireGuardPeer resources.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
+// Returns:
+//   - []string: Array of WireGuardPeer resource UIDs
+//   - error: Any error that occurred during listing
+func ListWireGuardPeerUIDs(ctx context.Context) ([]string, error) {
+	ensureBackend()
+
+	uids, err := Backend.List(ctx, "WireGuardPeer")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list WireGuardPeer UIDs: %w", err)
+	}
+
+	return uids, nil
+}
+
 // StorageClient wraps a StorageBackend to implement reconcile.ClientInterface.
 //
 // This adapter allows reconcilers to use the storage backend through a
@@ -625,6 +793,12 @@ func (c *StorageClient) Get(ctx context.Context, kind, uid string) (interface{},
 			return nil, fmt.Errorf("failed to unmarshal InstanceInfo: %w", err)
 		}
 		return &resource, nil
+	case "WireGuardPeer":
+		var resource wireguardpeer.WireGuardPeer
+		if err := json.Unmarshal(rawData, &resource); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal WireGuardPeer: %w", err)
+		}
+		return &resource, nil
 	default:
 		return nil, fmt.Errorf("unknown resource kind: %s", kind)
 	}
@@ -677,6 +851,16 @@ func (c *StorageClient) List(ctx context.Context, kind string) ([]interface{}, e
 			result = append(result, &resource)
 		}
 		return result, nil
+	case "WireGuardPeer":
+		result := make([]interface{}, 0, len(rawData))
+		for _, raw := range rawData {
+			var resource wireguardpeer.WireGuardPeer
+			if err := json.Unmarshal(raw, &resource); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal WireGuardPeer: %w", err)
+			}
+			result = append(result, &resource)
+		}
+		return result, nil
 	default:
 		return nil, fmt.Errorf("unknown resource kind: %s", kind)
 	}
@@ -704,6 +888,8 @@ func (c *StorageClient) Update(ctx context.Context, resource interface{}) error 
 		return c.backend.Save(ctx, "Group", res.Metadata.UID, data)
 	case *instanceinfo.InstanceInfo:
 		return c.backend.Save(ctx, "InstanceInfo", res.Metadata.UID, data)
+	case *wireguardpeer.WireGuardPeer:
+		return c.backend.Save(ctx, "WireGuardPeer", res.Metadata.UID, data)
 	default:
 		return fmt.Errorf("unknown resource type: %T", resource)
 	}

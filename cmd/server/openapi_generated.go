@@ -26,6 +26,7 @@ import (
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/clusterdefaults"
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/instanceinfo"
+	"github.com/OpenCHAMI/cloud-init/pkg/resources/wireguardpeer"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
 )
@@ -109,6 +110,7 @@ func GenerateOpenAPISpec() *openapi3.T {
 	registerClusterDefaultsPaths(spec)
 	registerGroupPaths(spec)
 	registerInstanceInfoPaths(spec)
+	registerWireGuardPeerPaths(spec)
 
 	return spec
 }
@@ -564,6 +566,157 @@ func registerInstanceInfoPaths(spec *openapi3.T) {
 	// Add paths to spec
 	spec.Paths.Set("/instanceinfos", collectionPath)
 	spec.Paths.Set("/instanceinfos/{uid}", itemPath)
+}
+
+// registerWireGuardPeerPaths registers OpenAPI paths for WireGuardPeer resources
+func registerWireGuardPeerPaths(spec *openapi3.T) {
+	// Generate schemas from Go types - NO ANNOTATIONS NEEDED
+	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&wireguardpeer.WireGuardPeer{}, spec.Components.Schemas)
+	spec.Components.Schemas["WireGuardPeer"] = resourceSchema
+
+	createReqSchema, _ := openapi3gen.NewSchemaRefForValue(&CreateWireGuardPeerRequest{}, spec.Components.Schemas)
+	spec.Components.Schemas["CreateWireGuardPeerRequest"] = createReqSchema
+
+	updateReqSchema, _ := openapi3gen.NewSchemaRefForValue(&UpdateWireGuardPeerRequest{}, spec.Components.Schemas)
+	spec.Components.Schemas["UpdateWireGuardPeerRequest"] = updateReqSchema
+
+	// Error response schema
+	if _, exists := spec.Components.Schemas["ErrorResponse"]; !exists {
+		errorSchema := openapi3.NewObjectSchema().
+			WithProperty("error", openapi3.NewStringSchema()).
+			WithRequired([]string{"error"})
+		spec.Components.Schemas["ErrorResponse"] = &openapi3.SchemaRef{Value: errorSchema}
+	}
+
+	// DELETE response schema
+	if _, exists := spec.Components.Schemas["DeleteResponse"]; !exists {
+		deleteSchema, _ := openapi3gen.NewSchemaRefForValue(&DeleteResponse{}, spec.Components.Schemas)
+		spec.Components.Schemas["DeleteResponse"] = deleteSchema
+	}
+
+	// List WireGuardPeers operation
+	listOp := openapi3.NewOperation()
+	listOp.OperationID = "listWireGuardPeers"
+	listOp.Summary = "List all WireGuardPeer resources"
+	listOp.Description = "Returns a list of all WireGuardPeer resources in the inventory"
+	listOp.Tags = []string{"WireGuardPeer"}
+	listOp.Responses = openapi3.NewResponses()
+	arraySchema := openapi3.NewArraySchema()
+	arraySchema.Items = &openapi3.SchemaRef{Ref: "#/components/schemas/WireGuardPeer"}
+	listOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Successful response").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Value: arraySchema}),
+	})
+	listOp.Responses.Set("500", errorResponse())
+
+	// Create WireGuardPeer operation
+	createOp := openapi3.NewOperation()
+	createOp.OperationID = "createWireGuardPeer"
+	createOp.Summary = "Create a new WireGuardPeer resource"
+	createOp.Description = "Creates a new WireGuardPeer resource with the provided specification"
+	createOp.Tags = []string{"WireGuardPeer"}
+	createOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/CreateWireGuardPeerRequest",
+			}),
+	}
+	createOp.Responses = openapi3.NewResponses()
+	createOp.Responses.Set("201", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource created successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/WireGuardPeer",
+			}),
+	})
+	createOp.Responses.Set("400", errorResponse())
+	createOp.Responses.Set("500", errorResponse())
+
+	// Get WireGuardPeer operation
+	getOp := openapi3.NewOperation()
+	getOp.OperationID = "getWireGuardPeer"
+	getOp.Summary = "Get a specific WireGuardPeer resource"
+	getOp.Description = "Returns details of a specific WireGuardPeer resource by UID"
+	getOp.Tags = []string{"WireGuardPeer"}
+	getOp.Responses = openapi3.NewResponses()
+	getOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Successful response").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/WireGuardPeer",
+			}),
+	})
+	getOp.Responses.Set("404", errorResponse())
+	getOp.Responses.Set("500", errorResponse())
+
+	// Update WireGuardPeer operation
+	updateOp := openapi3.NewOperation()
+	updateOp.OperationID = "updateWireGuardPeer"
+	updateOp.Summary = "Update a WireGuardPeer resource"
+	updateOp.Description = "Updates an existing WireGuardPeer resource with new values"
+	updateOp.Tags = []string{"WireGuardPeer"}
+	updateOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/UpdateWireGuardPeerRequest",
+			}),
+	}
+	updateOp.Responses = openapi3.NewResponses()
+	updateOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource updated successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/WireGuardPeer",
+			}),
+	})
+	updateOp.Responses.Set("400", errorResponse())
+	updateOp.Responses.Set("404", errorResponse())
+	updateOp.Responses.Set("500", errorResponse())
+
+	// Delete WireGuardPeer operation
+	deleteOp := openapi3.NewOperation()
+	deleteOp.OperationID = "deleteWireGuardPeer"
+	deleteOp.Summary = "Delete a WireGuardPeer resource"
+	deleteOp.Description = "Removes a WireGuardPeer resource from the inventory"
+	deleteOp.Tags = []string{"WireGuardPeer"}
+	deleteOp.Responses = openapi3.NewResponses()
+	deleteOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource deleted successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/DeleteResponse",
+			}),
+	})
+	deleteOp.Responses.Set("400", errorResponse())
+	deleteOp.Responses.Set("404", errorResponse())
+	deleteOp.Responses.Set("500", errorResponse())
+
+	// Create path items
+	collectionPath := &openapi3.PathItem{
+		Get:  listOp,
+		Post: createOp,
+	}
+
+	uidParam := openapi3.NewPathParameter("uid").
+		WithDescription("Unique identifier of the WireGuardPeer resource").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema())
+
+	itemPath := &openapi3.PathItem{
+		Get:    getOp,
+		Put:    updateOp,
+		Delete: deleteOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	// Add paths to spec
+	spec.Paths.Set("/wireguardpeers", collectionPath)
+	spec.Paths.Set("/wireguardpeers/{uid}", itemPath)
 }
 
 // Helper function for error responses

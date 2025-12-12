@@ -29,4 +29,10 @@ type SMDClient interface {
 
 	// GroupMembership returns the list of groups a component belongs to
 	GroupMembership(id string) ([]string, error)
+
+	// AddWGIP records the allocated WireGuard IP for a component
+	AddWGIP(id, wgip string) error
+
+	// WGIPfromID returns the stored WireGuard IP for a component
+	WGIPfromID(id string) (string, error)
 }

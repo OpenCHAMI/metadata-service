@@ -15,6 +15,7 @@ type MockSMDClient struct {
 	components map[string]*Component
 	ipToID     map[string]string
 	groups     map[string][]string // component ID -> group names
+	wgip       map[string]string   // component ID -> WG IP
 }
 
 // NewMockSMDClient creates a new mock SMD client
@@ -23,6 +24,7 @@ func NewMockSMDClient() *MockSMDClient {
 		components: make(map[string]*Component),
 		ipToID:     make(map[string]string),
 		groups:     make(map[string][]string),
+		wgip:       make(map[string]string),
 	}
 }
 
@@ -96,4 +98,22 @@ func (m *MockSMDClient) GroupMembership(id string) ([]string, error) {
 		return result, nil
 	}
 	return []string{}, nil
+}
+
+// AddWGIP records the allocated WireGuard IP for a component
+func (m *MockSMDClient) AddWGIP(id, wgip string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.wgip[id] = wgip
+	return nil
+}
+
+// WGIPfromID returns the stored WireGuard IP for a component
+func (m *MockSMDClient) WGIPfromID(id string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if ip, ok := m.wgip[id]; ok {
+		return ip, nil
+	}
+	return "", fmt.Errorf("no WGIP found for ID %s", id)
 }

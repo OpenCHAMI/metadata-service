@@ -255,3 +255,39 @@ Both services produce identical nocloud-net datasource responses:
 4. **Test template validation**: Fix templates that don't render with sample metadata
 5. **Update admin tooling**: Change API endpoint URLs and request formats
 6. **Add missing template variables**: Include `mac`, `ip` in group template rendering context
+
+## Userspace WireGuard (FIPS-Compatible)
+
+This project adds a userspace WireGuard controller to support VPN-style tunnels without relying on kernel modules, aligning with FIPS constraints. The implementation lives under `pkg/wireguard/` and exposes legacy-compatible routes via `cmd/server/wireguard_routes.go`.
+
+### Design Overview
+- **Userspace device**: Wraps wireguard-go userspace primitives (TUN + IPC) in `pkg/wireguard/device.go`.
+- **Controller**: Manages peers, keys, and IP allocation in `pkg/wireguard/controller.go` using `pkg/wireguard/allocator.go`.
+- **Routes**: Legacy-compatible endpoints mounted when enabled:
+  - `/wg-init` – Bootstrap peer credentials and allocated IP for the caller.
+  - `/phone-home/{id}` – Minimal status/identification hook for compatibility.
+- **Server wiring**: Enabled via `--wireguard_server` (viper flag/env). When set, `cmd/server/main.go` initializes the controller and registers routes in the existing chi router.
+
+### Quickstart (Local Dev)
+```bash
+# Start server with WireGuard userspace enabled on macOS
+go run ./cmd/server serve --port 8888 --wireguard_server
+
+# Initialize a peer (uses caller IP; works with mock SMD)
+curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/wg-init
+
+# Optional: phone-home compatibility
+curl http://localhost:8888/phone-home/x1000c0s0b0n0
+```
+
+### FIPS Notes
+- Userspace WireGuard avoids kernel crypto dependencies; build the binary in FIPS mode using Go’s BoringCrypto toolchain for production environments.
+- Validate cryptographic primitives and key handling in the controller before enabling in regulated environments.
+
+### Integration with SMD (Planned)
+- Extend `pkg/smdclient/interface.go` to store and retrieve assigned WGIP per node.
+- Update mock to track WGIP allocations for test nodes.
+
+### Future Resource Model (Fabrica)
+- Define `WireGuardPeer` in `pkg/resources/wireguardpeer/` with `Validate()` triggering reconciliation via the controller.
+- Run `fabrica generate` to produce handlers and storage, integrating with existing server patterns.

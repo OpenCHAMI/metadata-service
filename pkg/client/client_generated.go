@@ -58,6 +58,7 @@ import (
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/clusterdefaults"
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/instanceinfo"
+	"github.com/OpenCHAMI/cloud-init/pkg/resources/wireguardpeer"
 	"io"
 	"net/http"
 	"net/url"
@@ -464,6 +465,93 @@ func (c *Client) PatchInstanceInfoStatusWithType(ctx context.Context, uid string
 // DeleteInstanceInfo deletes a InstanceInfo by UID
 func (c *Client) DeleteInstanceInfo(ctx context.Context, uid string) error {
 	endpoint := fmt.Sprintf("/instanceinfos/%s", uid)
+	var response DeleteResponse
+	if err := c.doRequest(ctx, "DELETE", endpoint, nil, &response); err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetWireGuardPeers retrieves all wireguardpeers
+func (c *Client) GetWireGuardPeers(ctx context.Context) ([]wireguardpeer.WireGuardPeer, error) {
+	var response []wireguardpeer.WireGuardPeer
+	if err := c.doRequest(ctx, "GET", "/wireguardpeers", nil, &response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+// GetWireGuardPeer retrieves a specific WireGuardPeer by UID
+func (c *Client) GetWireGuardPeer(ctx context.Context, uid string) (*wireguardpeer.WireGuardPeer, error) {
+	var result wireguardpeer.WireGuardPeer
+	endpoint := fmt.Sprintf("/wireguardpeers/%s", uid)
+	if err := c.doRequest(ctx, "GET", endpoint, nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// CreateWireGuardPeer creates a new WireGuardPeer
+func (c *Client) CreateWireGuardPeer(ctx context.Context, req CreateWireGuardPeerRequest) (*wireguardpeer.WireGuardPeer, error) {
+	var result wireguardpeer.WireGuardPeer
+	if err := c.doRequest(ctx, "POST", "/wireguardpeers", req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateWireGuardPeer updates an existing WireGuardPeer
+func (c *Client) UpdateWireGuardPeer(ctx context.Context, uid string, req UpdateWireGuardPeerRequest) (*wireguardpeer.WireGuardPeer, error) {
+	var result wireguardpeer.WireGuardPeer
+	endpoint := fmt.Sprintf("/wireguardpeers/%s", uid)
+	if err := c.doRequest(ctx, "PUT", endpoint, req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchWireGuardPeer patches an existing WireGuardPeer spec with the specified patch data and content type
+func (c *Client) PatchWireGuardPeer(ctx context.Context, uid string, patchData []byte, contentType string) (*wireguardpeer.WireGuardPeer, error) {
+	var result wireguardpeer.WireGuardPeer
+	endpoint := fmt.Sprintf("/wireguardpeers/%s", uid)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateWireGuardPeerStatus updates only the status of an existing WireGuardPeer
+// This method is intended for controllers, reconcilers, and monitoring systems.
+// It preserves the spec and only updates the status portion of the resource.
+func (c *Client) UpdateWireGuardPeerStatus(ctx context.Context, uid string, status wireguardpeer.WireGuardPeerStatus) (*wireguardpeer.WireGuardPeer, error) {
+	var result wireguardpeer.WireGuardPeer
+	endpoint := fmt.Sprintf("/wireguardpeers/%s/status", uid)
+	if err := c.doRequest(ctx, "PUT", endpoint, status, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchWireGuardPeerStatus patches only the status of an existing WireGuardPeer
+// Supports JSON Merge Patch by default. Use PatchWireGuardPeerStatusWithType for other patch formats.
+func (c *Client) PatchWireGuardPeerStatus(ctx context.Context, uid string, patchData []byte) (*wireguardpeer.WireGuardPeer, error) {
+	return c.PatchWireGuardPeerStatusWithType(ctx, uid, patchData, "application/merge-patch+json")
+}
+
+// PatchWireGuardPeerStatusWithType patches status with a specific patch content type
+// Supported types: application/merge-patch+json, application/json-patch+json, application/fabrica-patch+json
+func (c *Client) PatchWireGuardPeerStatusWithType(ctx context.Context, uid string, patchData []byte, contentType string) (*wireguardpeer.WireGuardPeer, error) {
+	var result wireguardpeer.WireGuardPeer
+	endpoint := fmt.Sprintf("/wireguardpeers/%s/status", uid)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// DeleteWireGuardPeer deletes a WireGuardPeer by UID
+func (c *Client) DeleteWireGuardPeer(ctx context.Context, uid string) error {
+	endpoint := fmt.Sprintf("/wireguardpeers/%s", uid)
 	var response DeleteResponse
 	if err := c.doRequest(ctx, "DELETE", endpoint, nil, &response); err != nil {
 		return err

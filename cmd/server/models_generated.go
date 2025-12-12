@@ -42,6 +42,8 @@ import (
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
 
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/instanceinfo"
+
+	"github.com/OpenCHAMI/cloud-init/pkg/resources/wireguardpeer"
 )
 
 // ClusterDefaultsResponse represents the response for ClusterDefaults operations
@@ -99,6 +101,25 @@ type UpdateInstanceInfoRequest struct {
 	Name                          string            `json:"name,omitempty"`
 	Labels                        map[string]string `json:"labels,omitempty"`
 	Annotations                   map[string]string `json:"annotations,omitempty"`
+}
+
+// WireGuardPeerResponse represents the response for WireGuardPeer operations
+type WireGuardPeerResponse = wireguardpeer.WireGuardPeer
+
+// CreateWireGuardPeerRequest represents a request to create a WireGuardPeer
+type CreateWireGuardPeerRequest struct {
+	wireguardpeer.WireGuardPeerSpec `json:",inline"`
+	Name                            string            `json:"name" validate:"required"`
+	Labels                          map[string]string `json:"labels,omitempty"`
+	Annotations                     map[string]string `json:"annotations,omitempty"`
+}
+
+// UpdateWireGuardPeerRequest represents a request to update a WireGuardPeer
+type UpdateWireGuardPeerRequest struct {
+	wireguardpeer.WireGuardPeerSpec `json:",inline,omitempty"`
+	Name                            string            `json:"name,omitempty"`
+	Labels                          map[string]string `json:"labels,omitempty"`
+	Annotations                     map[string]string `json:"annotations,omitempty"`
 }
 
 // ErrorResponse represents an error response

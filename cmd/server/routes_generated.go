@@ -15,6 +15,7 @@
 //   - /clusterdefaultss (ClusterDefaults operations)
 //   - /groups (Group operations)
 //   - /instanceinfos (InstanceInfo operations)
+//   - /wireguardpeers (WireGuardPeer operations)
 //
 // Route patterns:
 //   - GET    /resource              -> List all resources
@@ -93,6 +94,24 @@ func RegisterGeneratedRoutes(r chi.Router) {
 			r.Route("/status", func(r chi.Router) {
 				r.Put("/", UpdateInstanceInfoStatus)
 				r.Patch("/", PatchInstanceInfoStatus)
+			})
+		})
+	})
+
+	// WireGuardPeer routes
+	r.Route("/wireguardpeers", func(r chi.Router) {
+		r.Get("/", GetWireGuardPeers)
+		r.Post("/", CreateWireGuardPeer)
+		r.Route("/{uid}", func(r chi.Router) {
+			r.Get("/", GetWireGuardPeer)
+			r.Put("/", UpdateWireGuardPeer)
+			r.Patch("/", PatchWireGuardPeer)
+			r.Delete("/", DeleteWireGuardPeer)
+
+			// Status subresource
+			r.Route("/status", func(r chi.Router) {
+				r.Put("/", UpdateWireGuardPeerStatus)
+				r.Patch("/", PatchWireGuardPeerStatus)
 			})
 		})
 	})

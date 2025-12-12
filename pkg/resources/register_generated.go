@@ -11,6 +11,7 @@ import (
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/clusterdefaults"
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
 	"github.com/OpenCHAMI/cloud-init/pkg/resources/instanceinfo"
+	"github.com/OpenCHAMI/cloud-init/pkg/resources/wireguardpeer"
 	"github.com/openchami/fabrica/pkg/codegen"
 )
 
@@ -25,6 +26,9 @@ func RegisterAllResources(gen *codegen.Generator) error {
 	}
 	if err := gen.RegisterResource(&instanceinfo.InstanceInfo{}); err != nil {
 		return fmt.Errorf("failed to register InstanceInfo: %w", err)
+	}
+	if err := gen.RegisterResource(&wireguardpeer.WireGuardPeer{}); err != nil {
+		return fmt.Errorf("failed to register WireGuardPeer: %w", err)
 	}
 
 	return nil

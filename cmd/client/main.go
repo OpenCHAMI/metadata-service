@@ -15,6 +15,7 @@
 //   - client clusterdefaults [list|get|create|update|patch|delete]
 //   - client group [list|get|create|update|patch|delete]
 //   - client instanceinfo [list|get|create|update|patch|delete]
+//   - client wireguardpeer [list|get|create|update|patch|delete]
 //
 // Global flags (available for all commands):
 //
@@ -125,6 +126,7 @@ func init() {
 	rootCmd.AddCommand(clusterdefaultsCmd)
 	rootCmd.AddCommand(groupCmd)
 	rootCmd.AddCommand(instanceinfoCmd)
+	rootCmd.AddCommand(wireguardpeerCmd)
 
 }
 
@@ -1253,4 +1255,342 @@ func init() {
 	instanceinfoPatchCmd.Flags().StringArray("unset", nil, "Unset field using dot notation")
 	instanceinfoPatchCmd.Flags().StringArray("add", nil, "Add value to array field (field=value)")
 	instanceinfoPatchCmd.Flags().StringArray("remove", nil, "Remove value from array field (field=value)")
+}
+
+// WireGuardPeer commands
+var wireguardpeerCmd = &cobra.Command{
+	Use:   "wireguardpeer",
+	Short: "Manage wireguardpeers",
+	Long:  `Create, read, update, patch, and delete wireguardpeers.`,
+}
+
+var wireguardpeerListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all wireguardpeers",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		items, err := c.GetWireGuardPeers(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list wireguardpeers: %w", err)
+		}
+
+		return printOutput(items)
+	},
+}
+
+var wireguardpeerGetCmd = &cobra.Command{
+	Use:   "get [uid]",
+	Short: "Get a WireGuardPeer by UID",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.GetWireGuardPeer(ctx, args[0])
+		if err != nil {
+			return fmt.Errorf("failed to get WireGuardPeer: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var wireguardpeerCreateCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create a new WireGuardPeer",
+	Long: `Create a new WireGuardPeer.
+
+Examples:
+  # Create from stdin
+  echo '{"description": "Example description", "public_key": "example-value", "allowed_ip": "192.168.1.1"}' | client wireguardpeer create
+
+  # Create with --spec flag
+  client wireguardpeer create --spec '{"description": "Example description", "public_key": "example-value", "allowed_ip": "192.168.1.1"}'
+
+Spec fields:
+  description (string)
+  public_key (string)
+  allowed_ip (string) [required]
+`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		// Read request from flags or stdin
+		reqJSON, _ := cmd.Flags().GetString("spec")
+		var req client.CreateWireGuardPeerRequest
+
+		if reqJSON == "" {
+			// Read from stdin if no spec provided
+			decoder := json.NewDecoder(os.Stdin)
+			if err := decoder.Decode(&req); err != nil {
+				return fmt.Errorf("failed to decode request from stdin: %w", err)
+			}
+		} else {
+			// Parse request from JSON string
+			if err := json.Unmarshal([]byte(reqJSON), &req); err != nil {
+				return fmt.Errorf("failed to parse request JSON: %w", err)
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.CreateWireGuardPeer(ctx, req)
+		if err != nil {
+			return fmt.Errorf("failed to create WireGuardPeer: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var wireguardpeerUpdateCmd = &cobra.Command{
+	Use:   "update [uid]",
+	Short: "Update an existing WireGuardPeer",
+	Long: `Update an existing WireGuardPeer.
+
+Examples:
+  # Update from stdin
+  echo '{"description": "Example description", "public_key": "example-value", "allowed_ip": "192.168.1.1"}' | client wireguardpeer update <uid>
+
+  # Update with --spec flag
+  client wireguardpeer update <uid> --spec '{"description": "Example description", "public_key": "example-value", "allowed_ip": "192.168.1.1"}'
+
+Spec fields:
+  description (string)
+  public_key (string)
+  allowed_ip (string) [required]
+`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		// Read request from flags or stdin
+		reqJSON, _ := cmd.Flags().GetString("spec")
+		var req client.UpdateWireGuardPeerRequest
+
+		if reqJSON == "" {
+			// Read from stdin if no spec provided
+			decoder := json.NewDecoder(os.Stdin)
+			if err := decoder.Decode(&req); err != nil {
+				return fmt.Errorf("failed to decode request from stdin: %w", err)
+			}
+		} else {
+			// Parse request from JSON string
+			if err := json.Unmarshal([]byte(reqJSON), &req); err != nil {
+				return fmt.Errorf("failed to parse request JSON: %w", err)
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.UpdateWireGuardPeer(ctx, args[0], req)
+		if err != nil {
+			return fmt.Errorf("failed to update WireGuardPeer: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var wireguardpeerPatchCmd = &cobra.Command{
+	Use:   "patch [uid]",
+	Short: "Patch a WireGuardPeer",
+	Long: `Patch an existing WireGuardPeer spec using various patch formats.
+
+IMPORTANT: Only the spec portion of the resource can be patched.
+Metadata (name, labels, annotations) and status are managed by the API.
+
+Examples:
+  # JSON Merge Patch (simple merge) - patch spec fields
+  client wireguardpeer patch <uid> --spec '{"manufacturer":"Intel","model":"Updated Model"}'
+
+  # Shorthand patch (dot notation - most convenient)
+  client wireguardpeer patch <uid> --set manufacturer=Intel --set model="Updated Model" --unset customField
+
+  # JSON Patch (RFC 6902 - most powerful)
+  client wireguardpeer patch <uid> --json-patch '[
+    {"op":"replace","path":"/manufacturer","value":"Intel"},
+    {"op":"add","path":"/properties/newField","value":"newValue"}
+  ]'
+
+  # From stdin (JSON Merge Patch format)
+  echo '{"manufacturer":"AMD","partNumber":"RYZEN-9000"}' | client wireguardpeer patch <uid>
+
+Patch Formats:
+  --spec        JSON Merge Patch (RFC 7386) - simple object merge
+  --set/--unset Shorthand patch - dot notation for convenience
+  --json-patch  JSON Patch (RFC 6902) - operation-based patches
+  stdin         JSON Merge Patch format
+
+Shorthand Operations (spec fields only):
+  --set field=value     Set a spec field value (supports dot notation)
+  --unset field         Remove a spec field (supports dot notation)
+  --add field=value     Add to spec array field (field must end with '.-')
+  --remove field=value  Remove from spec array field
+
+Note: All patch operations target the resource spec only.
+Attempts to patch metadata or status fields will be ignored.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		uid := args[0]
+
+		// Get patch flags
+		specPatch, _ := cmd.Flags().GetString("spec")
+		jsonPatch, _ := cmd.Flags().GetString("json-patch")
+		setPairs, _ := cmd.Flags().GetStringArray("set")
+		unsetFields, _ := cmd.Flags().GetStringArray("unset")
+		addPairs, _ := cmd.Flags().GetStringArray("add")
+		removePairs, _ := cmd.Flags().GetStringArray("remove")
+
+		var patchData []byte
+		var contentType string
+
+		// Determine patch format and build patch data
+		if jsonPatch != "" {
+			// JSON Patch (RFC 6902)
+			patchData = []byte(jsonPatch)
+			contentType = "application/json-patch+json"
+		} else if len(setPairs) > 0 || len(unsetFields) > 0 || len(addPairs) > 0 || len(removePairs) > 0 {
+			// Shorthand patch - convert to JSON Merge Patch
+			patch := make(map[string]interface{})
+
+			// Process --set flags
+			for _, setPair := range setPairs {
+				parts := strings.SplitN(setPair, "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid --set format: %s (expected field=value)", setPair)
+				}
+				setNestedField(patch, parts[0], parts[1])
+			}
+
+			// Process --unset flags
+			for _, field := range unsetFields {
+				setNestedField(patch, field, nil)
+			}
+
+			// Process --add flags (add to arrays)
+			for _, addPair := range addPairs {
+				parts := strings.SplitN(addPair, "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid --add format: %s (expected field=value)", addPair)
+				}
+				// For arrays, we'll use JSON Merge Patch append syntax if possible
+				// Otherwise convert to JSON Patch
+				setNestedField(patch, parts[0], parts[1])
+			}
+
+			// Process --remove flags
+			for _, removePair := range removePairs {
+				parts := strings.SplitN(removePair, "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid --remove format: %s (expected field=value)", removePair)
+				}
+				// Remove operations are complex and might need JSON Patch
+				// For now, we'll handle simple cases
+				return fmt.Errorf("--remove operations require --json-patch format")
+			}
+
+			patchBytes, err := json.Marshal(patch)
+			if err != nil {
+				return fmt.Errorf("failed to marshal shorthand patch: %w", err)
+			}
+			patchData = patchBytes
+			contentType = "application/merge-patch+json"
+		} else if specPatch != "" {
+			// JSON Merge Patch from --spec
+			patchData = []byte(specPatch)
+			contentType = "application/merge-patch+json"
+		} else {
+			// Read from stdin (default to JSON Merge Patch)
+			decoder := json.NewDecoder(os.Stdin)
+			var patch interface{}
+			if err := decoder.Decode(&patch); err != nil {
+				return fmt.Errorf("failed to decode patch from stdin: %w", err)
+			}
+			patchBytes, err := json.Marshal(patch)
+			if err != nil {
+				return fmt.Errorf("failed to marshal patch: %w", err)
+			}
+			patchData = patchBytes
+			contentType = "application/merge-patch+json"
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.PatchWireGuardPeer(ctx, uid, patchData, contentType)
+		if err != nil {
+			return fmt.Errorf("failed to patch WireGuardPeer: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var wireguardpeerDeleteCmd = &cobra.Command{
+	Use:   "delete [uid]",
+	Short: "Delete a WireGuardPeer",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		if err := c.DeleteWireGuardPeer(ctx, args[0]); err != nil {
+			return fmt.Errorf("failed to delete WireGuardPeer: %w", err)
+		}
+
+		fmt.Printf("WireGuardPeer %s deleted successfully\n", args[0])
+		return nil
+	},
+}
+
+func init() {
+	wireguardpeerCmd.AddCommand(wireguardpeerListCmd)
+	wireguardpeerCmd.AddCommand(wireguardpeerGetCmd)
+	wireguardpeerCmd.AddCommand(wireguardpeerCreateCmd)
+	wireguardpeerCmd.AddCommand(wireguardpeerUpdateCmd)
+	wireguardpeerCmd.AddCommand(wireguardpeerPatchCmd)
+	wireguardpeerCmd.AddCommand(wireguardpeerDeleteCmd)
+
+	// Add spec flag for create and update commands
+	wireguardpeerCreateCmd.Flags().String("spec", "", "WireGuardPeer specification in JSON format")
+	wireguardpeerUpdateCmd.Flags().String("spec", "", "WireGuardPeer specification in JSON format")
+
+	// Add patch command flags
+	wireguardpeerPatchCmd.Flags().String("spec", "", "JSON Merge Patch specification")
+	wireguardpeerPatchCmd.Flags().String("json-patch", "", "JSON Patch operations (RFC 6902)")
+	wireguardpeerPatchCmd.Flags().StringArray("set", nil, "Set field value using dot notation (field=value)")
+	wireguardpeerPatchCmd.Flags().StringArray("unset", nil, "Unset field using dot notation")
+	wireguardpeerPatchCmd.Flags().StringArray("add", nil, "Add value to array field (field=value)")
+	wireguardpeerPatchCmd.Flags().StringArray("remove", nil, "Remove value from array field (field=value)")
 }
