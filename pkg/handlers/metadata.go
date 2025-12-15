@@ -329,7 +329,7 @@ func buildInterfacesArray(nics []smdclient.EthernetNIC, ifaces []smdclient.Ether
 
 // NetworkConfigHandler returns network configuration for the requesting node
 // Implements the /network-config endpoint for NoCloud datasource
-func NetworkConfigHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
+func NetworkConfigHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc { //nolint:revive
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get component ID from requesting IP
 		ip := getActualRequestIP(r)
