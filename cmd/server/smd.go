@@ -35,29 +35,138 @@ func createMockSMDClient() *smdclient.MockSMDClient {
 		ID:   "x1000c0s0b0n0",
 		NID:  1000,
 		Role: "compute",
-		MAC:  "aa:bb:cc:dd:ee:00",
-		IP:   "10.0.0.100",
+		MAC:  "b4:2e:99:be:1a:6d",
+		IP:   "10.252.0.26",
 	})
 	mock.AddGroupMembership("x1000c0s0b0n0", []string{"compute", "green"})
+
+	// Add EthernetNICInfo for x1000c0s0b0n0 (2 NICs)
+	mock.AddEthernetNICInfo("x1000c0s0b0n0", []smdclient.EthernetNIC{
+		{
+			RedfishID:           "1",
+			Description:         "Node Management Network",
+			MACAddress:          "b4:2e:99:be:1a:6d",
+			PermanentMACAddress: "b4:2e:99:be:1a:6d",
+			InterfaceEnabled:    true,
+		},
+		{
+			RedfishID:           "2",
+			Description:         "High Speed Network",
+			MACAddress:          "b4:2e:99:be:1a:6e",
+			PermanentMACAddress: "b4:2e:99:be:1a:6e",
+			InterfaceEnabled:    true,
+		},
+	})
+
+	// Add EthernetInterfaces for x1000c0s0b0n0 (IP/Network mappings)
+	mock.AddEthernetInterfaces("x1000c0s0b0n0", []smdclient.EthernetInterface{
+		{
+			ID:          "b42e99be1a6d",
+			Description: "Node Management Network",
+			MACAddress:  "b4:2e:99:be:1a:6d",
+			IPAddresses: []smdclient.IPMapping{
+				{IPAddress: "10.252.0.26", Network: "HMN"},
+			},
+			ComponentID: "x1000c0s0b0n0",
+			Type:        "Node",
+		},
+		{
+			ID:          "b42e99be1a6e",
+			Description: "High Speed Network",
+			MACAddress:  "b4:2e:99:be:1a:6e",
+			IPAddresses: []smdclient.IPMapping{
+				{IPAddress: "10.100.0.26", Network: "HSN"},
+			},
+			ComponentID: "x1000c0s0b0n0",
+			Type:        "Node",
+		},
+	})
 
 	mock.AddComponent(&smdclient.Component{
 		ID:   "x1000c0s0b0n1",
 		NID:  1001,
 		Role: "compute",
-		MAC:  "aa:bb:cc:dd:ee:01",
-		IP:   "10.0.0.101",
+		MAC:  "b4:2e:99:be:1a:7d",
+		IP:   "10.252.0.27",
 	})
 	mock.AddGroupMembership("x1000c0s0b0n1", []string{"compute", "blue"})
+
+	// Add EthernetNICInfo for x1000c0s0b0n1 (2 NICs)
+	mock.AddEthernetNICInfo("x1000c0s0b0n1", []smdclient.EthernetNIC{
+		{
+			RedfishID:           "1",
+			Description:         "Node Management Network",
+			MACAddress:          "b4:2e:99:be:1a:7d",
+			PermanentMACAddress: "b4:2e:99:be:1a:7d",
+			InterfaceEnabled:    true,
+		},
+		{
+			RedfishID:           "2",
+			Description:         "High Speed Network",
+			MACAddress:          "b4:2e:99:be:1a:7e",
+			PermanentMACAddress: "b4:2e:99:be:1a:7e",
+			InterfaceEnabled:    true,
+		},
+	})
+
+	// Add EthernetInterfaces for x1000c0s0b0n1
+	mock.AddEthernetInterfaces("x1000c0s0b0n1", []smdclient.EthernetInterface{
+		{
+			ID:          "b42e99be1a7d",
+			Description: "Node Management Network",
+			MACAddress:  "b4:2e:99:be:1a:7d",
+			IPAddresses: []smdclient.IPMapping{
+				{IPAddress: "10.252.0.27", Network: "HMN"},
+			},
+			ComponentID: "x1000c0s0b0n1",
+			Type:        "Node",
+		},
+		{
+			ID:          "b42e99be1a7e",
+			Description: "High Speed Network",
+			MACAddress:  "b4:2e:99:be:1a:7e",
+			IPAddresses: []smdclient.IPMapping{
+				{IPAddress: "10.100.0.27", Network: "HSN"},
+			},
+			ComponentID: "x1000c0s0b0n1",
+			Type:        "Node",
+		},
+	})
 
 	mock.AddComponent(&smdclient.Component{
 		ID:   "x1000c0s1b0n0",
 		NID:  1002,
 		Role: "storage",
-		MAC:  "aa:bb:cc:dd:ee:02",
-		IP:   "10.0.0.102",
+		MAC:  "b4:2e:99:be:1a:8d",
+		IP:   "10.252.0.28",
 	})
 	mock.AddGroupMembership("x1000c0s1b0n0", []string{"storage"})
 
-	log.Info().Msg("Mock SMD client initialized with sample data")
+	// Add EthernetNICInfo for x1000c0s1b0n0 (1 NIC)
+	mock.AddEthernetNICInfo("x1000c0s1b0n0", []smdclient.EthernetNIC{
+		{
+			RedfishID:           "1",
+			Description:         "Node Management Network",
+			MACAddress:          "b4:2e:99:be:1a:8d",
+			PermanentMACAddress: "b4:2e:99:be:1a:8d",
+			InterfaceEnabled:    true,
+		},
+	})
+
+	// Add EthernetInterfaces for x1000c0s1b0n0
+	mock.AddEthernetInterfaces("x1000c0s1b0n0", []smdclient.EthernetInterface{
+		{
+			ID:          "b42e99be1a8d",
+			Description: "Node Management Network",
+			MACAddress:  "b4:2e:99:be:1a:8d",
+			IPAddresses: []smdclient.IPMapping{
+				{IPAddress: "10.252.0.28", Network: "HMN"},
+			},
+			ComponentID: "x1000c0s1b0n0",
+			Type:        "Node",
+		},
+	})
+
+	log.Info().Msg("Mock SMD client initialized with sample data including EthernetInterface info")
 	return mock
 }

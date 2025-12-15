@@ -87,5 +87,6 @@ func RegisterCloudInitRoutes(r chi.Router, smd smdclient.SMDClient, store handle
 	r.Get("/meta-data", handlers.MetaDataHandler(smd, store))
 	r.Get("/user-data", handlers.UserDataHandler)
 	r.Get("/vendor-data", handlers.VendorDataHandler(smd, store))
+	r.Get("/network-config", handlers.NetworkConfigHandler(smd, store))
 	r.Get("/{group}.yaml", handlers.GroupUserDataHandler(smd, store))
 }

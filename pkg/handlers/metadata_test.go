@@ -155,6 +155,134 @@ func TestMetaDataHandler(t *testing.T) {
 	}
 }
 
+func TestMetaDataHandler_WithInterfaces(t *testing.T) {
+	// Setup mock SMD client with EthernetInterface data
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		MAC:  "b4:2e:99:be:1a:6d",
+		IP:   "10.252.0.26",
+	})
+
+	// Add EthernetNICInfo (2 NICs)
+	smd.AddEthernetNICInfo("x1000c0s0b0n0", []smdclient.EthernetNIC{
+		{
+			RedfishID:           "1",
+			Description:         "Node Management Network",
+			MACAddress:          "b4:2e:99:be:1a:6d",
+			PermanentMACAddress: "b4:2e:99:be:1a:6d",
+			InterfaceEnabled:    true,
+		},
+		{
+			RedfishID:           "2",
+			Description:         "High Speed Network",
+			MACAddress:          "b4:2e:99:be:1a:6e",
+			PermanentMACAddress: "b4:2e:99:be:1a:6e",
+			InterfaceEnabled:    true,
+		},
+	})
+
+	// Add EthernetInterfaces (IP/Network mappings)
+	smd.AddEthernetInterfaces("x1000c0s0b0n0", []smdclient.EthernetInterface{
+		{
+			ID:          "b42e99be1a6d",
+			Description: "Node Management Network",
+			MACAddress:  "b4:2e:99:be:1a:6d",
+			IPAddresses: []smdclient.IPMapping{
+				{IPAddress: "10.252.0.26", Network: "HMN"},
+			},
+			ComponentID: "x1000c0s0b0n0",
+			Type:        "Node",
+		},
+		{
+			ID:          "b42e99be1a6e",
+			Description: "High Speed Network",
+			MACAddress:  "b4:2e:99:be:1a:6e",
+			IPAddresses: []smdclient.IPMapping{
+				{IPAddress: "10.100.0.26", Network: "HSN"},
+			},
+			ComponentID: "x1000c0s0b0n0",
+			Type:        "Node",
+		},
+	})
+
+	// Setup mock store
+	store := &mockStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			ClusterName: "testcluster",
+			ShortName:   "tc",
+			NidLength:   4,
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{},
+		groupData:    map[string]*group.Group{},
+	}
+
+	// Create handler
+	handler := handlers.MetaDataHandler(smd, store)
+
+	// Create test request
+	req := httptest.NewRequest("GET", "/meta-data", nil)
+	req.RemoteAddr = "10.252.0.26:12345"
+	w := httptest.NewRecorder()
+
+	// Call handler
+	handler(w, req)
+
+	// Check response
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	// Parse response as YAML
+	var metadata handlers.MetaData
+	if err := yaml.Unmarshal(body, &metadata); err != nil {
+		t.Fatalf("Failed to unmarshal metadata: %v", err)
+	}
+
+	// Verify interfaces are included in vendor data
+	if len(metadata.InstanceData.V1.VendorData.Interfaces) != 2 {
+		t.Fatalf("Expected 2 interfaces in vendor data, got %d", len(metadata.InstanceData.V1.VendorData.Interfaces))
+	}
+
+	// Verify first interface
+	iface0 := metadata.InstanceData.V1.VendorData.Interfaces[0]
+	if iface0["name"] != "eth0" {
+		t.Errorf("Expected interface name 'eth0', got '%v'", iface0["name"])
+	}
+	if iface0["mac"] != "b4:2e:99:be:1a:6d" {
+		t.Errorf("Expected first MAC 'b4:2e:99:be:1a:6d', got '%v'", iface0["mac"])
+	}
+	if iface0["ip"] != "10.252.0.26" {
+		t.Errorf("Expected first IP '10.252.0.26', got '%v'", iface0["ip"])
+	}
+	if iface0["network"] != "HMN" {
+		t.Errorf("Expected first network 'HMN', got '%v'", iface0["network"])
+	}
+
+	// Verify second interface
+	iface1 := metadata.InstanceData.V1.VendorData.Interfaces[1]
+	if iface1["name"] != "eth1" {
+		t.Errorf("Expected interface name 'eth1', got '%v'", iface1["name"])
+	}
+	if iface1["mac"] != "b4:2e:99:be:1a:6e" {
+		t.Errorf("Expected second MAC 'b4:2e:99:be:1a:6e', got '%v'", iface1["mac"])
+	}
+	if iface1["ip"] != "10.100.0.26" {
+		t.Errorf("Expected second IP '10.100.0.26', got '%v'", iface1["ip"])
+	}
+	if iface1["network"] != "HSN" {
+		t.Errorf("Expected second network 'HSN', got '%v'", iface1["network"])
+	}
+}
+
 func TestMetaDataHandler_XForwardedFor(t *testing.T) {
 	// Setup mock SMD client
 	smd := smdclient.NewMockSMDClient()
@@ -771,5 +899,272 @@ func TestVendorDataHandler_Issue100_MissingGroupData(t *testing.T) {
 	}
 	if !strings.Contains(response, "compute.yaml") {
 		t.Error("Existing group should be in vendor-data include list")
+	}
+}
+
+// TestGroupUserDataHandler_WithNetworkConfig verifies that EthernetInterface data
+// is injected into group templates as the interfaces array
+func TestGroupUserDataHandler_WithNetworkConfig(t *testing.T) {
+	// Setup mock SMD client with EthernetInterface data
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		MAC:  "b4:2e:99:be:1a:6d",
+		IP:   "10.252.0.26",
+	})
+
+	// Add EthernetNICInfo (2 NICs)
+	smd.AddEthernetNICInfo("x1000c0s0b0n0", []smdclient.EthernetNIC{
+		{
+			RedfishID:           "1",
+			Description:         "Node Management Network",
+			MACAddress:          "b4:2e:99:be:1a:6d",
+			PermanentMACAddress: "b4:2e:99:be:1a:6d",
+			InterfaceEnabled:    true,
+		},
+		{
+			RedfishID:           "2",
+			Description:         "High Speed Network",
+			MACAddress:          "b4:2e:99:be:1a:6e",
+			PermanentMACAddress: "b4:2e:99:be:1a:6e",
+			InterfaceEnabled:    true,
+		},
+	})
+
+	// Add EthernetInterfaces (IP/Network mappings)
+	smd.AddEthernetInterfaces("x1000c0s0b0n0", []smdclient.EthernetInterface{
+		{
+			ID:          "b42e99be1a6d",
+			Description: "Node Management Network",
+			MACAddress:  "b4:2e:99:be:1a:6d",
+			IPAddresses: []smdclient.IPMapping{
+				{IPAddress: "10.252.0.26", Network: "HMN"},
+			},
+			ComponentID: "x1000c0s0b0n0",
+			Type:        "Node",
+		},
+		{
+			ID:          "b42e99be1a6e",
+			Description: "High Speed Network",
+			MACAddress:  "b4:2e:99:be:1a:6e",
+			IPAddresses: []smdclient.IPMapping{
+				{IPAddress: "10.100.0.26", Network: "HSN"},
+			},
+			ComponentID: "x1000c0s0b0n0",
+			Type:        "Node",
+		},
+	})
+
+	smd.AddGroupMembership("x1000c0s0b0n0", []string{"network-config"})
+
+	// Setup mock store with network config template
+	store := &mockStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			BaseURL:       "http://localhost:8888",
+			CloudProvider: "OpenCHAMI",
+			Region:        "us-west-1",
+			ClusterName:   "testcluster",
+			ShortName:     "tc",
+			NidLength:     4,
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{},
+		groupData: map[string]*group.Group{
+			"network-config": {
+				Spec: group.GroupSpec{
+					Description: "Network configuration for nodes",
+					Template: `#cloud-config
+network:
+  version: 1
+  config:
+{% for iface in interfaces %}    - type: physical
+      name: {{ iface.name }}
+      mac_address: {{ iface.mac }}
+      subnets:
+        - type: static
+          address: {{ iface.ip }}/24
+{% endfor %}`,
+					MetaData: map[string]string{},
+				},
+			},
+		},
+	}
+
+	handler := handlers.GroupUserDataHandler(smd, store)
+
+	// Setup router with group parameter
+	r := chi.NewRouter()
+	r.Get("/{group}.yaml", handler)
+
+	// Create test request
+	req := httptest.NewRequest("GET", "/network-config.yaml", nil)
+	req.RemoteAddr = "10.252.0.26:12345"
+	w := httptest.NewRecorder()
+
+	// Call handler via router
+	r.ServeHTTP(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	rendered := string(body)
+
+	// Verify rendered output contains both interfaces with correct data
+	if !strings.Contains(rendered, "eth0") {
+		t.Error("Expected eth0 in rendered output")
+	}
+	if !strings.Contains(rendered, "eth1") {
+		t.Error("Expected eth1 in rendered output")
+	}
+	if !strings.Contains(rendered, "b4:2e:99:be:1a:6d") {
+		t.Error("Expected first MAC address in rendered output")
+	}
+	if !strings.Contains(rendered, "b4:2e:99:be:1a:6e") {
+		t.Error("Expected second MAC address in rendered output")
+	}
+	if !strings.Contains(rendered, "10.252.0.26") {
+		t.Error("Expected first IP address in rendered output")
+	}
+	if !strings.Contains(rendered, "10.100.0.26") {
+		t.Error("Expected second IP address in rendered output")
+	}
+}
+
+// TestNetworkConfigHandler verifies the /network-config endpoint
+// returns cloud-init network config v1 format with SMD data
+func TestNetworkConfigHandler(t *testing.T) {
+	// Setup mock SMD client with EthernetInterface data
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		MAC:  "b4:2e:99:be:1a:6d",
+		IP:   "10.252.0.26",
+	})
+
+	// Add EthernetNICInfo (2 NICs)
+	smd.AddEthernetNICInfo("x1000c0s0b0n0", []smdclient.EthernetNIC{
+		{
+			RedfishID:           "1",
+			Description:         "Node Management Network",
+			MACAddress:          "b4:2e:99:be:1a:6d",
+			PermanentMACAddress: "b4:2e:99:be:1a:6d",
+			InterfaceEnabled:    true,
+		},
+		{
+			RedfishID:           "2",
+			Description:         "High Speed Network",
+			MACAddress:          "b4:2e:99:be:1a:6e",
+			PermanentMACAddress: "b4:2e:99:be:1a:6e",
+			InterfaceEnabled:    true,
+		},
+	})
+
+	// Add EthernetInterfaces (IP/Network mappings)
+	smd.AddEthernetInterfaces("x1000c0s0b0n0", []smdclient.EthernetInterface{
+		{
+			ID:          "b42e99be1a6d",
+			Description: "Node Management Network",
+			MACAddress:  "b4:2e:99:be:1a:6d",
+			IPAddresses: []smdclient.IPMapping{
+				{IPAddress: "10.252.0.26", Network: "HMN"},
+			},
+			ComponentID: "x1000c0s0b0n0",
+			Type:        "Node",
+		},
+		{
+			ID:          "b42e99be1a6e",
+			Description: "High Speed Network",
+			MACAddress:  "b4:2e:99:be:1a:6e",
+			IPAddresses: []smdclient.IPMapping{
+				{IPAddress: "10.100.0.26", Network: "HSN"},
+			},
+			ComponentID: "x1000c0s0b0n0",
+			Type:        "Node",
+		},
+	})
+
+	// Setup mock store
+	store := &mockStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			BaseURL:       "http://localhost:8888",
+			CloudProvider: "OpenCHAMI",
+			Region:        "us-west-1",
+			ClusterName:   "testcluster",
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{},
+		groupData:    map[string]*group.Group{},
+	}
+
+	handler := handlers.NetworkConfigHandler(smd, store)
+
+	req := httptest.NewRequest("GET", "/network-config", nil)
+	req.RemoteAddr = "10.252.0.26:12345"
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	rendered := string(body)
+
+	// Verify network-config structure
+	if !strings.Contains(rendered, "version: 1") {
+		t.Error("Expected network-config version 1 in output")
+	}
+	if !strings.Contains(rendered, "config:") {
+		t.Error("Expected 'config' section in network-config")
+	}
+	if !strings.Contains(rendered, "type: physical") {
+		t.Error("Expected physical interface type in network-config")
+	}
+
+	// Verify interfaces are present
+	if !strings.Contains(rendered, "eth0") {
+		t.Error("Expected eth0 in network-config")
+	}
+	if !strings.Contains(rendered, "eth1") {
+		t.Error("Expected eth1 in network-config")
+	}
+
+	// Verify MAC addresses
+	if !strings.Contains(rendered, "b4:2e:99:be:1a:6d") {
+		t.Error("Expected first MAC address in network-config")
+	}
+	if !strings.Contains(rendered, "b4:2e:99:be:1a:6e") {
+		t.Error("Expected second MAC address in network-config")
+	}
+
+	// Verify IP addresses
+	if !strings.Contains(rendered, "10.252.0.26") {
+		t.Error("Expected first IP address in network-config")
+	}
+	if !strings.Contains(rendered, "10.100.0.26") {
+		t.Error("Expected second IP address in network-config")
+	}
+
+	// Verify subnet format
+	if !strings.Contains(rendered, "subnets:") {
+		t.Error("Expected subnets section in network-config")
+	}
+	if !strings.Contains(rendered, "address:") {
+		t.Error("Expected address in subnets")
 	}
 }

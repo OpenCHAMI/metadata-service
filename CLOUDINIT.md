@@ -42,7 +42,7 @@ Returns instance metadata in YAML format. The response includes:
 - Instance ID
 - Hostname information
 - Cloud provider details
-- Network configuration
+- Network interface information (from SMD discovery)
 - Group memberships
 
 **Authentication**: IP-based (determined from request IP or X-Forwarded-For header)
@@ -70,6 +70,21 @@ instance_data:
       cluster_name: testcluster
       nid: 1000
       role: compute
+      interfaces:
+        - name: eth0
+          mac: b4:2e:99:be:1a:6d
+          ip: 10.252.0.26
+          network: HMN
+          description: Node Management Network
+          enabled: true
+          redfishid: "1"
+        - name: eth1
+          mac: b4:2e:99:be:1a:6e
+          ip: 10.100.0.26
+          network: HSN
+          description: High Speed Network
+          enabled: true
+          redfishid: "2"
       groups:
         compute:
           description: Compute nodes
@@ -94,9 +109,46 @@ http://cloud-init.local/compute.yaml
 http://cloud-init.local/green.yaml
 ```
 
+### `/network-config`
+
+Returns cloud-init network configuration (v1 format) with interface details from SMD.
+
+**Authentication**: IP-based (determined from request IP or X-Forwarded-For header)
+
+**Response Format**: cloud-init network-config v1 YAML
+
+**Example Response** (for a 2-NIC node):
+
+```yaml
+version: 1
+config:
+  - type: physical
+    name: eth0
+    mac_address: b4:2e:99:be:1a:6d
+    description: Node Management Network
+    subnets:
+      - type: static
+        address: 10.252.0.26/24
+  - type: physical
+    name: eth1
+    mac_address: b4:2e:99:be:1a:6e
+    description: High Speed Network
+    subnets:
+      - type: static
+        address: 10.100.0.26/24
+```
+
+**Features**:
+
+- Automatically discovers all network interfaces from SMD's EthernetInterface API
+- Maps MAC addresses to IP addresses and networks
+- Returns static IP configuration from SMD data
+- One endpoint for all network configuration (no templating required)
+
 ### `/{group}.yaml`
 
 Returns group-specific cloud-config with template rendering.
+
 
 **Path Parameters**:
 
