@@ -11,20 +11,24 @@ import (
 
 // MockSMDClient is a mock implementation of SMDClient for testing
 type MockSMDClient struct {
-	mu         sync.RWMutex
-	components map[string]*Component
-	ipToID     map[string]string
-	groups     map[string][]string // component ID -> group names
-	wgip       map[string]string   // component ID -> WG IP
+	mu             sync.RWMutex
+	components     map[string]*Component
+	ipToID         map[string]string
+	groups         map[string][]string // component ID -> group names
+	wgip           map[string]string   // component ID -> WG IP
+	ethernetNICs   map[string][]EthernetNIC
+	ethernetIfaces map[string][]EthernetInterface
 }
 
 // NewMockSMDClient creates a new mock SMD client
 func NewMockSMDClient() *MockSMDClient {
 	return &MockSMDClient{
-		components: make(map[string]*Component),
-		ipToID:     make(map[string]string),
-		groups:     make(map[string][]string),
-		wgip:       make(map[string]string),
+		components:     make(map[string]*Component),
+		ipToID:         make(map[string]string),
+		groups:         make(map[string][]string),
+		wgip:           make(map[string]string),
+		ethernetNICs:   make(map[string][]EthernetNIC),
+		ethernetIfaces: make(map[string][]EthernetInterface),
 	}
 }
 
@@ -43,6 +47,20 @@ func (m *MockSMDClient) AddGroupMembership(componentID string, groups []string) 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.groups[componentID] = groups
+}
+
+// AddEthernetNICInfo adds network interface information for a component
+func (m *MockSMDClient) AddEthernetNICInfo(componentID string, nics []EthernetNIC) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ethernetNICs[componentID] = nics
+}
+
+// AddEthernetInterfaces adds EthernetInterface entries for a component
+func (m *MockSMDClient) AddEthernetInterfaces(componentID string, ifaces []EthernetInterface) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ethernetIfaces[componentID] = ifaces
 }
 
 // IDfromIP returns the component ID for a given IP address
@@ -116,4 +134,30 @@ func (m *MockSMDClient) WGIPfromID(id string) (string, error) {
 		return ip, nil
 	}
 	return "", fmt.Errorf("no WGIP found for ID %s", id)
+}
+
+// EthernetNICInfo returns the list of network interfaces from RedfishSystemInfo
+func (m *MockSMDClient) EthernetNICInfo(id string) ([]EthernetNIC, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if nics, ok := m.ethernetNICs[id]; ok {
+		// Return a copy to prevent modification
+		result := make([]EthernetNIC, len(nics))
+		copy(result, nics)
+		return result, nil
+	}
+	return []EthernetNIC{}, nil
+}
+
+// EthernetInterfaces returns the list of EthernetInterface entries for a component
+func (m *MockSMDClient) EthernetInterfaces(id string) ([]EthernetInterface, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if ifaces, ok := m.ethernetIfaces[id]; ok {
+		// Return a copy to prevent modification
+		result := make([]EthernetInterface, len(ifaces))
+		copy(result, ifaces)
+		return result, nil
+	}
+	return []EthernetInterface{}, nil
 }

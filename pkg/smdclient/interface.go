@@ -13,6 +13,31 @@ type Component struct {
 	IP   string
 }
 
+// EthernetNIC represents network interface information from RedfishSystemInfo
+type EthernetNIC struct {
+	RedfishID           string
+	Description         string
+	MACAddress          string
+	PermanentMACAddress string
+	InterfaceEnabled    bool
+}
+
+// IPMapping represents an IP address and network pair
+type IPMapping struct {
+	IPAddress string
+	Network   string
+}
+
+// EthernetInterface represents a network interface with IP mappings from SMD
+type EthernetInterface struct {
+	ID          string
+	Description string
+	MACAddress  string
+	IPAddresses []IPMapping
+	ComponentID string
+	Type        string
+}
+
 // SMDClient defines the interface for interacting with the State Management Database
 type SMDClient interface {
 	// IDfromIP returns the component ID for a given IP address
@@ -35,4 +60,11 @@ type SMDClient interface {
 
 	// WGIPfromID returns the stored WireGuard IP for a component
 	WGIPfromID(id string) (string, error)
+
+	// EthernetNICInfo returns the list of network interfaces from RedfishSystemInfo
+	EthernetNICInfo(id string) ([]EthernetNIC, error)
+
+	// EthernetInterfaces returns the list of EthernetInterface entries for a component
+	// with IP address and network mappings
+	EthernetInterfaces(id string) ([]EthernetInterface, error)
 }
