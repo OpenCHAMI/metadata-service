@@ -135,7 +135,7 @@ func MetaDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 		bootMAC, _ := smd.MACfromID(id)
 
 		// Generate metadata
-		metadata := generateMetaData(smd, component, groups, bootIP, bootMAC, store)
+		metadata := generateMetaData(smd, component, groups, bootIP, bootMAC, store, getProfile(r))
 
 		// Return as YAML
 		w.Header().Set("Content-Type", "application/x-yaml")
