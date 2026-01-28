@@ -486,6 +486,7 @@ func VendorDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		groupName := chi.URLParam(r, "group")
+		profile := getProfile(r)
 
 		// Get component ID from requesting IP
 		ip := getActualRequestIP(r)
@@ -521,7 +522,7 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 		}
 
 		// Get group data
-		groupData, err := store.GetGroupData(groupName)
+		groupData, err := store.GetGroupData(groupName, profile)
 		if err != nil {
 			log.Warn().Err(err).Msgf("No data for group %s, returning empty cloud-config", groupName)
 			w.Header().Set("Content-Type", "text/cloud-config")
@@ -557,6 +558,7 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 			"role":        component.Role,
 			"mac":         bootMAC,
 			"ip":          bootIP,
+			"profile":     profile,
 		}
 
 		// Merge with group metadata
