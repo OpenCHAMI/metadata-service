@@ -70,7 +70,7 @@ func (s *StorageAdapter) GetInstanceInfo(id string) (*handlers.InstanceInfo, err
 }
 
 // GetGroupData retrieves group data from storage
-func (s *StorageAdapter) GetGroupData(name string) (*group.Group, error) {
+func (s *StorageAdapter) GetGroupData(name string, profile string) (*group.Group, error) {
 	ctx := context.Background()
 
 	g, err := storage.LoadGroup(ctx, name)
