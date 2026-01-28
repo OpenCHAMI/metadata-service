@@ -576,3 +576,10 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 		}
 	}
 }
+
+func getProfile(r *http.Request) string {
+    if p := r.URL.Query().Get("profile"); p != "" {
+        return p
+    }
+    return "default"
+}
