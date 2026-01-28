@@ -451,16 +451,27 @@ func VendorDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 			baseURL = instanceInfo.CloudInitBaseURL
 		}
 
+		profile := getProfile(r)
+		
 		// Build include list, filtering out groups with no content (issue #100 fix)
 		payload := "#include\n"
 		for _, groupName := range groups {
 			// Skip groups with no content to avoid empty cloud-config MIME parts
-			groupData, err := store.GetGroupData(groupName)
+			groupData, err := store.GetGroupData(groupName, profile)
 			if err != nil || groupData.Spec.Template == "" {
 				log.Debug().Msgf("Skipping empty group %s from vendor-data include list", groupName)
 				continue
 			}
-			payload += fmt.Sprintf("%s/%s.yaml\n", baseURL, groupName)
+			includeURL := fmt.Sprintf("%s/%s.yaml", baseURL, groupName)
+			if profile != "default" {
+                if u, err := url.Parse(includeURL); err == nil {
+                    q := u.Query()
+                    q.Set("profile", profile)
+                    u.RawQuery = q.Encode()
+                    includeURL = u.String()
+                }
+            }
+			payload += fmt.Sprintf("%s\n", includeURL)
 		}
 
 		w.Header().Set("Content-Type", "text/plain")
