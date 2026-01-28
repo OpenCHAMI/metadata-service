@@ -21,7 +21,7 @@ import (
 type Store interface {
 	GetClusterDefaults() (*ClusterDefaults, error)
 	GetInstanceInfo(id string) (*InstanceInfo, error)
-	GetGroupData(name string) (*group.Group, error)
+	GetGroupData(name string, profile string) (*group.Group, error)
 }
 
 // ClusterDefaults holds cluster-wide default configuration
