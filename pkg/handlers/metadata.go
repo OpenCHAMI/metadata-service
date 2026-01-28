@@ -155,7 +155,7 @@ func MetaDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 }
 
 // generateMetaData creates the metadata structure from component and storage data
-func generateMetaData(smd smdclient.SMDClient, component *smdclient.Component, groups []string, bootIP, bootMAC string, store Store) MetaData {
+func generateMetaData(smd smdclient.SMDClient, component *smdclient.Component, groups []string, bootIP, bootMAC string, store Store, profile string) MetaData {
 	metadata := MetaData{}
 
 	// Get cluster defaults
@@ -226,7 +226,7 @@ func generateMetaData(smd smdclient.SMDClient, component *smdclient.Component, g
 	if len(groups) > 0 {
 		instanceData.V1.VendorData.Groups = make(map[string]map[string]any)
 		for _, groupName := range groups {
-			groupData, err := store.GetGroupData(groupName)
+			groupData, err := store.GetGroupData(groupName, profile)
 			if err != nil {
 				log.Warn().Err(err).Msgf("Skipping group %s with no data", groupName)
 				continue
