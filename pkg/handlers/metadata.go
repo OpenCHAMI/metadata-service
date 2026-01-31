@@ -442,7 +442,7 @@ func VendorDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 		// Get base URL
 		clusterDefaults, err := store.GetClusterDefaults()
 		baseURL := ""
-		if err == nil {
+		if err == nil && clusterDefaults != nil {
 			baseURL = clusterDefaults.BaseURL
 		}
 
@@ -457,22 +457,26 @@ func VendorDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 		// Build include list, filtering out groups with no content (issue #100 fix)
 		payload := "#include\n"
 		for _, groupName := range groups {
-			// Skip groups with no content to avoid empty cloud-config MIME parts
 			groupData, err := store.GetGroupData(groupName, profile)
-			if err != nil || groupData.Spec.Template == "" {
+			if err != nil || groupData != nil || groupData.Spec.Template == "" {
 				log.Debug().Msgf("Skipping empty group %s from vendor-data include list", groupName)
 				continue
 			}
-			includeURL := fmt.Sprintf("%s/%s.yaml", baseURL, groupName)
-			if profile != "default" {
-                if u, err := url.Parse(includeURL); err == nil {
-                    q := u.Query()
-                    q.Set("profile", profile)
-                    u.RawQuery = q.Encode()
-                    includeURL = u.String()
-                }
-            }
-			payload += fmt.Sprintf("%s\n", includeURL)
+
+			rawURL := fmt.Sprintf("%s/%s.yaml", baseURL, groupName)
+
+			u, err := url.Parse(rawURL)
+			if err != nil {
+				log.Warn().Err(err).Msgf("Skipping invalid URL for group %s", groupName)
+				continue
+			}
+
+			if profile != "" && profile != "default" {
+				q := u.Query()
+				q.Set("profile", profile)
+				u.RawQuery = q.Encode()
+			}
+			payload += fmt.Sprintf("%s\n", u.String())
 		}
 
 		w.Header().Set("Content-Type", "text/plain")
