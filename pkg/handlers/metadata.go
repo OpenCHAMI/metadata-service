@@ -458,7 +458,7 @@ func VendorDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 		payload := "#include\n"
 		for _, groupName := range groups {
 			groupData, err := store.GetGroupData(groupName, profile)
-			if err != nil || groupData != nil || groupData.Spec.Template == "" {
+			if err != nil || groupData == nil || groupData.Spec.Template == "" {
 				log.Debug().Msgf("Skipping empty group %s from vendor-data include list", groupName)
 				continue
 			}
