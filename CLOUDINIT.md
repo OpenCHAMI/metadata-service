@@ -47,6 +47,10 @@ Returns instance metadata in YAML format. The response includes:
 
 **Authentication**: IP-based (determined from request IP or X-Forwarded-For header)
 
+**Selection policy**: When multiple interfaces are present, the service prefers HMN addresses first, then falls back to the first available IP/MAC.
+
+**Caching**: SMD component and ethernet data is cached for up to 60 seconds to limit SMD request volume.
+
 **Example Response**:
 
 ```yaml
@@ -156,6 +160,8 @@ Returns group-specific cloud-config with template rendering.
 
 **Authentication**: Verifies node is a member of the requested group
 
+**Template encoding**: Set `templateEncoding: base64` on create/update to submit base64-encoded templates. The server decodes and stores plain text.
+
 **Template Variables Available**:
 
 - `hostname`: Generated hostname (e.g., `tc1000`)
@@ -177,6 +183,8 @@ fqdn: tc1000.testcluster.local
 ### Environment Variables
 
 - `SMD_URL`: URL of the State Management Database (SMD) service. If not set, a mock SMD client will be used for development.
+- `SMD_JWT`: JWT to authenticate to SMD (optional).
+- `SMD_TOKEN`: Alias for `SMD_JWT` (optional).
 
 ### Storage
 
@@ -211,6 +219,7 @@ Group-specific configuration and templates:
 
 - `description`: Group description
 - `template`: Jinja2-compatible template for cloud-config
+- `templateEncoding`: Optional encoding for `template` (use `base64` to submit encoded templates)
 - `metadata`: Key-value pairs available to templates
 
 ## Identity Resolution

@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
+	cloudinitv1 "github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
 	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -21,7 +21,7 @@ import (
 type Store interface {
 	GetClusterDefaults() (*ClusterDefaults, error)
 	GetInstanceInfo(id string) (*InstanceInfo, error)
-	GetGroupData(name string) (*group.Group, error)
+	GetGroupData(name string) (*cloudinitv1.Group, error)
 }
 
 // ClusterDefaults holds cluster-wide default configuration
@@ -222,24 +222,18 @@ func generateMetaData(smd smdclient.SMDClient, component *smdclient.Component, g
 		instanceData.V1.VendorData.CloudInitBaseURL = clusterDefaults.BaseURL
 	}
 
-	// Add group data to vendor data (only groups with content)
+	// Add group data to vendor data (all memberships)
 	if len(groups) > 0 {
 		instanceData.V1.VendorData.Groups = make(map[string]map[string]any)
 		for _, groupName := range groups {
 			groupData, err := store.GetGroupData(groupName)
-			if err != nil {
-				log.Warn().Err(err).Msgf("Skipping group %s with no data", groupName)
-				continue
-			}
-
-			// Skip groups with empty templates (issue #100 fix)
-			if groupData.Spec.Template == "" {
-				log.Debug().Msgf("Skipping group %s with empty template", groupName)
-				continue
-			}
-
-			// Add group metadata
 			groupMeta := make(map[string]any)
+			if err != nil || groupData == nil {
+				log.Warn().Err(err).Msgf("No data for group %s, including empty metadata", groupName)
+				instanceData.V1.VendorData.Groups[groupName] = groupMeta
+				continue
+			}
+
 			groupMeta["description"] = groupData.Spec.Description
 			for k, v := range groupData.Spec.MetaData {
 				groupMeta[k] = v
@@ -257,6 +251,53 @@ func generateMetaData(smd smdclient.SMDClient, component *smdclient.Component, g
 
 	metadata.InstanceData = instanceData
 	return metadata
+}
+
+func buildTemplateContext(metadata MetaData) map[string]any {
+	ctx := map[string]any{
+		"instance_id":    metadata.InstanceID,
+		"local_hostname": metadata.LocalHostname,
+		"hostname":       metadata.Hostname,
+		"cluster_name":   metadata.ClusterName,
+	}
+
+	v1 := metadata.InstanceData.V1
+	ctx["cloud_name"] = v1.CloudName
+	ctx["availability_zone"] = v1.AvailabilityZone
+	ctx["instance_type"] = v1.InstanceType
+	ctx["region"] = v1.Region
+	ctx["local_ipv4"] = v1.LocalIPv4
+	ctx["cloud_provider"] = v1.CloudProvider
+	ctx["public_keys"] = v1.PublicKeys
+
+	vendorData := map[string]any{
+		"version":             v1.VendorData.Version,
+		"cloud_init_base_url": v1.VendorData.CloudInitBaseURL,
+		"cluster_name":        v1.VendorData.ClusterName,
+		"nid":                 v1.VendorData.Nid,
+		"role":                v1.VendorData.Role,
+		"mac":                 v1.VendorData.MAC,
+		"interfaces":          v1.VendorData.Interfaces,
+		"groups":              v1.VendorData.Groups,
+	}
+
+	ctx["vendor_data"] = vendorData
+	ctx["base_url"] = v1.VendorData.CloudInitBaseURL
+	ctx["nid"] = v1.VendorData.Nid
+	ctx["role"] = v1.VendorData.Role
+	ctx["mac"] = v1.VendorData.MAC
+	ctx["ip"] = v1.LocalIPv4
+	ctx["interfaces"] = v1.VendorData.Interfaces
+
+	metaBytes, err := yaml.Marshal(metadata)
+	if err == nil {
+		var metaMap map[string]any
+		if err := yaml.Unmarshal(metaBytes, &metaMap); err == nil {
+			ctx["meta_data"] = metaMap
+		}
+	}
+
+	return ctx
 }
 
 // generateHostname creates a hostname from cluster name and component NID
@@ -527,42 +568,19 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 			return
 		}
 
-		// Get cluster defaults for merging
-		clusterDefaults, err := store.GetClusterDefaults()
-		if err != nil {
-			log.Warn().Err(err).Msg("Failed to get cluster defaults")
-			clusterDefaults = &ClusterDefaults{}
-		}
-
-		// Get boot IP and MAC for template context
+		// Get boot IP and MAC for metadata generation
 		bootIP, _ := smd.IPfromID(id)
 		bootMAC, _ := smd.MACfromID(id)
 
-		// Build metadata context for template rendering
-		defaultMeta := map[string]string{
-			"hostname":    generateHostname(clusterDefaults.ClusterName, clusterDefaults.ShortName, clusterDefaults.NidLength, component),
-			"instance_id": component.ID,
-			"nid":         fmt.Sprintf("%d", component.NID),
-			"role":        component.Role,
-			"mac":         bootMAC,
-			"ip":          bootIP,
-		}
-
-		// Merge with group metadata
-		merged := group.MergeMetadata(defaultMeta, groupData.Spec.MetaData)
-
-		// Query SMD for network interface information
-		nics, _ := smd.EthernetNICInfo(id)
-		ifaces, _ := smd.EthernetInterfaces(id)
-
-		// Build interfaces array from SMD data
-		if len(nics) > 0 && len(ifaces) > 0 {
-			interfacesArray := buildInterfacesArray(nics, ifaces)
-			merged["interfaces"] = interfacesArray
+		// Build full metadata and template context
+		metadata := generateMetaData(smd, component, groups, bootIP, bootMAC, store)
+		merged := buildTemplateContext(metadata)
+		for k, v := range groupData.Spec.MetaData {
+			merged[k] = v
 		}
 
 		// Render template
-		rendered, err := group.RenderTemplate(groupData.Spec.Template, merged)
+		rendered, err := cloudinitv1.RenderTemplate(groupData.Spec.Template, merged)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to render template for group %s", groupName)
 			http.Error(w, "template rendering failed", http.StatusInternalServerError)

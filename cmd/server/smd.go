@@ -20,10 +20,12 @@ func initSMDClient() smdclient.SMDClient {
 		return createMockSMDClient()
 	}
 
-	// TODO: Implement real SMD client when needed
-	// return smdclient.NewHTTPClient(smdURL)
-	log.Warn().Msg("Real SMD client not yet implemented, using mock client")
-	return createMockSMDClient()
+	jwt := os.Getenv("SMD_JWT")
+	if jwt == "" {
+		jwt = os.Getenv("SMD_TOKEN")
+	}
+	log.Info().Msg("SMD_URL configured, using real SMD HTTP client")
+	return smdclient.NewHTTPClient(smdURL, jwt)
 }
 
 // createMockSMDClient creates a mock SMD client with sample data for development

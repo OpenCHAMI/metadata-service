@@ -7,9 +7,9 @@ package main
 import (
 	"context"
 
+	cloudinitv1 "github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
 	"github.com/OpenCHAMI/cloud-init/internal/storage"
 	"github.com/OpenCHAMI/cloud-init/pkg/handlers"
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
 	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
 	"github.com/go-chi/chi/v5"
 )
@@ -70,7 +70,7 @@ func (s *StorageAdapter) GetInstanceInfo(id string) (*handlers.InstanceInfo, err
 }
 
 // GetGroupData retrieves group data from storage
-func (s *StorageAdapter) GetGroupData(name string) (*group.Group, error) {
+func (s *StorageAdapter) GetGroupData(name string) (*cloudinitv1.Group, error) {
 	ctx := context.Background()
 
 	g, err := storage.LoadGroup(ctx, name)

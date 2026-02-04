@@ -61,6 +61,20 @@ cat > /tmp/compute.json <<'EOF'
 EOF
 go run ./cmd/client --server http://localhost:8888 group create --spec "$(cat /tmp/compute.json)"
 
+# Create a group with base64-encoded template content
+cat > /tmp/compute-b64.json <<'EOF'
+{
+	"name": "compute",
+	"description": "Compute nodes",
+	"template": "I2Nsb3VkLWNvbmZpZ1xuaG9zdG5hbWU6IHt7IGhvc3RuYW1lIH19XG4=",
+	"templateEncoding": "base64",
+	"metadata": {
+		"public_keys": ["ssh-ed25519 AAA... user@example"]
+	}
+}
+EOF
+go run ./cmd/client --server http://localhost:8888 group create --spec "$(cat /tmp/compute-b64.json)"
+
 # Optional: instance-specific overrides
 go run ./cmd/client --server http://localhost:8888 instanceinfo create --spec '{"name":"x1000c0s0b0n0","hostname":"custom-host"}'
 ```
@@ -77,9 +91,10 @@ The service implements nocloud-net compatible endpoints. See [CLOUDINIT.md](CLOU
 ## Running with real SMD
 
 Set `SMD_URL` to point at your SMD service. Identity, group membership, and overrides will be sourced from SMD instead of the mock client.
+If your SMD requires authentication, provide a JWT via `SMD_JWT` (or `SMD_TOKEN`).
 
 ```bash
-SMD_URL=https://smd.example.com go run ./cmd/server serve --port 8888
+SMD_URL=https://smd.example.com SMD_JWT="$JWT" go run ./cmd/server serve --port 8888
 ```
 
 ## Optional: userspace WireGuard endpoints

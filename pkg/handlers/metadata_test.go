@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	group "github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
 	"github.com/OpenCHAMI/cloud-init/pkg/handlers"
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
 	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
 	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v3"
@@ -557,8 +557,8 @@ func TestGroupUserDataHandler_NotMember(t *testing.T) {
 	}
 }
 
-// TestMetaDataHandler_Issue100_FilterEmptyGroups verifies that groups with empty templates
-// are excluded from vendor_data.Groups to prevent issue #100 (empty cloud-config MIME parts)
+// TestMetaDataHandler_Issue100_FilterEmptyGroups verifies that vendor_data.Groups includes
+// all group memberships, even when templates are empty (legacy-compatible metadata behavior)
 func TestMetaDataHandler_Issue100_FilterEmptyGroups(t *testing.T) {
 	// Setup mock SMD client
 	smd := smdclient.NewMockSMDClient()
@@ -629,9 +629,9 @@ func TestMetaDataHandler_Issue100_FilterEmptyGroups(t *testing.T) {
 		t.Fatalf("Failed to unmarshal metadata: %v", err)
 	}
 
-	// Verify empty groups are NOT included in vendor_data
-	if _, ok := metadata.InstanceData.V1.VendorData.Groups["empty-group"]; ok {
-		t.Error("Empty group should not be in vendor_data")
+	// Verify empty groups ARE included in vendor_data
+	if _, ok := metadata.InstanceData.V1.VendorData.Groups["empty-group"]; !ok {
+		t.Error("Empty group should be in vendor_data")
 	}
 
 	// Verify non-empty groups ARE included
@@ -783,7 +783,7 @@ func TestVendorDataHandler_Issue100_AllGroupsEmpty(t *testing.T) {
 }
 
 // TestMetaDataHandler_Issue100_MissingGroupData verifies that groups with missing data
-// are excluded from vendor_data.Groups
+// are included in vendor_data.Groups
 func TestMetaDataHandler_Issue100_MissingGroupData(t *testing.T) {
 	// Setup mock SMD client
 	smd := smdclient.NewMockSMDClient()
@@ -835,9 +835,9 @@ func TestMetaDataHandler_Issue100_MissingGroupData(t *testing.T) {
 		t.Fatalf("Failed to unmarshal metadata: %v", err)
 	}
 
-	// Verify missing group is NOT included
-	if _, ok := metadata.InstanceData.V1.VendorData.Groups["missing-group"]; ok {
-		t.Error("Missing group should not be in vendor_data")
+	// Verify missing group IS included
+	if _, ok := metadata.InstanceData.V1.VendorData.Groups["missing-group"]; !ok {
+		t.Error("Missing group should be in vendor_data")
 	}
 	if _, ok := metadata.InstanceData.V1.VendorData.Groups["compute"]; !ok {
 		t.Error("Existing group should be in vendor_data")

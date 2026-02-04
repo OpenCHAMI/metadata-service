@@ -94,7 +94,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.github.com/OpenCHAMI/cloud-init.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ochami-metadata.yaml)")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
 
 	// Server flags
@@ -134,11 +134,11 @@ func initConfig() {
 		viper.AddConfigPath(home)
 		viper.AddConfigPath(".")
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".github.com/OpenCHAMI/cloud-init")
+		viper.SetConfigName(".ochami-metadata")
 	}
 
 	// Environment variables
-	viper.SetEnvPrefix("GITHUB.COM/OPENCHAMI/CLOUD-INIT")
+	viper.SetEnvPrefix("OCHAMI_METADATA")
 	viper.AutomaticEnv()
 
 	// Read config file if it exists
