@@ -22,7 +22,10 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/OpenCHAMI/cloud-init/internal/storage"
+	"github.com/OpenCHAMI/cloud-init/pkg/reconcilers"
 	"github.com/OpenCHAMI/cloud-init/pkg/wireguard"
+	"github.com/openchami/fabrica/pkg/events"
+	"github.com/openchami/fabrica/pkg/reconcile"
 )
 
 // Config holds all configuration for the service
@@ -168,6 +171,28 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 	log.Printf("File storage initialized in %s", config.DataDir)
 
+	// Initialize event bus for reconciliation and lifecycle events
+	eventBus := events.NewInMemoryEventBus(1000, 10)
+	eventBus.Start()
+	events.SetGlobalEventBus(eventBus)
+	eventConfig := events.DefaultEventConfig()
+	eventConfig.Enabled = true
+	events.SetEventConfig(eventConfig)
+
+	// Initialize reconciliation controller
+	reconcileController := reconcile.NewController(eventBus, storage.Backend)
+	storageClient := storage.NewStorageClient()
+	if err := reconcilers.RegisterReconcilers(reconcileController, storageClient, eventBus); err != nil {
+		return fmt.Errorf("failed to register reconcilers: %w", err)
+	}
+	registry := reconcilers.NewEventHandlerRegistry(storageClient, eventBus)
+	if err := registry.RegisterEventHandlers(eventBus); err != nil {
+		return fmt.Errorf("failed to register event handlers: %w", err)
+	}
+	if err := reconcileController.Start(context.Background()); err != nil {
+		return fmt.Errorf("failed to start reconciliation controller: %w", err)
+	}
+
 	// Setup router
 	r := chi.NewRouter()
 
@@ -205,6 +230,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	// Inject WireGuard controller into context for resource reconciliation and enforce optional wireguard-only access
 	if wgController != nil {
+		reconcilers.SetWireGuardController(wgController)
 		r.Use(wireGuardControllerMiddleware(wgController))
 		if viper.GetBool("wireguard_only") {
 			r.Use(wireGuardOnlyMiddleware(wgController))
@@ -258,6 +284,13 @@ func runServer(cmd *cobra.Command, args []string) error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Server shutting down...")
+
+	if err := reconcileController.Stop(); err != nil {
+		log.Printf("Reconciliation controller shutdown failed: %v", err)
+	}
+	if err := eventBus.Close(); err != nil {
+		log.Printf("Event bus shutdown failed: %v", err)
+	}
 
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

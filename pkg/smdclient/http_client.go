@@ -205,10 +205,7 @@ func (c *HTTPClient) EthernetInterfaces(id string) ([]EthernetInterface, error) 
 	for _, iface := range resp {
 		ipMappings := make([]IPMapping, 0, len(iface.IPAddresses))
 		for _, ip := range iface.IPAddresses {
-			ipMappings = append(ipMappings, IPMapping{
-				IPAddress: ip.IPAddress,
-				Network:   ip.Network,
-			})
+			ipMappings = append(ipMappings, IPMapping(ip))
 		}
 		ifaces = append(ifaces, EthernetInterface{
 			ID:          iface.ID,
@@ -233,7 +230,7 @@ func (c *HTTPClient) doGet(path string, params url.Values, out any) error {
 
 func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 	fullURL := c.baseURL + path
-	if params != nil && len(params) > 0 {
+	if len(params) > 0 {
 		fullURL += "?" + params.Encode()
 	}
 
@@ -248,7 +245,7 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
