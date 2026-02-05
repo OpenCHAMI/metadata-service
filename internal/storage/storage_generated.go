@@ -23,10 +23,7 @@ import (
 	"github.com/openchami/fabrica/pkg/reconcile"
 	fabricaStorage "github.com/openchami/fabrica/pkg/storage"
 
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/clusterdefaults"
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/instanceinfo"
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/wireguardpeer"
+	"github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
 )
 
 // Backend is the storage backend used by all storage operations.
@@ -74,9 +71,9 @@ func ensureBackend() {
 //   - ctx: Context for cancellation and timeouts
 //
 // Returns:
-//   - []*clusterdefaults.ClusterDefaults: Slice of ClusterDefaults resources
+//   - []*v1.ClusterDefaults: Slice of ClusterDefaults resources
 //   - error: Any error that occurred during loading
-func LoadAllClusterDefaultss(ctx context.Context) ([]*clusterdefaults.ClusterDefaults, error) {
+func LoadAllClusterDefaultss(ctx context.Context) ([]*v1.ClusterDefaults, error) {
 	ensureBackend()
 
 	rawData, err := Backend.LoadAll(ctx, "ClusterDefaults")
@@ -84,9 +81,9 @@ func LoadAllClusterDefaultss(ctx context.Context) ([]*clusterdefaults.ClusterDef
 		return nil, fmt.Errorf("failed to load all clusterdefaultss: %w", err)
 	}
 
-	clusterdefaultss := make([]*clusterdefaults.ClusterDefaults, 0, len(rawData))
+	clusterdefaultss := make([]*v1.ClusterDefaults, 0, len(rawData))
 	for _, raw := range rawData {
-		clusterDefaults := &clusterdefaults.ClusterDefaults{}
+		clusterDefaults := &v1.ClusterDefaults{}
 		if err := json.Unmarshal(raw, clusterDefaults); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal ClusterDefaults: %w", err)
 		}
@@ -103,9 +100,9 @@ func LoadAllClusterDefaultss(ctx context.Context) ([]*clusterdefaults.ClusterDef
 //   - uid: Unique identifier of the ClusterDefaults resource
 //
 // Returns:
-//   - *clusterdefaults.ClusterDefaults: The ClusterDefaults resource
+//   - *v1.ClusterDefaults: The ClusterDefaults resource
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func LoadClusterDefaults(ctx context.Context, uid string) (*clusterdefaults.ClusterDefaults, error) {
+func LoadClusterDefaults(ctx context.Context, uid string) (*v1.ClusterDefaults, error) {
 	ensureBackend()
 
 	rawData, err := Backend.Load(ctx, "ClusterDefaults", uid)
@@ -113,7 +110,7 @@ func LoadClusterDefaults(ctx context.Context, uid string) (*clusterdefaults.Clus
 		return nil, fmt.Errorf("failed to load ClusterDefaults %s: %w", uid, err)
 	}
 
-	clusterDefaults := &clusterdefaults.ClusterDefaults{}
+	clusterDefaults := &v1.ClusterDefaults{}
 	if err := json.Unmarshal(rawData, clusterDefaults); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal ClusterDefaults: %w", err)
 	}
@@ -129,7 +126,7 @@ func LoadClusterDefaults(ctx context.Context, uid string) (*clusterdefaults.Clus
 //
 // Returns:
 //   - error: Any error that occurred during saving
-func SaveClusterDefaults(ctx context.Context, clusterDefaults *clusterdefaults.ClusterDefaults) error {
+func SaveClusterDefaults(ctx context.Context, clusterDefaults *v1.ClusterDefaults) error {
 	ensureBackend()
 
 	data, err := json.Marshal(clusterDefaults)
@@ -152,7 +149,7 @@ func SaveClusterDefaults(ctx context.Context, clusterDefaults *clusterdefaults.C
 //
 // Returns:
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func UpdateClusterDefaults(ctx context.Context, clusterDefaults *clusterdefaults.ClusterDefaults) error {
+func UpdateClusterDefaults(ctx context.Context, clusterDefaults *v1.ClusterDefaults) error {
 	ensureBackend()
 
 	// Check if resource exists first
@@ -241,9 +238,9 @@ func ListClusterDefaultsUIDs(ctx context.Context) ([]string, error) {
 //   - ctx: Context for cancellation and timeouts
 //
 // Returns:
-//   - []*group.Group: Slice of Group resources
+//   - []*v1.Group: Slice of Group resources
 //   - error: Any error that occurred during loading
-func LoadAllGroups(ctx context.Context) ([]*group.Group, error) {
+func LoadAllGroups(ctx context.Context) ([]*v1.Group, error) {
 	ensureBackend()
 
 	rawData, err := Backend.LoadAll(ctx, "Group")
@@ -251,9 +248,9 @@ func LoadAllGroups(ctx context.Context) ([]*group.Group, error) {
 		return nil, fmt.Errorf("failed to load all groups: %w", err)
 	}
 
-	groups := make([]*group.Group, 0, len(rawData))
+	groups := make([]*v1.Group, 0, len(rawData))
 	for _, raw := range rawData {
-		group := &group.Group{}
+		group := &v1.Group{}
 		if err := json.Unmarshal(raw, group); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal Group: %w", err)
 		}
@@ -270,9 +267,9 @@ func LoadAllGroups(ctx context.Context) ([]*group.Group, error) {
 //   - uid: Unique identifier of the Group resource
 //
 // Returns:
-//   - *group.Group: The Group resource
+//   - *v1.Group: The Group resource
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func LoadGroup(ctx context.Context, uid string) (*group.Group, error) {
+func LoadGroup(ctx context.Context, uid string) (*v1.Group, error) {
 	ensureBackend()
 
 	rawData, err := Backend.Load(ctx, "Group", uid)
@@ -280,7 +277,7 @@ func LoadGroup(ctx context.Context, uid string) (*group.Group, error) {
 		return nil, fmt.Errorf("failed to load Group %s: %w", uid, err)
 	}
 
-	group := &group.Group{}
+	group := &v1.Group{}
 	if err := json.Unmarshal(rawData, group); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal Group: %w", err)
 	}
@@ -296,7 +293,7 @@ func LoadGroup(ctx context.Context, uid string) (*group.Group, error) {
 //
 // Returns:
 //   - error: Any error that occurred during saving
-func SaveGroup(ctx context.Context, group *group.Group) error {
+func SaveGroup(ctx context.Context, group *v1.Group) error {
 	ensureBackend()
 
 	data, err := json.Marshal(group)
@@ -319,7 +316,7 @@ func SaveGroup(ctx context.Context, group *group.Group) error {
 //
 // Returns:
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func UpdateGroup(ctx context.Context, group *group.Group) error {
+func UpdateGroup(ctx context.Context, group *v1.Group) error {
 	ensureBackend()
 
 	// Check if resource exists first
@@ -408,9 +405,9 @@ func ListGroupUIDs(ctx context.Context) ([]string, error) {
 //   - ctx: Context for cancellation and timeouts
 //
 // Returns:
-//   - []*instanceinfo.InstanceInfo: Slice of InstanceInfo resources
+//   - []*v1.InstanceInfo: Slice of InstanceInfo resources
 //   - error: Any error that occurred during loading
-func LoadAllInstanceInfos(ctx context.Context) ([]*instanceinfo.InstanceInfo, error) {
+func LoadAllInstanceInfos(ctx context.Context) ([]*v1.InstanceInfo, error) {
 	ensureBackend()
 
 	rawData, err := Backend.LoadAll(ctx, "InstanceInfo")
@@ -418,9 +415,9 @@ func LoadAllInstanceInfos(ctx context.Context) ([]*instanceinfo.InstanceInfo, er
 		return nil, fmt.Errorf("failed to load all instanceinfos: %w", err)
 	}
 
-	instanceinfos := make([]*instanceinfo.InstanceInfo, 0, len(rawData))
+	instanceinfos := make([]*v1.InstanceInfo, 0, len(rawData))
 	for _, raw := range rawData {
-		instanceInfo := &instanceinfo.InstanceInfo{}
+		instanceInfo := &v1.InstanceInfo{}
 		if err := json.Unmarshal(raw, instanceInfo); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal InstanceInfo: %w", err)
 		}
@@ -437,9 +434,9 @@ func LoadAllInstanceInfos(ctx context.Context) ([]*instanceinfo.InstanceInfo, er
 //   - uid: Unique identifier of the InstanceInfo resource
 //
 // Returns:
-//   - *instanceinfo.InstanceInfo: The InstanceInfo resource
+//   - *v1.InstanceInfo: The InstanceInfo resource
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func LoadInstanceInfo(ctx context.Context, uid string) (*instanceinfo.InstanceInfo, error) {
+func LoadInstanceInfo(ctx context.Context, uid string) (*v1.InstanceInfo, error) {
 	ensureBackend()
 
 	rawData, err := Backend.Load(ctx, "InstanceInfo", uid)
@@ -447,7 +444,7 @@ func LoadInstanceInfo(ctx context.Context, uid string) (*instanceinfo.InstanceIn
 		return nil, fmt.Errorf("failed to load InstanceInfo %s: %w", uid, err)
 	}
 
-	instanceInfo := &instanceinfo.InstanceInfo{}
+	instanceInfo := &v1.InstanceInfo{}
 	if err := json.Unmarshal(rawData, instanceInfo); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal InstanceInfo: %w", err)
 	}
@@ -463,7 +460,7 @@ func LoadInstanceInfo(ctx context.Context, uid string) (*instanceinfo.InstanceIn
 //
 // Returns:
 //   - error: Any error that occurred during saving
-func SaveInstanceInfo(ctx context.Context, instanceInfo *instanceinfo.InstanceInfo) error {
+func SaveInstanceInfo(ctx context.Context, instanceInfo *v1.InstanceInfo) error {
 	ensureBackend()
 
 	data, err := json.Marshal(instanceInfo)
@@ -486,7 +483,7 @@ func SaveInstanceInfo(ctx context.Context, instanceInfo *instanceinfo.InstanceIn
 //
 // Returns:
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func UpdateInstanceInfo(ctx context.Context, instanceInfo *instanceinfo.InstanceInfo) error {
+func UpdateInstanceInfo(ctx context.Context, instanceInfo *v1.InstanceInfo) error {
 	ensureBackend()
 
 	// Check if resource exists first
@@ -575,9 +572,9 @@ func ListInstanceInfoUIDs(ctx context.Context) ([]string, error) {
 //   - ctx: Context for cancellation and timeouts
 //
 // Returns:
-//   - []*wireguardpeer.WireGuardPeer: Slice of WireGuardPeer resources
+//   - []*v1.WireGuardPeer: Slice of WireGuardPeer resources
 //   - error: Any error that occurred during loading
-func LoadAllWireGuardPeers(ctx context.Context) ([]*wireguardpeer.WireGuardPeer, error) {
+func LoadAllWireGuardPeers(ctx context.Context) ([]*v1.WireGuardPeer, error) {
 	ensureBackend()
 
 	rawData, err := Backend.LoadAll(ctx, "WireGuardPeer")
@@ -585,9 +582,9 @@ func LoadAllWireGuardPeers(ctx context.Context) ([]*wireguardpeer.WireGuardPeer,
 		return nil, fmt.Errorf("failed to load all wireguardpeers: %w", err)
 	}
 
-	wireguardpeers := make([]*wireguardpeer.WireGuardPeer, 0, len(rawData))
+	wireguardpeers := make([]*v1.WireGuardPeer, 0, len(rawData))
 	for _, raw := range rawData {
-		wireGuardPeer := &wireguardpeer.WireGuardPeer{}
+		wireGuardPeer := &v1.WireGuardPeer{}
 		if err := json.Unmarshal(raw, wireGuardPeer); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal WireGuardPeer: %w", err)
 		}
@@ -604,9 +601,9 @@ func LoadAllWireGuardPeers(ctx context.Context) ([]*wireguardpeer.WireGuardPeer,
 //   - uid: Unique identifier of the WireGuardPeer resource
 //
 // Returns:
-//   - *wireguardpeer.WireGuardPeer: The WireGuardPeer resource
+//   - *v1.WireGuardPeer: The WireGuardPeer resource
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func LoadWireGuardPeer(ctx context.Context, uid string) (*wireguardpeer.WireGuardPeer, error) {
+func LoadWireGuardPeer(ctx context.Context, uid string) (*v1.WireGuardPeer, error) {
 	ensureBackend()
 
 	rawData, err := Backend.Load(ctx, "WireGuardPeer", uid)
@@ -614,7 +611,7 @@ func LoadWireGuardPeer(ctx context.Context, uid string) (*wireguardpeer.WireGuar
 		return nil, fmt.Errorf("failed to load WireGuardPeer %s: %w", uid, err)
 	}
 
-	wireGuardPeer := &wireguardpeer.WireGuardPeer{}
+	wireGuardPeer := &v1.WireGuardPeer{}
 	if err := json.Unmarshal(rawData, wireGuardPeer); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal WireGuardPeer: %w", err)
 	}
@@ -630,7 +627,7 @@ func LoadWireGuardPeer(ctx context.Context, uid string) (*wireguardpeer.WireGuar
 //
 // Returns:
 //   - error: Any error that occurred during saving
-func SaveWireGuardPeer(ctx context.Context, wireGuardPeer *wireguardpeer.WireGuardPeer) error {
+func SaveWireGuardPeer(ctx context.Context, wireGuardPeer *v1.WireGuardPeer) error {
 	ensureBackend()
 
 	data, err := json.Marshal(wireGuardPeer)
@@ -653,7 +650,7 @@ func SaveWireGuardPeer(ctx context.Context, wireGuardPeer *wireguardpeer.WireGua
 //
 // Returns:
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func UpdateWireGuardPeer(ctx context.Context, wireGuardPeer *wireguardpeer.WireGuardPeer) error {
+func UpdateWireGuardPeer(ctx context.Context, wireGuardPeer *v1.WireGuardPeer) error {
 	ensureBackend()
 
 	// Check if resource exists first
@@ -757,6 +754,8 @@ func NewStorageClient() *StorageClient {
 	return &StorageClient{backend: Backend}
 }
 
+// --- Version snapshot helpers (file backend only) ---
+
 // Get retrieves a resource by kind and UID.
 //
 // Parameters:
@@ -776,25 +775,25 @@ func (c *StorageClient) Get(ctx context.Context, kind, uid string) (interface{},
 	// Unmarshal based on kind
 	switch kind {
 	case "ClusterDefaults":
-		var resource clusterdefaults.ClusterDefaults
+		var resource v1.ClusterDefaults
 		if err := json.Unmarshal(rawData, &resource); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal ClusterDefaults: %w", err)
 		}
 		return &resource, nil
 	case "Group":
-		var resource group.Group
+		var resource v1.Group
 		if err := json.Unmarshal(rawData, &resource); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal Group: %w", err)
 		}
 		return &resource, nil
 	case "InstanceInfo":
-		var resource instanceinfo.InstanceInfo
+		var resource v1.InstanceInfo
 		if err := json.Unmarshal(rawData, &resource); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal InstanceInfo: %w", err)
 		}
 		return &resource, nil
 	case "WireGuardPeer":
-		var resource wireguardpeer.WireGuardPeer
+		var resource v1.WireGuardPeer
 		if err := json.Unmarshal(rawData, &resource); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal WireGuardPeer: %w", err)
 		}
@@ -824,7 +823,7 @@ func (c *StorageClient) List(ctx context.Context, kind string) ([]interface{}, e
 	case "ClusterDefaults":
 		result := make([]interface{}, 0, len(rawData))
 		for _, raw := range rawData {
-			var resource clusterdefaults.ClusterDefaults
+			var resource v1.ClusterDefaults
 			if err := json.Unmarshal(raw, &resource); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal ClusterDefaults: %w", err)
 			}
@@ -834,7 +833,7 @@ func (c *StorageClient) List(ctx context.Context, kind string) ([]interface{}, e
 	case "Group":
 		result := make([]interface{}, 0, len(rawData))
 		for _, raw := range rawData {
-			var resource group.Group
+			var resource v1.Group
 			if err := json.Unmarshal(raw, &resource); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal Group: %w", err)
 			}
@@ -844,7 +843,7 @@ func (c *StorageClient) List(ctx context.Context, kind string) ([]interface{}, e
 	case "InstanceInfo":
 		result := make([]interface{}, 0, len(rawData))
 		for _, raw := range rawData {
-			var resource instanceinfo.InstanceInfo
+			var resource v1.InstanceInfo
 			if err := json.Unmarshal(raw, &resource); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal InstanceInfo: %w", err)
 			}
@@ -854,7 +853,7 @@ func (c *StorageClient) List(ctx context.Context, kind string) ([]interface{}, e
 	case "WireGuardPeer":
 		result := make([]interface{}, 0, len(rawData))
 		for _, raw := range rawData {
-			var resource wireguardpeer.WireGuardPeer
+			var resource v1.WireGuardPeer
 			if err := json.Unmarshal(raw, &resource); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal WireGuardPeer: %w", err)
 			}
@@ -882,13 +881,13 @@ func (c *StorageClient) Update(ctx context.Context, resource interface{}) error 
 
 	// Extract kind and UID based on type
 	switch res := resource.(type) {
-	case *clusterdefaults.ClusterDefaults:
+	case *v1.ClusterDefaults:
 		return c.backend.Save(ctx, "ClusterDefaults", res.Metadata.UID, data)
-	case *group.Group:
+	case *v1.Group:
 		return c.backend.Save(ctx, "Group", res.Metadata.UID, data)
-	case *instanceinfo.InstanceInfo:
+	case *v1.InstanceInfo:
 		return c.backend.Save(ctx, "InstanceInfo", res.Metadata.UID, data)
-	case *wireguardpeer.WireGuardPeer:
+	case *v1.WireGuardPeer:
 		return c.backend.Save(ctx, "WireGuardPeer", res.Metadata.UID, data)
 	default:
 		return fmt.Errorf("unknown resource type: %T", resource)

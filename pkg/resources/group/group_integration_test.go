@@ -6,6 +6,7 @@ package group
 
 import (
 	"context"
+	"encoding/base64"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,13 +16,26 @@ func TestGroupTemplateValidation(t *testing.T) {
 	ctx := context.Background()
 	// 9. Required variable provided by defaults (not in MetaData)
 	defaultVarTemplate := "#cloud-config\ninstance_id: {{instance_id}}\nhostname: {{hostname}}"
+	gDecoded := &Group{
+		Spec: GroupSpec{
+			Template:         base64.StdEncoding.EncodeToString([]byte("#cloud-config\nhostname: {{hostname}}\n")),
+			TemplateEncoding: "base64",
+			MetaData:         map[string]string{"hostname": "test-host"},
+		},
+	}
+	err := gDecoded.Validate(ctx)
+	require.NoError(t, err, "Expected successful validation for base64 template")
+	require.True(t, gDecoded.Status.Valid)
+	require.Equal(t, "#cloud-config\nhostname: {{hostname}}\n", gDecoded.Spec.Template)
+	require.Empty(t, gDecoded.Spec.TemplateEncoding)
+
 	gDefault := &Group{
 		Spec: GroupSpec{
 			Template: defaultVarTemplate,
 			MetaData: map[string]string{"hostname": "test-host"}, // instance_id not present
 		},
 	}
-	err := gDefault.Validate(ctx)
+	err = gDefault.Validate(ctx)
 	require.NoError(t, err, "Expected successful validation when required variable is provided by defaults")
 	require.True(t, gDefault.Status.Valid)
 	require.Contains(t, gDefault.Status.RequiredVariables, "instance_id")

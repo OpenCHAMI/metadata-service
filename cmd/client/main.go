@@ -970,10 +970,10 @@ var instanceinfoCreateCmd = &cobra.Command{
 
 Examples:
   # Create from stdin
-  echo '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"]}' | client instanceinfo create
+  echo '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"], "default_profile": "example-value"}' | client instanceinfo create
 
   # Create with --spec flag
-  client instanceinfo create --spec '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"]}'
+  client instanceinfo create --spec '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"], "default_profile": "example-value"}'
 
 Spec fields:
   description (string)
@@ -982,6 +982,7 @@ Spec fields:
   hostname (string)
   cloud_init_base_url (string)
   public_keys ([]string)
+  default_profile (string)
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
@@ -1025,10 +1026,10 @@ var instanceinfoUpdateCmd = &cobra.Command{
 
 Examples:
   # Update from stdin
-  echo '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"]}' | client instanceinfo update <uid>
+  echo '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"], "default_profile": "example-value"}' | client instanceinfo update <uid>
 
   # Update with --spec flag
-  client instanceinfo update <uid> --spec '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"]}'
+  client instanceinfo update <uid> --spec '{"description": "Example description", "instance_id": "example-value", "local_hostname": "example-name", "hostname": "example-name", "cloud_init_base_url": "https://example.com", "public_keys": ["["item1","item2"]"], "default_profile": "example-value"}'
 
 Spec fields:
   description (string)
@@ -1037,6 +1038,7 @@ Spec fields:
   hostname (string)
   cloud_init_base_url (string)
   public_keys ([]string)
+  default_profile (string)
 `,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -1321,7 +1323,7 @@ Examples:
 
 Spec fields:
   description (string)
-  public_key (string)
+  public_key (string) [required]
   allowed_ip (string) [required]
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -1373,7 +1375,7 @@ Examples:
 
 Spec fields:
   description (string)
-  public_key (string)
+  public_key (string) [required]
   allowed_ip (string) [required]
 `,
 	Args: cobra.ExactArgs(1),

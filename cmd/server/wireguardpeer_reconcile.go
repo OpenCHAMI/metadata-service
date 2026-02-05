@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/wireguardpeer"
+	cloudinitv1 "github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
 	"github.com/OpenCHAMI/cloud-init/pkg/wireguard"
 )
 
@@ -38,7 +38,7 @@ func controllerFromCtx(ctx context.Context) *wireguard.Controller {
 	return nil
 }
 
-func reconcileWireGuardPeer(ctx context.Context, peer *wireguardpeer.WireGuardPeer) error {
+func reconcileWireGuardPeer(ctx context.Context, peer *cloudinitv1.WireGuardPeer) error {
 	controller := controllerFromCtx(ctx)
 	if controller == nil {
 		return nil

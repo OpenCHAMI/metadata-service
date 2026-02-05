@@ -6,6 +6,7 @@ package smdclient
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -77,6 +78,11 @@ func (m *MockSMDClient) IDfromIP(ip string) (string, error) {
 func (m *MockSMDClient) IPfromID(id string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+	if ifaces, ok := m.ethernetIfaces[id]; ok {
+		if ip := pickHMNIP(ifaces); ip != "" {
+			return ip, nil
+		}
+	}
 	if component, ok := m.components[id]; ok {
 		return component.IP, nil
 	}
@@ -87,10 +93,49 @@ func (m *MockSMDClient) IPfromID(id string) (string, error) {
 func (m *MockSMDClient) MACfromID(id string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+	if ifaces, ok := m.ethernetIfaces[id]; ok {
+		if mac := pickHMNMAC(ifaces); mac != "" {
+			return mac, nil
+		}
+	}
 	if component, ok := m.components[id]; ok {
 		return component.MAC, nil
 	}
 	return "", fmt.Errorf("no component found for ID %s", id)
+}
+
+func pickHMNIP(ifaces []EthernetInterface) string {
+	for _, iface := range ifaces {
+		for _, ip := range iface.IPAddresses {
+			if strings.EqualFold(ip.Network, "HMN") {
+				return ip.IPAddress
+			}
+		}
+	}
+	for _, iface := range ifaces {
+		for _, ip := range iface.IPAddresses {
+			if ip.IPAddress != "" {
+				return ip.IPAddress
+			}
+		}
+	}
+	return ""
+}
+
+func pickHMNMAC(ifaces []EthernetInterface) string {
+	for _, iface := range ifaces {
+		for _, ip := range iface.IPAddresses {
+			if strings.EqualFold(ip.Network, "HMN") {
+				return iface.MACAddress
+			}
+		}
+	}
+	for _, iface := range ifaces {
+		if iface.MACAddress != "" {
+			return iface.MACAddress
+		}
+	}
+	return ""
 }
 
 // ComponentInformation returns detailed information about a component

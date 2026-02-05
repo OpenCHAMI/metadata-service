@@ -11,7 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
+	group "github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
+	"github.com/openchami/fabrica/pkg/fabrica"
 
 	"github.com/OpenCHAMI/cloud-init/pkg/client"
 	"github.com/stretchr/testify/require"
@@ -48,11 +49,11 @@ func TestGroupTemplateValidation(t *testing.T) {
 	// 1. Create group with missing required variable
 	badTemplate := "#cloud-config\nhostname: {{missing_var}}"
 	reqBad := client.CreateGroupRequest{
-		GroupSpec: group.GroupSpec{
+		Metadata: fabrica.Metadata{Name: "test-bad"},
+		Spec: group.GroupSpec{
 			Template: badTemplate,
 			MetaData: map[string]string{"hostname": "test-host"},
 		},
-		Name: "test-bad",
 	}
 	_, err := c.CreateGroup(ctx, reqBad)
 	require.Error(t, err, "Expected validation error for missing variable")
@@ -60,11 +61,11 @@ func TestGroupTemplateValidation(t *testing.T) {
 	// 2. Create group with all required variables present
 	goodTemplate := "#cloud-config\nhostname: {{hostname}}"
 	reqGood := client.CreateGroupRequest{
-		GroupSpec: group.GroupSpec{
+		Metadata: fabrica.Metadata{Name: "test-good"},
+		Spec: group.GroupSpec{
 			Template: goodTemplate,
 			MetaData: map[string]string{"hostname": "test-host"},
 		},
-		Name: "test-good",
 	}
 	created, err := c.CreateGroup(ctx, reqGood)
 	require.NoError(t, err, "Expected successful creation with valid template")
@@ -73,11 +74,11 @@ func TestGroupTemplateValidation(t *testing.T) {
 	// 3. Update group with invalid YAML after rendering
 	invalidYAML := "#cloud-config\nhostname: {{hostname}}\nfoo: ["
 	reqUpdate := client.UpdateGroupRequest{
-		GroupSpec: group.GroupSpec{
+		Metadata: fabrica.Metadata{Name: "test-good"},
+		Spec: group.GroupSpec{
 			Template: invalidYAML,
 			MetaData: map[string]string{"hostname": "test-host"},
 		},
-		Name: "test-good",
 	}
 	_, err = c.UpdateGroup(ctx, created.Metadata.UID, reqUpdate)
 	require.Error(t, err, "Expected validation error for invalid YAML")
@@ -91,11 +92,11 @@ func TestGroupTemplateValidation(t *testing.T) {
 			name = "bulk-bad"
 		}
 		req := client.CreateGroupRequest{
-			GroupSpec: group.GroupSpec{
+			Metadata: fabrica.Metadata{Name: name},
+			Spec: group.GroupSpec{
 				Template: tmpl,
 				MetaData: map[string]string{"hostname": "bulk-host"},
 			},
-			Name: name,
 		}
 		_, err := c.CreateGroup(ctx, req)
 		if i == 2 {

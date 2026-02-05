@@ -23,10 +23,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/clusterdefaults"
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/group"
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/instanceinfo"
-	"github.com/OpenCHAMI/cloud-init/pkg/resources/wireguardpeer"
+	"github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
 )
@@ -118,7 +115,7 @@ func GenerateOpenAPISpec() *openapi3.T {
 // registerClusterDefaultsPaths registers OpenAPI paths for ClusterDefaults resources
 func registerClusterDefaultsPaths(spec *openapi3.T) {
 	// Generate schemas from Go types - NO ANNOTATIONS NEEDED
-	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&clusterdefaults.ClusterDefaults{}, spec.Components.Schemas)
+	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.ClusterDefaults{}, spec.Components.Schemas)
 	spec.Components.Schemas["ClusterDefaults"] = resourceSchema
 
 	createReqSchema, _ := openapi3gen.NewSchemaRefForValue(&CreateClusterDefaultsRequest{}, spec.Components.Schemas)
@@ -269,7 +266,7 @@ func registerClusterDefaultsPaths(spec *openapi3.T) {
 // registerGroupPaths registers OpenAPI paths for Group resources
 func registerGroupPaths(spec *openapi3.T) {
 	// Generate schemas from Go types - NO ANNOTATIONS NEEDED
-	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&group.Group{}, spec.Components.Schemas)
+	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.Group{}, spec.Components.Schemas)
 	spec.Components.Schemas["Group"] = resourceSchema
 
 	createReqSchema, _ := openapi3gen.NewSchemaRefForValue(&CreateGroupRequest{}, spec.Components.Schemas)
@@ -420,7 +417,7 @@ func registerGroupPaths(spec *openapi3.T) {
 // registerInstanceInfoPaths registers OpenAPI paths for InstanceInfo resources
 func registerInstanceInfoPaths(spec *openapi3.T) {
 	// Generate schemas from Go types - NO ANNOTATIONS NEEDED
-	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&instanceinfo.InstanceInfo{}, spec.Components.Schemas)
+	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.InstanceInfo{}, spec.Components.Schemas)
 	spec.Components.Schemas["InstanceInfo"] = resourceSchema
 
 	createReqSchema, _ := openapi3gen.NewSchemaRefForValue(&CreateInstanceInfoRequest{}, spec.Components.Schemas)
@@ -571,7 +568,7 @@ func registerInstanceInfoPaths(spec *openapi3.T) {
 // registerWireGuardPeerPaths registers OpenAPI paths for WireGuardPeer resources
 func registerWireGuardPeerPaths(spec *openapi3.T) {
 	// Generate schemas from Go types - NO ANNOTATIONS NEEDED
-	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&wireguardpeer.WireGuardPeer{}, spec.Components.Schemas)
+	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.WireGuardPeer{}, spec.Components.Schemas)
 	spec.Components.Schemas["WireGuardPeer"] = resourceSchema
 
 	createReqSchema, _ := openapi3gen.NewSchemaRefForValue(&CreateWireGuardPeerRequest{}, spec.Components.Schemas)

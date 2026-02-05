@@ -2,40 +2,38 @@
 //
 // SPDX-License-Identifier: MIT
 
-package group
+package v1
 
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	pongo2 "github.com/flosch/pongo2/v6"
-	"github.com/openchami/fabrica/pkg/resource"
+	"github.com/openchami/fabrica/pkg/fabrica"
 	"gopkg.in/yaml.v3"
 )
 
-// Group represents a Group resource
+// Group represents a Group resource (hub/storage version).
 type Group struct {
-	resource.Resource
-	Spec   GroupSpec   `json:"spec" validate:"required"`
-	Status GroupStatus `json:"status,omitempty"`
+	APIVersion string           `json:"apiVersion"`
+	Kind       string           `json:"kind"`
+	Metadata   fabrica.Metadata `json:"metadata"`
+	Spec       GroupSpec        `json:"spec"`
+	Status     GroupStatus      `json:"status,omitempty"`
 }
 
-// GroupSpec defines the desired state of Group
+// GroupSpec defines the desired state of Group.
 type GroupSpec struct { //nolint: revive
-	Description      string            `json:"description,omitempty"`
-	Template         string            `json:"template" validate:"required"`
-	TemplateEncoding string            `json:"templateEncoding,omitempty"`
-	MetaData         map[string]string `json:"metaData,omitempty"`
-	OSVersion        string            `json:"osVersion,omitempty"`
-	// ...other fields
+	Description string            `json:"description,omitempty"`
+	Template    string            `json:"template" validate:"required"`
+	MetaData    map[string]string `json:"metaData,omitempty"`
+	OSVersion   string            `json:"osVersion,omitempty"`
 }
 
-// GroupStatus defines the observed state of Group
+// GroupStatus defines the observed state of Group.
 type GroupStatus struct { //nolint: revive
 	LastApplied            string                `json:"lastApplied,omitempty"`
 	Valid                  bool                  `json:"valid"`
@@ -47,11 +45,35 @@ type GroupStatus struct { //nolint: revive
 	Version                string                `json:"version,omitempty"`
 	TemplateHistory        []TemplateVersionInfo `json:"templateHistory,omitempty"`
 	RequiredVariables      []string              `json:"requiredVariables,omitempty"`
-	// ...other status/history fields
-
 }
 
-// MergeMetadata combines default and group metadata
+// TemplateVersionInfo tracks template history.
+type TemplateVersionInfo struct {
+	Version      string `json:"version"`
+	Timestamp    string `json:"timestamp"`
+	Valid        bool   `json:"valid"`
+	ErrorMessage string `json:"errorMessage,omitempty"`
+}
+
+// IsHub marks this as the hub/storage version.
+func (Group) IsHub() {}
+
+// GetKind returns the kind of the resource.
+func (r *Group) GetKind() string {
+	return "Group"
+}
+
+// GetName returns the name of the resource.
+func (r *Group) GetName() string {
+	return r.Metadata.Name
+}
+
+// GetUID returns the UID of the resource.
+func (r *Group) GetUID() string {
+	return r.Metadata.UID
+}
+
+// MergeMetadata combines default and group metadata.
 func MergeMetadata(defaultMeta map[string]any, groupMeta map[string]string) map[string]interface{} {
 	merged := make(map[string]interface{})
 	for k, v := range defaultMeta {
@@ -63,9 +85,8 @@ func MergeMetadata(defaultMeta map[string]any, groupMeta map[string]string) map[
 	return merged
 }
 
-// RenderTemplate renders a Jinja2-compatible template using pongo2
+// RenderTemplate renders a Jinja2-compatible template using pongo2.
 func RenderTemplate(templateStr string, metadata map[string]interface{}) (string, error) {
-	// import "github.com/flosch/pongo2/v6"
 	tpl, err := pongo2.FromString(templateStr)
 	if err != nil {
 		return "", err
@@ -73,54 +94,31 @@ func RenderTemplate(templateStr string, metadata map[string]interface{}) (string
 	return tpl.Execute(metadata)
 }
 
-// validateYAML checks if a string is valid YAML
+// validateYAML checks if a string is valid YAML.
 func validateYAML(s string) error {
-	// import "gopkg.in/yaml.v3"
 	var out interface{}
 	return yaml.Unmarshal([]byte(s), &out)
 }
 
-// decodeTemplateIfNeeded decodes base64 templates when requested.
-func decodeTemplateIfNeeded(template, encoding string) (string, error) {
-	enc := strings.ToLower(strings.TrimSpace(encoding))
-	switch enc {
-	case "", "plain":
-		return template, nil
-	case "base64":
-		decoded, err := base64.StdEncoding.DecodeString(template)
-		if err != nil {
-			return "", fmt.Errorf("template base64 decode error: %w", err)
-		}
-		return string(decoded), nil
-	default:
-		return "", fmt.Errorf("unsupported template encoding: %s", encoding)
-	}
-}
-
-// extractTemplateVariables finds {{var}} references
+// extractTemplateVariables finds {{var}} references.
 func extractTemplateVariables(tmpl string) []string {
-	// import "regexp"
-	// Detect simple and dotted variables: {{foo}}, {{user.name}}, {{group.meta.key}}
 	re := regexp.MustCompile(`{{\s*([a-zA-Z0-9_\.]+)\s*}}`)
 	matches := re.FindAllStringSubmatch(tmpl, -1)
 	vars := make(map[string]struct{})
 	for _, m := range matches {
 		if len(m) > 1 {
 			vars[m[1]] = struct{}{}
-			// Also add the root variable (before dot) for operator visibility
 			if dot := regexp.MustCompile(`^([a-zA-Z0-9_]+)\.`); dot.MatchString(m[1]) {
 				root := dot.FindStringSubmatch(m[1])[1]
 				vars[root] = struct{}{}
 			}
 		}
 	}
-	// Also detect array variables in Jinja2 for-loops: {% for item in array %} and dotted: {% for key in user.ssh_keys %}
 	loopRe := regexp.MustCompile(`{%\s*for\s+[a-zA-Z0-9_]+\s+in\s+([a-zA-Z0-9_\.]+)\s*%}`)
 	loopMatches := loopRe.FindAllStringSubmatch(tmpl, -1)
 	for _, m := range loopMatches {
 		if len(m) > 1 {
 			vars[m[1]] = struct{}{}
-			// Also add the root variable for dotted arrays
 			if dot := regexp.MustCompile(`^([a-zA-Z0-9_]+)\.`); dot.MatchString(m[1]) {
 				root := dot.FindStringSubmatch(m[1])[1]
 				vars[root] = struct{}{}
@@ -134,34 +132,24 @@ func extractTemplateVariables(tmpl string) []string {
 	return out
 }
 
-// sampleMetadata returns example metadata for validation
-// This includes variables that will be provided at runtime from:
-// - ClusterDefaults: cluster_name, base_url, cloud_provider, region, availability_zone
-// - SMD Component: instance_id, hostname, nid, role, mac, ip
+// sampleMetadata returns example metadata for validation.
 func sampleMetadata() map[string]any {
 	return map[string]any{
-		// Runtime variables from ClusterDefaults
 		"cluster_name":      "test-cluster",
 		"base_url":          "http://cloud-init.local",
 		"cloud_provider":    "OpenCHAMI",
 		"region":            "us-west-1",
 		"availability_zone": "us-west-1a",
-
-		// Runtime variables from SMD Component
-		"hostname":    "test-host",
-		"instance_id": "x1000c0s0b0n0",
-		"nid":         1000,
-		"role":        "compute",
-		"mac":         "00:11:22:33:44:55",
-		"ip":          "192.0.2.1",
-
-		// Additional common variables
-		"domain":     "example.com",
-		"os_version": "ubuntu-22.04",
-		"ssh_keys":   "ssh-rsa AAAAB3Nza...",
-		"tags":       "role=compute,env=prod",
-
-		// Legacy-compatible vendor_data/groups and full meta_data
+		"hostname":          "test-host",
+		"instance_id":       "x1000c0s0b0n0",
+		"nid":               1000,
+		"role":              "compute",
+		"mac":               "00:11:22:33:44:55",
+		"ip":                "192.0.2.1",
+		"domain":            "example.com",
+		"os_version":        "ubuntu-22.04",
+		"ssh_keys":          "ssh-rsa AAAAB3Nza...",
+		"tags":              "role=compute,env=prod",
 		"vendor_data": map[string]any{
 			"version":             "1.0",
 			"cloud_init_base_url": "http://cloud-init.local",
@@ -195,34 +183,13 @@ func sampleMetadata() map[string]any {
 	}
 }
 
-// TemplateVersionInfo tracks template history
-type TemplateVersionInfo struct {
-	Version      string `json:"version"`
-	Timestamp    string `json:"timestamp"`
-	Valid        bool   `json:"valid"`
-	ErrorMessage string `json:"errorMessage,omitempty"`
-}
-
-// Validate implements custom validation logic for Group
+// Validate implements custom validation logic for Group.
 func (r *Group) Validate(ctx context.Context) error { //nolint: revive
-	// Shared template validation logic
 	if r.Spec.Template == "" {
 		r.Status.Valid = false
 		r.Status.ErrorMessage = "template is required"
 		r.trackTemplateVersion(false, "template is required")
 		return fmt.Errorf("template is required")
-	}
-
-	decoded, err := decodeTemplateIfNeeded(r.Spec.Template, r.Spec.TemplateEncoding)
-	if err != nil {
-		r.Status.Valid = false
-		r.Status.ErrorMessage = err.Error()
-		r.trackTemplateVersion(false, r.Status.ErrorMessage)
-		return fmt.Errorf("%s", r.Status.ErrorMessage)
-	}
-	r.Spec.Template = decoded
-	if r.Spec.TemplateEncoding != "" {
-		r.Spec.TemplateEncoding = ""
 	}
 
 	vars := extractTemplateVariables(r.Spec.Template)
@@ -259,18 +226,15 @@ func (r *Group) Validate(ctx context.Context) error { //nolint: revive
 	r.Status.Valid = true
 	r.Status.ErrorMessage = ""
 	r.trackTemplateVersion(true, "")
-	// Debug: Print template history length
 	fmt.Printf("DEBUG: Template history length after tracking: %d, current version: %s\n", len(r.Status.TemplateHistory), r.Status.CurrentTemplateVersion)
 	return nil
 }
 
-// trackTemplateVersion adds a new entry to the template history
+// trackTemplateVersion adds a new entry to the template history.
 func (r *Group) trackTemplateVersion(valid bool, errorMsg string) {
-	// Generate version string based on template hash
 	version := generateTemplateVersion(r.Spec.Template)
 	timestamp := time.Now().UTC().Format(time.RFC3339)
 
-	// Create new version entry
 	versionInfo := TemplateVersionInfo{
 		Version:      version,
 		Timestamp:    timestamp,
@@ -278,54 +242,28 @@ func (r *Group) trackTemplateVersion(valid bool, errorMsg string) {
 		ErrorMessage: errorMsg,
 	}
 
-	// Initialize history if needed
 	if r.Status.TemplateHistory == nil {
 		r.Status.TemplateHistory = make([]TemplateVersionInfo, 0)
 	}
 
-	// Check if this version already exists (avoid duplicates on re-validation)
 	for i, existing := range r.Status.TemplateHistory {
 		if existing.Version == version {
-			// Update existing entry
 			r.Status.TemplateHistory[i] = versionInfo
 			r.Status.CurrentTemplateVersion = version
 			return
 		}
 	}
 
-	// Add new version to history
 	r.Status.TemplateHistory = append(r.Status.TemplateHistory, versionInfo)
 	r.Status.CurrentTemplateVersion = version
 
-	// Keep only last 10 versions to avoid unbounded growth
 	if len(r.Status.TemplateHistory) > 10 {
 		r.Status.TemplateHistory = r.Status.TemplateHistory[len(r.Status.TemplateHistory)-10:]
 	}
 }
 
-// generateTemplateVersion creates a version string from template content
+// generateTemplateVersion creates a version string from template content.
 func generateTemplateVersion(template string) string {
-	// Use first 8 chars of SHA256 hash as version
 	hash := sha256.Sum256([]byte(template))
 	return fmt.Sprintf("v-%x", hash[:4])
-}
-
-// GetKind returns the kind of the resource
-func (r *Group) GetKind() string {
-	return "Group"
-}
-
-// GetName returns the name of the resource
-func (r *Group) GetName() string {
-	return r.Metadata.Name
-}
-
-// GetUID returns the UID of the resource
-func (r *Group) GetUID() string {
-	return r.Metadata.UID
-}
-
-func init() {
-	// Register resource type prefix for storage
-	resource.RegisterResourcePrefix("Group", "gro")
 }

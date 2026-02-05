@@ -38,7 +38,23 @@ package main
 
 import (
 	"github.com/go-chi/chi/v5"
+	"github.com/openchami/fabrica/pkg/resource"
 )
+
+// registerResourcePrefixes registers UID prefixes for all resource types
+// This must be called before any resource creation operations
+func registerResourcePrefixes() error {
+
+	resource.RegisterResourcePrefix("ClusterDefaults", "clusterdefaults")
+
+	resource.RegisterResourcePrefix("Group", "group")
+
+	resource.RegisterResourcePrefix("InstanceInfo", "instanceinfo")
+
+	resource.RegisterResourcePrefix("WireGuardPeer", "wireguardpeer")
+
+	return nil
+}
 
 // RegisterGeneratedRoutes registers all generated routes
 // Note: Middleware should be applied in main.go before calling this function
