@@ -66,6 +66,7 @@ func (s *StorageAdapter) GetInstanceInfo(id string) (*handlers.InstanceInfo, err
 		Hostname:         ii.Spec.Hostname,
 		CloudInitBaseURL: ii.Spec.CloudInitBaseURL,
 		PublicKeys:       ii.Spec.PublicKeys,
+		DefaultProfile:   ii.Spec.DefaultProfile,
 	}, nil
 }
 
@@ -81,6 +82,18 @@ func (s *StorageAdapter) GetGroupData(name string) (*cloudinitv1.Group, error) {
 	return g, nil
 }
 
+// GetProfileData retrieves profile data from storage
+func (s *StorageAdapter) GetProfileData(name string) (*cloudinitv1.Profile, error) {
+	ctx := context.Background()
+
+	p, err := storage.LoadProfile(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
 // RegisterCloudInitRoutes registers the cloud-init metadata server endpoints
 func RegisterCloudInitRoutes(r chi.Router, smd smdclient.SMDClient, store handlers.Store) {
 	// Cloud-init metadata endpoints
@@ -89,4 +102,12 @@ func RegisterCloudInitRoutes(r chi.Router, smd smdclient.SMDClient, store handle
 	r.Get("/vendor-data", handlers.VendorDataHandler(smd, store))
 	r.Get("/network-config", handlers.NetworkConfigHandler(smd, store))
 	r.Get("/{group}.yaml", handlers.GroupUserDataHandler(smd, store))
+
+	r.Route("/profile={profile}", func(r chi.Router) {
+		r.Get("/meta-data", handlers.MetaDataHandler(smd, store))
+		r.Get("/user-data", handlers.UserDataHandler)
+		r.Get("/vendor-data", handlers.VendorDataHandler(smd, store))
+		r.Get("/network-config", handlers.NetworkConfigHandler(smd, store))
+		r.Get("/{group}.yaml", handlers.GroupUserDataHandler(smd, store))
+	})
 }

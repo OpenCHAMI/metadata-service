@@ -47,6 +47,10 @@ func (m *mockStore) GetGroupData(name string) (*group.Group, error) {
 	return nil, fmt.Errorf("no data for group %s", name)
 }
 
+func (m *mockStore) GetProfileData(name string) (*group.Profile, error) {
+	return nil, fmt.Errorf("no data for profile %s", name)
+}
+
 func TestMetaDataHandler(t *testing.T) {
 	// Setup mock SMD client
 	smd := smdclient.NewMockSMDClient()

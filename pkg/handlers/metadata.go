@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	cloudinitv1 "github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
 	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
@@ -22,6 +23,7 @@ type Store interface {
 	GetClusterDefaults() (*ClusterDefaults, error)
 	GetInstanceInfo(id string) (*InstanceInfo, error)
 	GetGroupData(name string) (*cloudinitv1.Group, error)
+	GetProfileData(name string) (*cloudinitv1.Profile, error)
 }
 
 // ClusterDefaults holds cluster-wide default configuration
@@ -43,6 +45,7 @@ type InstanceInfo struct {
 	Hostname         string   `json:"hostname"`
 	CloudInitBaseURL string   `json:"cloud_init_base_url"`
 	PublicKeys       []string `json:"public_keys"`
+	DefaultProfile   string   `json:"default_profile"`
 }
 
 // MetaData represents the metadata structure returned to cloud-init clients
@@ -130,12 +133,14 @@ func MetaDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 			groups = []string{}
 		}
 
+		profileName := resolveProfileName(r, store, id)
+
 		// Get boot IP and MAC
 		bootIP, _ := smd.IPfromID(id)
 		bootMAC, _ := smd.MACfromID(id)
 
 		// Generate metadata
-		metadata := generateMetaData(smd, component, groups, bootIP, bootMAC, store)
+		metadata := generateMetaData(smd, component, groups, bootIP, bootMAC, store, profileName)
 
 		// Return as YAML
 		w.Header().Set("Content-Type", "application/x-yaml")
@@ -155,7 +160,7 @@ func MetaDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 }
 
 // generateMetaData creates the metadata structure from component and storage data
-func generateMetaData(smd smdclient.SMDClient, component *smdclient.Component, groups []string, bootIP, bootMAC string, store Store) MetaData {
+func generateMetaData(smd smdclient.SMDClient, component *smdclient.Component, groups []string, bootIP, bootMAC string, store Store, profileName string) MetaData {
 	metadata := MetaData{}
 
 	// Get cluster defaults
@@ -234,8 +239,13 @@ func generateMetaData(smd smdclient.SMDClient, component *smdclient.Component, g
 				continue
 			}
 
+			profileMeta, _ := resolveProfileOverrides(store, profileName, groupName, groupData)
+			if profileMeta == nil {
+				profileMeta = groupData.Spec.MetaData
+			}
+
 			groupMeta["description"] = groupData.Spec.Description
-			for k, v := range groupData.Spec.MetaData {
+			for k, v := range profileMeta {
 				groupMeta[k] = v
 			}
 			instanceData.V1.VendorData.Groups[groupName] = groupMeta
@@ -298,6 +308,118 @@ func buildTemplateContext(metadata MetaData) map[string]any {
 	}
 
 	return ctx
+}
+
+func resolveProfileName(r *http.Request, store Store, componentID string) string {
+	if profile := chi.URLParam(r, "profile"); profile != "" {
+		return profile
+	}
+	instanceInfo, err := store.GetInstanceInfo(componentID)
+	if err != nil || instanceInfo == nil {
+		return ""
+	}
+	return instanceInfo.DefaultProfile
+}
+
+func resolveProfileOverrides(store Store, profileName, groupName string, groupData *cloudinitv1.Group) (map[string]string, string) {
+	if profileName == "" {
+		return nil, ""
+	}
+
+	chain, err := loadProfileChain(store, profileName)
+	if err != nil || len(chain) == 0 {
+		return nil, ""
+	}
+
+	for _, profile := range chain {
+		if !profileAppliesToGroup(profile, groupName, groupData) {
+			return nil, ""
+		}
+		if isProfileExpired(profile) {
+			return nil, ""
+		}
+	}
+
+	merged := make(map[string]string)
+	if groupData != nil {
+		for k, v := range groupData.Spec.MetaData {
+			merged[k] = v
+		}
+	}
+
+	var template string
+	for _, profile := range chain {
+		for k, v := range profile.Spec.MetaData {
+			merged[k] = v
+		}
+		if profile.Spec.Template != "" {
+			template = profile.Spec.Template
+		}
+	}
+
+	return merged, template
+}
+
+func loadProfileChain(store Store, profileName string) ([]*cloudinitv1.Profile, error) {
+	const maxDepth = 10
+	visited := make(map[string]struct{})
+	chain := make([]*cloudinitv1.Profile, 0, maxDepth)
+
+	current := profileName
+	for depth := 0; depth < maxDepth && current != ""; depth++ {
+		if _, ok := visited[current]; ok {
+			return nil, fmt.Errorf("profile chain cycle detected at %s", current)
+		}
+		visited[current] = struct{}{}
+		profile, err := store.GetProfileData(current)
+		if err != nil || profile == nil {
+			return nil, err
+		}
+		chain = append(chain, profile)
+		current = profile.Spec.ParentProfile
+	}
+
+	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
+		chain[i], chain[j] = chain[j], chain[i]
+	}
+
+	return chain, nil
+}
+
+func profileAppliesToGroup(profile *cloudinitv1.Profile, groupName string, groupData *cloudinitv1.Group) bool {
+	if profile == nil {
+		return false
+	}
+	if profile.Spec.GroupRef == groupName {
+		return true
+	}
+	if groupData == nil {
+		return false
+	}
+	if profile.Spec.GroupRef == groupData.Metadata.Name || profile.Spec.GroupRef == groupData.Metadata.UID {
+		return true
+	}
+	return false
+}
+
+func isProfileExpired(profile *cloudinitv1.Profile) bool {
+	if profile == nil {
+		return true
+	}
+	if profile.Status.Expired {
+		return true
+	}
+	if profile.Status.ExpiresAt != "" {
+		if parsed, err := time.Parse(time.RFC3339, profile.Status.ExpiresAt); err == nil {
+			return time.Now().UTC().After(parsed)
+		}
+	}
+	if profile.Spec.ExpiresAt != "" {
+		if parsed, err := time.Parse(time.RFC3339, profile.Spec.ExpiresAt); err == nil {
+			return time.Now().UTC().After(parsed)
+		}
+	}
+	return false
 }
 
 // generateHostname creates a hostname from cluster name and component NID
@@ -479,6 +601,8 @@ func VendorDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 			groups = []string{}
 		}
 
+		profileName := resolveProfileName(r, store, id)
+
 		// Get base URL
 		clusterDefaults, err := store.GetClusterDefaults()
 		baseURL := ""
@@ -493,6 +617,10 @@ func VendorDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 		}
 
 		// Build include list, filtering out groups with no content (issue #100 fix)
+		includeBaseURL := baseURL
+		if profileName != "" {
+			includeBaseURL = fmt.Sprintf("%s/profile=%s", baseURL, profileName)
+		}
 		payload := "#include\n"
 		for _, groupName := range groups {
 			// Skip groups with no content to avoid empty cloud-config MIME parts
@@ -501,7 +629,7 @@ func VendorDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 				log.Debug().Msgf("Skipping empty group %s from vendor-data include list", groupName)
 				continue
 			}
-			payload += fmt.Sprintf("%s/%s.yaml\n", baseURL, groupName)
+			payload += fmt.Sprintf("%s/%s.yaml\n", includeBaseURL, groupName)
 		}
 
 		w.Header().Set("Content-Type", "text/plain")
@@ -572,15 +700,26 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 		bootIP, _ := smd.IPfromID(id)
 		bootMAC, _ := smd.MACfromID(id)
 
+		profileName := resolveProfileName(r, store, id)
+		profileMeta, templateOverride := resolveProfileOverrides(store, profileName, groupName, groupData)
+		if profileMeta == nil {
+			profileMeta = groupData.Spec.MetaData
+		}
+
 		// Build full metadata and template context
-		metadata := generateMetaData(smd, component, groups, bootIP, bootMAC, store)
+		metadata := generateMetaData(smd, component, groups, bootIP, bootMAC, store, profileName)
 		merged := buildTemplateContext(metadata)
-		for k, v := range groupData.Spec.MetaData {
+		for k, v := range profileMeta {
 			merged[k] = v
 		}
 
+		template := groupData.Spec.Template
+		if templateOverride != "" {
+			template = templateOverride
+		}
+
 		// Render template
-		rendered, err := cloudinitv1.RenderTemplate(groupData.Spec.Template, merged)
+		rendered, err := cloudinitv1.RenderTemplate(template, merged)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to render template for group %s", groupName)
 			http.Error(w, "template rendering failed", http.StatusInternalServerError)

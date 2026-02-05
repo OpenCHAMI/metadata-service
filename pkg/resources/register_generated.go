@@ -20,6 +20,9 @@ func RegisterAllResources(gen *codegen.Generator) error {
 	if err := gen.RegisterResource(&v1.InstanceInfo{}); err != nil {
 		return fmt.Errorf("failed to register InstanceInfo: %w", err)
 	}
+	if err := gen.RegisterResource(&v1.Profile{}); err != nil {
+		return fmt.Errorf("failed to register Profile: %w", err)
+	}
 	if err := gen.RegisterResource(&v1.WireGuardPeer{}); err != nil {
 		return fmt.Errorf("failed to register WireGuardPeer: %w", err)
 	}

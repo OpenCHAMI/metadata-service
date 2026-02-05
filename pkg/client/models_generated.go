@@ -86,6 +86,22 @@ type UpdateInstanceInfoRequest struct {
 	Annotations map[string]string   `json:"annotations,omitempty"`
 }
 
+// CreateProfileRequest represents a request to create a Profile
+type CreateProfileRequest struct {
+	Metadata    fabrica.Metadata  `json:"metadata" validate:"required"`
+	Spec        v1.ProfileSpec    `json:"spec" validate:"required"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// UpdateProfileRequest represents a request to update a Profile
+type UpdateProfileRequest struct {
+	Metadata    fabrica.Metadata  `json:"metadata,omitempty"`
+	Spec        v1.ProfileSpec    `json:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
 // CreateWireGuardPeerRequest represents a request to create a WireGuardPeer
 type CreateWireGuardPeerRequest struct {
 	Metadata    fabrica.Metadata     `json:"metadata" validate:"required"`

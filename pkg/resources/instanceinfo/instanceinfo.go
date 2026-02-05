@@ -26,6 +26,7 @@ type InstanceInfoSpec struct { //nolint: revive
 	Hostname         string   `json:"hostname,omitempty"`
 	CloudInitBaseURL string   `json:"cloud_init_base_url,omitempty" validate:"omitempty,url"`
 	PublicKeys       []string `json:"public_keys,omitempty"`
+	DefaultProfile   string   `json:"default_profile,omitempty"`
 }
 
 // InstanceInfoStatus defines the observed state of InstanceInfo

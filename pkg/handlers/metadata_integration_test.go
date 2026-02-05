@@ -23,6 +23,7 @@ type integrationStore struct {
 	clusterDefaults *handlers.ClusterDefaults
 	instanceInfo    map[string]*handlers.InstanceInfo
 	groupData       map[string]*cloudinitv1.Group
+	profileData     map[string]*cloudinitv1.Profile
 }
 
 func (m *integrationStore) GetClusterDefaults() (*handlers.ClusterDefaults, error) {
@@ -44,6 +45,13 @@ func (m *integrationStore) GetGroupData(name string) (*cloudinitv1.Group, error)
 		return data, nil
 	}
 	return nil, fmt.Errorf("no data for group %s", name)
+}
+
+func (m *integrationStore) GetProfileData(name string) (*cloudinitv1.Profile, error) {
+	if data, ok := m.profileData[name]; ok {
+		return data, nil
+	}
+	return nil, fmt.Errorf("no data for profile %s", name)
 }
 
 func newIntegrationServer(t *testing.T) (*httptest.Server, *smdclient.MockSMDClient, *integrationStore) {
@@ -96,6 +104,7 @@ func newIntegrationServer(t *testing.T) (*httptest.Server, *smdclient.MockSMDCli
 				},
 			},
 		},
+		profileData: map[string]*cloudinitv1.Profile{},
 	}
 
 	smd.AddGroupMembership("x1000c0s0b0n0", []string{"compute", "ntp", "rack1"})
@@ -104,6 +113,11 @@ func newIntegrationServer(t *testing.T) (*httptest.Server, *smdclient.MockSMDCli
 	r.Get("/meta-data", handlers.MetaDataHandler(smd, store))
 	r.Get("/vendor-data", handlers.VendorDataHandler(smd, store))
 	r.Get("/{group}.yaml", handlers.GroupUserDataHandler(smd, store))
+	r.Route("/profile={profile}", func(r chi.Router) {
+		r.Get("/meta-data", handlers.MetaDataHandler(smd, store))
+		r.Get("/vendor-data", handlers.VendorDataHandler(smd, store))
+		r.Get("/{group}.yaml", handlers.GroupUserDataHandler(smd, store))
+	})
 
 	srv := httptest.NewServer(r)
 	store.clusterDefaults.BaseURL = srv.URL
@@ -307,6 +321,159 @@ func TestIntegrationSyslogRackMetadataIsolation(t *testing.T) {
 
 		if !strings.Contains(string(body), forwarder) {
 			t.Fatalf("syslog response missing rack metadata %s", forwarder)
+		}
+	}
+}
+
+func TestIntegrationProfileVendorDataIncludes(t *testing.T) {
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		MAC:  "aa:bb:cc:dd:ee:ff",
+		IP:   "10.0.0.100",
+	})
+	smd.AddGroupMembership("x1000c0s0b0n0", []string{"compute", "ntp"})
+
+	store := &integrationStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			BaseURL: "http://placeholder",
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{},
+		groupData: map[string]*cloudinitv1.Group{
+			"compute": {Spec: cloudinitv1.GroupSpec{Template: "#cloud-config\n"}},
+			"ntp":     {Spec: cloudinitv1.GroupSpec{Template: "#cloud-config\n"}},
+		},
+		profileData: map[string]*cloudinitv1.Profile{},
+	}
+
+	r := chi.NewRouter()
+	r.Get("/vendor-data", handlers.VendorDataHandler(smd, store))
+	r.Route("/profile={profile}", func(r chi.Router) {
+		r.Get("/vendor-data", handlers.VendorDataHandler(smd, store))
+	})
+
+	srv := httptest.NewServer(r)
+	defer srv.Close()
+	store.clusterDefaults.BaseURL = srv.URL
+
+	req, err := http.NewRequest("GET", srv.URL+"/profile=alex/vendor-data", nil)
+	if err != nil {
+		t.Fatalf("failed to build vendor-data request: %v", err)
+	}
+	req.Header.Set("X-Forwarded-For", "10.0.0.100")
+
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		t.Fatalf("vendor-data request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("vendor-data status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("vendor-data read failed: %v", err)
+	}
+
+	text := string(body)
+	if !strings.Contains(text, srv.URL+"/profile=alex/compute.yaml") {
+		t.Fatalf("vendor-data missing profile compute include")
+	}
+	if !strings.Contains(text, srv.URL+"/profile=alex/ntp.yaml") {
+		t.Fatalf("vendor-data missing profile ntp include")
+	}
+}
+
+func TestIntegrationProfileTemplateOverrides(t *testing.T) {
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		MAC:  "aa:bb:cc:dd:ee:ff",
+		IP:   "10.0.0.100",
+	})
+	smd.AddGroupMembership("x1000c0s0b0n0", []string{"compute"})
+
+	store := &integrationStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			ClusterName: "testcluster",
+			ShortName:   "tc",
+			NidLength:   4,
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{
+			"x1000c0s0b0n0": {DefaultProfile: "alex"},
+		},
+		groupData: map[string]*cloudinitv1.Group{
+			"compute": {
+				Spec: cloudinitv1.GroupSpec{
+					Template: "#cloud-config\nkey: {{ custom_key }}\n",
+					MetaData: map[string]string{
+						"custom_key": "base",
+					},
+				},
+			},
+		},
+		profileData: map[string]*cloudinitv1.Profile{
+			"base": {
+				Spec: cloudinitv1.ProfileSpec{
+					GroupRef:      "compute",
+					MetaData:      map[string]string{"custom_key": "parent"},
+					Template:      "",
+					ParentProfile: "",
+				},
+			},
+			"alex": {
+				Spec: cloudinitv1.ProfileSpec{
+					GroupRef:      "compute",
+					ParentProfile: "base",
+					MetaData:      map[string]string{"custom_key": "child"},
+					Template:      "#cloud-config\nkey: {{ custom_key }}\nsource: profile\n",
+				},
+			},
+		},
+	}
+
+	r := chi.NewRouter()
+	r.Get("/{group}.yaml", handlers.GroupUserDataHandler(smd, store))
+	r.Route("/profile={profile}", func(r chi.Router) {
+		r.Get("/{group}.yaml", handlers.GroupUserDataHandler(smd, store))
+	})
+
+	srv := httptest.NewServer(r)
+	defer srv.Close()
+
+	client := &http.Client{}
+
+	for _, path := range []string{srv.URL + "/profile=alex/compute.yaml", srv.URL + "/compute.yaml"} {
+		req, err := http.NewRequest("GET", path, nil)
+		if err != nil {
+			t.Fatalf("failed to build group request: %v", err)
+		}
+		req.Header.Set("X-Forwarded-For", "10.0.0.100")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("group request failed: %v", err)
+		}
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			t.Fatalf("group response read failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("group response status %d", resp.StatusCode)
+		}
+		text := string(body)
+		if !strings.Contains(text, "key: child") {
+			t.Fatalf("group response missing profile override")
+		}
+		if !strings.Contains(text, "source: profile") {
+			t.Fatalf("group response missing profile template override")
 		}
 	}
 }

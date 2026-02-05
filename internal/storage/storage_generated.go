@@ -564,6 +564,173 @@ func ListInstanceInfoUIDs(ctx context.Context) ([]string, error) {
 	return uids, nil
 }
 
+// Profile storage operations
+
+// LoadAllProfiles retrieves all Profile resources.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
+// Returns:
+//   - []*v1.Profile: Slice of Profile resources
+//   - error: Any error that occurred during loading
+func LoadAllProfiles(ctx context.Context) ([]*v1.Profile, error) {
+	ensureBackend()
+
+	rawData, err := Backend.LoadAll(ctx, "Profile")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load all profiles: %w", err)
+	}
+
+	profiles := make([]*v1.Profile, 0, len(rawData))
+	for _, raw := range rawData {
+		profile := &v1.Profile{}
+		if err := json.Unmarshal(raw, profile); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal Profile: %w", err)
+		}
+		profiles = append(profiles, profile)
+	}
+
+	return profiles, nil
+}
+
+// LoadProfile retrieves a single Profile resource by UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the Profile resource
+//
+// Returns:
+//   - *v1.Profile: The Profile resource
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func LoadProfile(ctx context.Context, uid string) (*v1.Profile, error) {
+	ensureBackend()
+
+	rawData, err := Backend.Load(ctx, "Profile", uid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load Profile %s: %w", uid, err)
+	}
+
+	profile := &v1.Profile{}
+	if err := json.Unmarshal(rawData, profile); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal Profile: %w", err)
+	}
+
+	return profile, nil
+}
+
+// SaveProfile stores a Profile resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - profile: The Profile resource to save
+//
+// Returns:
+//   - error: Any error that occurred during saving
+func SaveProfile(ctx context.Context, profile *v1.Profile) error {
+	ensureBackend()
+
+	data, err := json.Marshal(profile)
+	if err != nil {
+		return fmt.Errorf("failed to marshal Profile: %w", err)
+	}
+
+	if err := Backend.Save(ctx, "Profile", profile.Metadata.UID, data); err != nil {
+		return fmt.Errorf("failed to save Profile: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateProfile updates an existing Profile resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - profile: The Profile resource to update
+//
+// Returns:
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func UpdateProfile(ctx context.Context, profile *v1.Profile) error {
+	ensureBackend()
+
+	// Check if resource exists first
+	exists, err := Backend.Exists(ctx, "Profile", profile.Metadata.UID)
+	if err != nil {
+		return fmt.Errorf("failed to check Profile existence: %w", err)
+	}
+	if !exists {
+		return fabricaStorage.ErrNotFound
+	}
+
+	data, err := json.Marshal(profile)
+	if err != nil {
+		return fmt.Errorf("failed to marshal Profile: %w", err)
+	}
+
+	if err := Backend.Save(ctx, "Profile", profile.Metadata.UID, data); err != nil {
+		return fmt.Errorf("failed to update Profile: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteProfile removes a Profile resource by UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the Profile resource
+//
+// Returns:
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func DeleteProfile(ctx context.Context, uid string) error {
+	ensureBackend()
+
+	if err := Backend.Delete(ctx, "Profile", uid); err != nil {
+		return fmt.Errorf("failed to delete Profile %s: %w", uid, err)
+	}
+
+	return nil
+}
+
+// ExistsProfile checks if a Profile resource exists.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the Profile resource
+//
+// Returns:
+//   - bool: true if the resource exists
+//   - error: Any error that occurred during the check
+func ExistsProfile(ctx context.Context, uid string) (bool, error) {
+	ensureBackend()
+
+	exists, err := Backend.Exists(ctx, "Profile", uid)
+	if err != nil {
+		return false, fmt.Errorf("failed to check Profile existence: %w", err)
+	}
+
+	return exists, nil
+}
+
+// ListProfileUIDs returns UIDs of all Profile resources.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
+// Returns:
+//   - []string: Array of Profile resource UIDs
+//   - error: Any error that occurred during listing
+func ListProfileUIDs(ctx context.Context) ([]string, error) {
+	ensureBackend()
+
+	uids, err := Backend.List(ctx, "Profile")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list Profile UIDs: %w", err)
+	}
+
+	return uids, nil
+}
+
 // WireGuardPeer storage operations
 
 // LoadAllWireGuardPeers retrieves all WireGuardPeer resources.
@@ -792,6 +959,12 @@ func (c *StorageClient) Get(ctx context.Context, kind, uid string) (interface{},
 			return nil, fmt.Errorf("failed to unmarshal InstanceInfo: %w", err)
 		}
 		return &resource, nil
+	case "Profile":
+		var resource v1.Profile
+		if err := json.Unmarshal(rawData, &resource); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal Profile: %w", err)
+		}
+		return &resource, nil
 	case "WireGuardPeer":
 		var resource v1.WireGuardPeer
 		if err := json.Unmarshal(rawData, &resource); err != nil {
@@ -850,6 +1023,16 @@ func (c *StorageClient) List(ctx context.Context, kind string) ([]interface{}, e
 			result = append(result, &resource)
 		}
 		return result, nil
+	case "Profile":
+		result := make([]interface{}, 0, len(rawData))
+		for _, raw := range rawData {
+			var resource v1.Profile
+			if err := json.Unmarshal(raw, &resource); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal Profile: %w", err)
+			}
+			result = append(result, &resource)
+		}
+		return result, nil
 	case "WireGuardPeer":
 		result := make([]interface{}, 0, len(rawData))
 		for _, raw := range rawData {
@@ -887,6 +1070,8 @@ func (c *StorageClient) Update(ctx context.Context, resource interface{}) error 
 		return c.backend.Save(ctx, "Group", res.Metadata.UID, data)
 	case *v1.InstanceInfo:
 		return c.backend.Save(ctx, "InstanceInfo", res.Metadata.UID, data)
+	case *v1.Profile:
+		return c.backend.Save(ctx, "Profile", res.Metadata.UID, data)
 	case *v1.WireGuardPeer:
 		return c.backend.Save(ctx, "WireGuardPeer", res.Metadata.UID, data)
 	default:

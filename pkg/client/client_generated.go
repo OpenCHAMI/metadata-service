@@ -471,6 +471,93 @@ func (c *Client) DeleteInstanceInfo(ctx context.Context, uid string) error {
 	return nil
 }
 
+// GetProfiles retrieves all profiles
+func (c *Client) GetProfiles(ctx context.Context) ([]v1.Profile, error) {
+	var response []v1.Profile
+	if err := c.doRequest(ctx, "GET", "/profiles", nil, &response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+// GetProfile retrieves a specific Profile by UID
+func (c *Client) GetProfile(ctx context.Context, uid string) (*v1.Profile, error) {
+	var result v1.Profile
+	endpoint := fmt.Sprintf("/profiles/%s", uid)
+	if err := c.doRequest(ctx, "GET", endpoint, nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// CreateProfile creates a new Profile
+func (c *Client) CreateProfile(ctx context.Context, req CreateProfileRequest) (*v1.Profile, error) {
+	var result v1.Profile
+	if err := c.doRequest(ctx, "POST", "/profiles", req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateProfile updates an existing Profile
+func (c *Client) UpdateProfile(ctx context.Context, uid string, req UpdateProfileRequest) (*v1.Profile, error) {
+	var result v1.Profile
+	endpoint := fmt.Sprintf("/profiles/%s", uid)
+	if err := c.doRequest(ctx, "PUT", endpoint, req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchProfile patches an existing Profile spec with the specified patch data and content type
+func (c *Client) PatchProfile(ctx context.Context, uid string, patchData []byte, contentType string) (*v1.Profile, error) {
+	var result v1.Profile
+	endpoint := fmt.Sprintf("/profiles/%s", uid)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateProfileStatus updates only the status of an existing Profile
+// This method is intended for controllers, reconcilers, and monitoring systems.
+// It preserves the spec and only updates the status portion of the resource.
+func (c *Client) UpdateProfileStatus(ctx context.Context, uid string, status v1.ProfileStatus) (*v1.Profile, error) {
+	var result v1.Profile
+	endpoint := fmt.Sprintf("/profiles/%s/status", uid)
+	if err := c.doRequest(ctx, "PUT", endpoint, status, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchProfileStatus patches only the status of an existing Profile
+// Supports JSON Merge Patch by default. Use PatchProfileStatusWithType for other patch formats.
+func (c *Client) PatchProfileStatus(ctx context.Context, uid string, patchData []byte) (*v1.Profile, error) {
+	return c.PatchProfileStatusWithType(ctx, uid, patchData, "application/merge-patch+json")
+}
+
+// PatchProfileStatusWithType patches status with a specific patch content type
+// Supported types: application/merge-patch+json, application/json-patch+json, application/fabrica-patch+json
+func (c *Client) PatchProfileStatusWithType(ctx context.Context, uid string, patchData []byte, contentType string) (*v1.Profile, error) {
+	var result v1.Profile
+	endpoint := fmt.Sprintf("/profiles/%s/status", uid)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// DeleteProfile deletes a Profile by UID
+func (c *Client) DeleteProfile(ctx context.Context, uid string) error {
+	endpoint := fmt.Sprintf("/profiles/%s", uid)
+	var response DeleteResponse
+	if err := c.doRequest(ctx, "DELETE", endpoint, nil, &response); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetWireGuardPeers retrieves all wireguardpeers
 func (c *Client) GetWireGuardPeers(ctx context.Context) ([]v1.WireGuardPeer, error) {
 	var response []v1.WireGuardPeer

@@ -15,6 +15,7 @@
 //   - /clusterdefaultss (ClusterDefaults operations)
 //   - /groups (Group operations)
 //   - /instanceinfos (InstanceInfo operations)
+//   - /profiles (Profile operations)
 //   - /wireguardpeers (WireGuardPeer operations)
 //
 // Route patterns:
@@ -50,6 +51,8 @@ func registerResourcePrefixes() error {
 	resource.RegisterResourcePrefix("Group", "group")
 
 	resource.RegisterResourcePrefix("InstanceInfo", "instanceinfo")
+
+	resource.RegisterResourcePrefix("Profile", "profile")
 
 	resource.RegisterResourcePrefix("WireGuardPeer", "wireguardpeer")
 
@@ -110,6 +113,24 @@ func RegisterGeneratedRoutes(r chi.Router) {
 			r.Route("/status", func(r chi.Router) {
 				r.Put("/", UpdateInstanceInfoStatus)
 				r.Patch("/", PatchInstanceInfoStatus)
+			})
+		})
+	})
+
+	// Profile routes
+	r.Route("/profiles", func(r chi.Router) {
+		r.Get("/", GetProfiles)
+		r.Post("/", CreateProfile)
+		r.Route("/{uid}", func(r chi.Router) {
+			r.Get("/", GetProfile)
+			r.Put("/", UpdateProfile)
+			r.Patch("/", PatchProfile)
+			r.Delete("/", DeleteProfile)
+
+			// Status subresource
+			r.Route("/status", func(r chi.Router) {
+				r.Put("/", UpdateProfileStatus)
+				r.Patch("/", PatchProfileStatus)
 			})
 		})
 	})

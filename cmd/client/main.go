@@ -15,6 +15,7 @@
 //   - client clusterdefaults [list|get|create|update|patch|delete]
 //   - client group [list|get|create|update|patch|delete]
 //   - client instanceinfo [list|get|create|update|patch|delete]
+//   - client profile [list|get|create|update|patch|delete]
 //   - client wireguardpeer [list|get|create|update|patch|delete]
 //
 // Global flags (available for all commands):
@@ -126,6 +127,7 @@ func init() {
 	rootCmd.AddCommand(clusterdefaultsCmd)
 	rootCmd.AddCommand(groupCmd)
 	rootCmd.AddCommand(instanceinfoCmd)
+	rootCmd.AddCommand(profileCmd)
 	rootCmd.AddCommand(wireguardpeerCmd)
 
 }
@@ -1257,6 +1259,352 @@ func init() {
 	instanceinfoPatchCmd.Flags().StringArray("unset", nil, "Unset field using dot notation")
 	instanceinfoPatchCmd.Flags().StringArray("add", nil, "Add value to array field (field=value)")
 	instanceinfoPatchCmd.Flags().StringArray("remove", nil, "Remove value from array field (field=value)")
+}
+
+// Profile commands
+var profileCmd = &cobra.Command{
+	Use:   "profile",
+	Short: "Manage profiles",
+	Long:  `Create, read, update, patch, and delete profiles.`,
+}
+
+var profileListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all profiles",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		items, err := c.GetProfiles(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list profiles: %w", err)
+		}
+
+		return printOutput(items)
+	},
+}
+
+var profileGetCmd = &cobra.Command{
+	Use:   "get [uid]",
+	Short: "Get a Profile by UID",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.GetProfile(ctx, args[0])
+		if err != nil {
+			return fmt.Errorf("failed to get Profile: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var profileCreateCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create a new Profile",
+	Long: `Create a new Profile.
+
+Examples:
+  # Create from stdin
+  echo '{"groupRef": "example-value", "parentProfile": "example-value", "template": "example-value", "templateEncoding": "example-value", "metaData": {"{"key":"value"}": "value"}, "expires_at": "example-value", "ttl_seconds": 42}' | client profile create
+
+  # Create with --spec flag
+  client profile create --spec '{"groupRef": "example-value", "parentProfile": "example-value", "template": "example-value", "templateEncoding": "example-value", "metaData": {"{"key":"value"}": "value"}, "expires_at": "example-value", "ttl_seconds": 42}'
+
+Spec fields:
+  groupRef (string) [required]
+  parentProfile (string)
+  template (string)
+  templateEncoding (string)
+  metaData (map[string]string)
+  expires_at (string)
+  ttl_seconds (int)
+`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		// Read request from flags or stdin
+		reqJSON, _ := cmd.Flags().GetString("spec")
+		var req client.CreateProfileRequest
+
+		if reqJSON == "" {
+			// Read from stdin if no spec provided
+			decoder := json.NewDecoder(os.Stdin)
+			if err := decoder.Decode(&req); err != nil {
+				return fmt.Errorf("failed to decode request from stdin: %w", err)
+			}
+		} else {
+			// Parse request from JSON string
+			if err := json.Unmarshal([]byte(reqJSON), &req); err != nil {
+				return fmt.Errorf("failed to parse request JSON: %w", err)
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.CreateProfile(ctx, req)
+		if err != nil {
+			return fmt.Errorf("failed to create Profile: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var profileUpdateCmd = &cobra.Command{
+	Use:   "update [uid]",
+	Short: "Update an existing Profile",
+	Long: `Update an existing Profile.
+
+Examples:
+  # Update from stdin
+  echo '{"groupRef": "example-value", "parentProfile": "example-value", "template": "example-value", "templateEncoding": "example-value", "metaData": {"{"key":"value"}": "value"}, "expires_at": "example-value", "ttl_seconds": 42}' | client profile update <uid>
+
+  # Update with --spec flag
+  client profile update <uid> --spec '{"groupRef": "example-value", "parentProfile": "example-value", "template": "example-value", "templateEncoding": "example-value", "metaData": {"{"key":"value"}": "value"}, "expires_at": "example-value", "ttl_seconds": 42}'
+
+Spec fields:
+  groupRef (string) [required]
+  parentProfile (string)
+  template (string)
+  templateEncoding (string)
+  metaData (map[string]string)
+  expires_at (string)
+  ttl_seconds (int)
+`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		// Read request from flags or stdin
+		reqJSON, _ := cmd.Flags().GetString("spec")
+		var req client.UpdateProfileRequest
+
+		if reqJSON == "" {
+			// Read from stdin if no spec provided
+			decoder := json.NewDecoder(os.Stdin)
+			if err := decoder.Decode(&req); err != nil {
+				return fmt.Errorf("failed to decode request from stdin: %w", err)
+			}
+		} else {
+			// Parse request from JSON string
+			if err := json.Unmarshal([]byte(reqJSON), &req); err != nil {
+				return fmt.Errorf("failed to parse request JSON: %w", err)
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.UpdateProfile(ctx, args[0], req)
+		if err != nil {
+			return fmt.Errorf("failed to update Profile: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var profilePatchCmd = &cobra.Command{
+	Use:   "patch [uid]",
+	Short: "Patch a Profile",
+	Long: `Patch an existing Profile spec using various patch formats.
+
+IMPORTANT: Only the spec portion of the resource can be patched.
+Metadata (name, labels, annotations) and status are managed by the API.
+
+Examples:
+  # JSON Merge Patch (simple merge) - patch spec fields
+  client profile patch <uid> --spec '{"manufacturer":"Intel","model":"Updated Model"}'
+
+  # Shorthand patch (dot notation - most convenient)
+  client profile patch <uid> --set manufacturer=Intel --set model="Updated Model" --unset customField
+
+  # JSON Patch (RFC 6902 - most powerful)
+  client profile patch <uid> --json-patch '[
+    {"op":"replace","path":"/manufacturer","value":"Intel"},
+    {"op":"add","path":"/properties/newField","value":"newValue"}
+  ]'
+
+  # From stdin (JSON Merge Patch format)
+  echo '{"manufacturer":"AMD","partNumber":"RYZEN-9000"}' | client profile patch <uid>
+
+Patch Formats:
+  --spec        JSON Merge Patch (RFC 7386) - simple object merge
+  --set/--unset Shorthand patch - dot notation for convenience
+  --json-patch  JSON Patch (RFC 6902) - operation-based patches
+  stdin         JSON Merge Patch format
+
+Shorthand Operations (spec fields only):
+  --set field=value     Set a spec field value (supports dot notation)
+  --unset field         Remove a spec field (supports dot notation)
+  --add field=value     Add to spec array field (field must end with '.-')
+  --remove field=value  Remove from spec array field
+
+Note: All patch operations target the resource spec only.
+Attempts to patch metadata or status fields will be ignored.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		uid := args[0]
+
+		// Get patch flags
+		specPatch, _ := cmd.Flags().GetString("spec")
+		jsonPatch, _ := cmd.Flags().GetString("json-patch")
+		setPairs, _ := cmd.Flags().GetStringArray("set")
+		unsetFields, _ := cmd.Flags().GetStringArray("unset")
+		addPairs, _ := cmd.Flags().GetStringArray("add")
+		removePairs, _ := cmd.Flags().GetStringArray("remove")
+
+		var patchData []byte
+		var contentType string
+
+		// Determine patch format and build patch data
+		if jsonPatch != "" {
+			// JSON Patch (RFC 6902)
+			patchData = []byte(jsonPatch)
+			contentType = "application/json-patch+json"
+		} else if len(setPairs) > 0 || len(unsetFields) > 0 || len(addPairs) > 0 || len(removePairs) > 0 {
+			// Shorthand patch - convert to JSON Merge Patch
+			patch := make(map[string]interface{})
+
+			// Process --set flags
+			for _, setPair := range setPairs {
+				parts := strings.SplitN(setPair, "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid --set format: %s (expected field=value)", setPair)
+				}
+				setNestedField(patch, parts[0], parts[1])
+			}
+
+			// Process --unset flags
+			for _, field := range unsetFields {
+				setNestedField(patch, field, nil)
+			}
+
+			// Process --add flags (add to arrays)
+			for _, addPair := range addPairs {
+				parts := strings.SplitN(addPair, "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid --add format: %s (expected field=value)", addPair)
+				}
+				// For arrays, we'll use JSON Merge Patch append syntax if possible
+				// Otherwise convert to JSON Patch
+				setNestedField(patch, parts[0], parts[1])
+			}
+
+			// Process --remove flags
+			for _, removePair := range removePairs {
+				parts := strings.SplitN(removePair, "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid --remove format: %s (expected field=value)", removePair)
+				}
+				// Remove operations are complex and might need JSON Patch
+				// For now, we'll handle simple cases
+				return fmt.Errorf("--remove operations require --json-patch format")
+			}
+
+			patchBytes, err := json.Marshal(patch)
+			if err != nil {
+				return fmt.Errorf("failed to marshal shorthand patch: %w", err)
+			}
+			patchData = patchBytes
+			contentType = "application/merge-patch+json"
+		} else if specPatch != "" {
+			// JSON Merge Patch from --spec
+			patchData = []byte(specPatch)
+			contentType = "application/merge-patch+json"
+		} else {
+			// Read from stdin (default to JSON Merge Patch)
+			decoder := json.NewDecoder(os.Stdin)
+			var patch interface{}
+			if err := decoder.Decode(&patch); err != nil {
+				return fmt.Errorf("failed to decode patch from stdin: %w", err)
+			}
+			patchBytes, err := json.Marshal(patch)
+			if err != nil {
+				return fmt.Errorf("failed to marshal patch: %w", err)
+			}
+			patchData = patchBytes
+			contentType = "application/merge-patch+json"
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.PatchProfile(ctx, uid, patchData, contentType)
+		if err != nil {
+			return fmt.Errorf("failed to patch Profile: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var profileDeleteCmd = &cobra.Command{
+	Use:   "delete [uid]",
+	Short: "Delete a Profile",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		if err := c.DeleteProfile(ctx, args[0]); err != nil {
+			return fmt.Errorf("failed to delete Profile: %w", err)
+		}
+
+		fmt.Printf("Profile %s deleted successfully\n", args[0])
+		return nil
+	},
+}
+
+func init() {
+	profileCmd.AddCommand(profileListCmd)
+	profileCmd.AddCommand(profileGetCmd)
+	profileCmd.AddCommand(profileCreateCmd)
+	profileCmd.AddCommand(profileUpdateCmd)
+	profileCmd.AddCommand(profilePatchCmd)
+	profileCmd.AddCommand(profileDeleteCmd)
+
+	// Add spec flag for create and update commands
+	profileCreateCmd.Flags().String("spec", "", "Profile specification in JSON format")
+	profileUpdateCmd.Flags().String("spec", "", "Profile specification in JSON format")
+
+	// Add patch command flags
+	profilePatchCmd.Flags().String("spec", "", "JSON Merge Patch specification")
+	profilePatchCmd.Flags().String("json-patch", "", "JSON Patch operations (RFC 6902)")
+	profilePatchCmd.Flags().StringArray("set", nil, "Set field value using dot notation (field=value)")
+	profilePatchCmd.Flags().StringArray("unset", nil, "Unset field using dot notation")
+	profilePatchCmd.Flags().StringArray("add", nil, "Add value to array field (field=value)")
+	profilePatchCmd.Flags().StringArray("remove", nil, "Remove value from array field (field=value)")
 }
 
 // WireGuardPeer commands

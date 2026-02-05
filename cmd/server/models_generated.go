@@ -129,6 +129,35 @@ func (r *UpdateInstanceInfoRequest) AsSpec() v1.InstanceInfoSpec {
 	return r.Spec
 }
 
+// ProfileResponse represents the response for Profile operations
+type ProfileResponse = v1.Profile
+
+// CreateProfileRequest represents a request to create a Profile
+type CreateProfileRequest struct {
+	Metadata    fabrica.Metadata  `json:"metadata" validate:"required"`
+	Spec        v1.ProfileSpec    `json:"spec" validate:"required"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// AsSpec converts the request fields to a spec object
+func (r *CreateProfileRequest) AsSpec() v1.ProfileSpec {
+	return r.Spec
+}
+
+// UpdateProfileRequest represents a request to update a Profile
+type UpdateProfileRequest struct {
+	Metadata    fabrica.Metadata  `json:"metadata,omitempty"`
+	Spec        v1.ProfileSpec    `json:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// AsSpec converts the request fields to a spec object
+func (r *UpdateProfileRequest) AsSpec() v1.ProfileSpec {
+	return r.Spec
+}
+
 // WireGuardPeerResponse represents the response for WireGuardPeer operations
 type WireGuardPeerResponse = v1.WireGuardPeer
 
