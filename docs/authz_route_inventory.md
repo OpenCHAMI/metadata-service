@@ -10,8 +10,11 @@ This service currently contains:
 
 Terminology (for later RBAC enforcement):
 - **Subject**: authenticated principal from JWT (user/service)
-- **Resource**: logical API/resource being accessed (e.g., `groups`, `instanceinfos`)
-- **Action**: CRUD-ish verb (e.g., `read`, `create`, `update`, `patch`, `delete`)
+- **Object** (`obj`): service-scoped resource string used for Casbin checks (e.g., `node-metadata`)
+- **Action** (`act`): `read|write|delete`
+
+Casbin policy fragment location in this repo:
+- `policies/metadata-service/policy.csv`
 
 ## Summary
 

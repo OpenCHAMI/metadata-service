@@ -1,0 +1,40 @@
+# metadata-service Casbin policy fragment (RBAC)
+#
+# This fragment is intended to be loaded/merged by the shared tokensmith
+# Casbin enforcer alongside other service fragments.
+#
+# Format:
+#   p, <sub>, <obj>, <act>
+#   g, <user>, <role>
+#
+# Conventions:
+# - sub: role name (admin/operator/viewer/service) unless using explicit user->role mapping
+# - obj: service-scoped resource string (see internal/authz/authz.go)
+# - act: read|write|delete
+
+# --- Role policies ---
+
+# Admin: full CRUD
+p, admin, node-metadata, read
+p, admin, node-metadata, write
+p, admin, node-metadata, delete
+
+p, admin, group-metadata, read
+p, admin, group-metadata, write
+p, admin, group-metadata, delete
+
+# Operator: read+write, no delete
+p, operator, node-metadata, read
+p, operator, node-metadata, write
+
+p, operator, group-metadata, read
+p, operator, group-metadata, write
+
+# Viewer: read-only
+p, viewer, node-metadata, read
+p, viewer, group-metadata, read
+
+# Service: service-to-service reads (e.g., boot-service reading metadata)
+# NOTE: The JWT for a calling service should map to the 'service' role.
+p, service, node-metadata, read
+p, service, group-metadata, read
