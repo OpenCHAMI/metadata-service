@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/OpenCHAMI/cloud-init/internal/authz"
 	"github.com/OpenCHAMI/cloud-init/internal/storage"
 	"github.com/OpenCHAMI/cloud-init/pkg/wireguard"
 )
@@ -174,8 +175,13 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Add middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	// Ensure ordering: request-id -> authn -> authz.
+	// (authn and authz middleware are wired in incrementally across steps)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	// authn: (existing tokensmith JWT middleware will be wired here in a later step)
+	r.Use(authz.WrapMiddleware())
 
 	if config.Debug {
 		r.Mount("/debug", middleware.Profiler())
