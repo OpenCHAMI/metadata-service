@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/OpenCHAMI/cloud-init/internal/authz"
 	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
 	"github.com/OpenCHAMI/cloud-init/pkg/wireguard"
 	"github.com/go-chi/chi/v5"
@@ -47,7 +48,7 @@ func getClientIPFromRequest(r *http.Request) string {
 }
 
 func registerWireGuardRoutes(r chi.Router, controller *wireguard.Controller, smd smdclient.SMDClient) {
-	r.Post("/wg-init", func(w http.ResponseWriter, r *http.Request) {
+	r.Method(http.MethodPost, "/wg-init", authz.AnnotateRoute(http.MethodPost, "/wg-init", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if controller == nil {
 			http.Error(w, "wireguard disabled", http.StatusServiceUnavailable)
 			return
@@ -78,9 +79,9 @@ func registerWireGuardRoutes(r chi.Router, controller *wireguard.Controller, smd
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(resp)
-	})
+	})))
 
-	r.Post("/phone-home/{id}", func(w http.ResponseWriter, r *http.Request) {
+	r.Method(http.MethodPost, "/phone-home/{id}", authz.AnnotateRoute(http.MethodPost, "/phone-home/{id}", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if controller == nil {
 			http.Error(w, "wireguard disabled", http.StatusServiceUnavailable)
 			return
@@ -96,5 +97,5 @@ func registerWireGuardRoutes(r chi.Router, controller *wireguard.Controller, smd
 		}
 		_ = controller.RemovePeerByID(peerKey)
 		w.WriteHeader(http.StatusOK)
-	})
+	})))
 }

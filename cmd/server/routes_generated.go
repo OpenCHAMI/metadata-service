@@ -37,6 +37,9 @@
 package main
 
 import (
+	"net/http"
+
+	"github.com/OpenCHAMI/cloud-init/internal/authz"
 	"github.com/go-chi/chi/v5"
 	"github.com/openchami/fabrica/pkg/resource"
 )
@@ -62,77 +65,77 @@ func RegisterGeneratedRoutes(r chi.Router) {
 
 	// ClusterDefaults routes
 	r.Route("/clusterdefaultss", func(r chi.Router) {
-		r.Get("/", GetClusterDefaultss)
-		r.Post("/", CreateClusterDefaults)
+		r.Method(http.MethodGet, "/", authz.AnnotateRoute(http.MethodGet, "/clusterdefaultss/", authz.Require(authz.ObjectNodeMetadata, authz.ActionRead), http.HandlerFunc(GetClusterDefaultss)))
+		r.Method(http.MethodPost, "/", authz.AnnotateRoute(http.MethodPost, "/clusterdefaultss/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite), http.HandlerFunc(CreateClusterDefaults)))
 		r.Route("/{uid}", func(r chi.Router) {
-			r.Get("/", GetClusterDefaults)
-			r.Put("/", UpdateClusterDefaults)
-			r.Patch("/", PatchClusterDefaults)
-			r.Delete("/", DeleteClusterDefaults)
+			r.Method(http.MethodGet, "/", authz.AnnotateRoute(http.MethodGet, "/clusterdefaultss/{uid}/", authz.Require(authz.ObjectNodeMetadata, authz.ActionRead), http.HandlerFunc(GetClusterDefaults)))
+			r.Method(http.MethodPut, "/", authz.AnnotateRoute(http.MethodPut, "/clusterdefaultss/{uid}/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite), http.HandlerFunc(UpdateClusterDefaults)))
+			r.Method(http.MethodPatch, "/", authz.AnnotateRoute(http.MethodPatch, "/clusterdefaultss/{uid}/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite), http.HandlerFunc(PatchClusterDefaults)))
+			r.Method(http.MethodDelete, "/", authz.AnnotateRoute(http.MethodDelete, "/clusterdefaultss/{uid}/", authz.Require(authz.ObjectNodeMetadata, authz.ActionDelete), http.HandlerFunc(DeleteClusterDefaults)))
 
 			// Status subresource
 			r.Route("/status", func(r chi.Router) {
-				r.Put("/", UpdateClusterDefaultsStatus)
-				r.Patch("/", PatchClusterDefaultsStatus)
+				r.Method(http.MethodPut, "/", authz.AnnotateRoute(http.MethodPut, "/clusterdefaultss/{uid}/status/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite), http.HandlerFunc(UpdateClusterDefaultsStatus)))
+				r.Method(http.MethodPatch, "/", authz.AnnotateRoute(http.MethodPatch, "/clusterdefaultss/{uid}/status/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite), http.HandlerFunc(PatchClusterDefaultsStatus)))
 			})
 		})
 	})
 
 	// Group routes
 	r.Route("/groups", func(r chi.Router) {
-		r.Get("/", GetGroups)
-		r.Post("/", CreateGroup)
+		r.Method(http.MethodGet, "/", authz.AnnotateRoute(http.MethodGet, "/groups/", authz.Require(authz.ObjectGroupMetadata, authz.ActionRead), http.HandlerFunc(GetGroups)))
+		r.Method(http.MethodPost, "/", authz.AnnotateRoute(http.MethodPost, "/groups/", authz.Require(authz.ObjectGroupMetadata, authz.ActionWrite), http.HandlerFunc(CreateGroup)))
 		r.Route("/{uid}", func(r chi.Router) {
-			r.Get("/", GetGroup)
-			r.Put("/", UpdateGroup)
-			r.Patch("/", PatchGroup)
-			r.Delete("/", DeleteGroup)
+			r.Method(http.MethodGet, "/", authz.AnnotateRoute(http.MethodGet, "/groups/{uid}/", authz.Require(authz.ObjectGroupMetadata, authz.ActionRead), http.HandlerFunc(GetGroup)))
+			r.Method(http.MethodPut, "/", authz.Require(authz.ObjectGroupMetadata, authz.ActionWrite)(http.HandlerFunc(UpdateGroup)))
+			r.Method(http.MethodPatch, "/", authz.Require(authz.ObjectGroupMetadata, authz.ActionWrite)(http.HandlerFunc(PatchGroup)))
+			r.Method(http.MethodDelete, "/", authz.AnnotateRoute(http.MethodDelete, "/groups/{uid}/", authz.Require(authz.ObjectGroupMetadata, authz.ActionDelete), http.HandlerFunc(DeleteGroup)))
 
 			// Status subresource
 			r.Route("/status", func(r chi.Router) {
-				r.Put("/", UpdateGroupStatus)
-				r.Patch("/", PatchGroupStatus)
+				r.Method(http.MethodPut, "/", authz.Require(authz.ObjectGroupMetadata, authz.ActionWrite)(http.HandlerFunc(UpdateGroupStatus)))
+				r.Method(http.MethodPatch, "/", authz.Require(authz.ObjectGroupMetadata, authz.ActionWrite)(http.HandlerFunc(PatchGroupStatus)))
 			})
 		})
 	})
 
 	// InstanceInfo routes
 	r.Route("/instanceinfos", func(r chi.Router) {
-		r.Get("/", GetInstanceInfos)
-		r.Post("/", CreateInstanceInfo)
+		r.Method(http.MethodGet, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionRead)(http.HandlerFunc(GetInstanceInfos)))
+		r.Method(http.MethodPost, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite)(http.HandlerFunc(CreateInstanceInfo)))
 		r.Route("/{uid}", func(r chi.Router) {
-			r.Get("/", GetInstanceInfo)
-			r.Put("/", UpdateInstanceInfo)
-			r.Patch("/", PatchInstanceInfo)
-			r.Delete("/", DeleteInstanceInfo)
+			r.Method(http.MethodGet, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionRead)(http.HandlerFunc(GetInstanceInfo)))
+			r.Method(http.MethodPut, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite)(http.HandlerFunc(UpdateInstanceInfo)))
+			r.Method(http.MethodPatch, "/", authz.AnnotateRoute(http.MethodPatch, "/instanceinfos/{uid}/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite), http.HandlerFunc(PatchInstanceInfo)))
+			r.Method(http.MethodDelete, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionDelete)(http.HandlerFunc(DeleteInstanceInfo)))
 
 			// Status subresource
 			r.Route("/status", func(r chi.Router) {
-				r.Put("/", UpdateInstanceInfoStatus)
-				r.Patch("/", PatchInstanceInfoStatus)
+				r.Method(http.MethodPut, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite)(http.HandlerFunc(UpdateInstanceInfoStatus)))
+				r.Method(http.MethodPatch, "/", authz.AnnotateRoute(http.MethodPatch, "/instanceinfos/{uid}/status/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite), http.HandlerFunc(PatchInstanceInfoStatus)))
 			})
 		})
 	})
 
 	// WireGuardPeer routes
 	r.Route("/wireguardpeers", func(r chi.Router) {
-		r.Get("/", GetWireGuardPeers)
-		r.Post("/", CreateWireGuardPeer)
+		r.Method(http.MethodGet, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionRead)(http.HandlerFunc(GetWireGuardPeers)))
+		r.Method(http.MethodPost, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite)(http.HandlerFunc(CreateWireGuardPeer)))
 		r.Route("/{uid}", func(r chi.Router) {
-			r.Get("/", GetWireGuardPeer)
-			r.Put("/", UpdateWireGuardPeer)
-			r.Patch("/", PatchWireGuardPeer)
-			r.Delete("/", DeleteWireGuardPeer)
+			r.Method(http.MethodGet, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionRead)(http.HandlerFunc(GetWireGuardPeer)))
+			r.Method(http.MethodPut, "/", authz.AnnotateRoute(http.MethodPut, "/wireguardpeers/{uid}/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite), http.HandlerFunc(UpdateWireGuardPeer)))
+			r.Method(http.MethodPatch, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite)(http.HandlerFunc(PatchWireGuardPeer)))
+			r.Method(http.MethodDelete, "/", authz.AnnotateRoute(http.MethodDelete, "/wireguardpeers/{uid}/", authz.Require(authz.ObjectNodeMetadata, authz.ActionDelete), http.HandlerFunc(DeleteWireGuardPeer)))
 
 			// Status subresource
 			r.Route("/status", func(r chi.Router) {
-				r.Put("/", UpdateWireGuardPeerStatus)
-				r.Patch("/", PatchWireGuardPeerStatus)
+				r.Method(http.MethodPut, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite)(http.HandlerFunc(UpdateWireGuardPeerStatus)))
+				r.Method(http.MethodPatch, "/", authz.Require(authz.ObjectNodeMetadata, authz.ActionWrite)(http.HandlerFunc(PatchWireGuardPeerStatus)))
 			})
 		})
 	})
 
 	// OpenAPI documentation routes
-	r.Get("/openapi.json", ServeOpenAPISpec)
-	r.Get("/docs", ServeSwaggerUI)
+	r.Method(http.MethodGet, "/openapi.json", authz.Public()(http.HandlerFunc(ServeOpenAPISpec)))
+	r.Method(http.MethodGet, "/docs", authz.Public()(http.HandlerFunc(ServeSwaggerUI)))
 }

@@ -3,7 +3,46 @@
 
 package authz
 
-import "net/http"
+import (
+	"net/http"
+	"sync"
+)
+
+// RouteSpec describes a registered HTTP endpoint that should be annotated.
+//
+// This is used only by tests as a guardrail to prevent introducing new routes
+// without an explicit authn/authz decision.
+type RouteSpec struct {
+	Method string
+	Path   string
+}
+
+var (
+	annMu    sync.Mutex
+	annIndex = map[RouteSpec]struct{}{}
+)
+
+func recordAnnotation(method, path string) {
+	annMu.Lock()
+	defer annMu.Unlock()
+	annIndex[RouteSpec{Method: method, Path: path}] = struct{}{}
+}
+
+// MissingRouteAnnotations returns routes listed in docs/authz_route_inventory.md
+// that were not annotated by route registration.
+func MissingRouteAnnotations() []RouteSpec {
+	expected := ExpectedRoutes()
+	annMu.Lock()
+	defer annMu.Unlock()
+
+	var missing []RouteSpec
+	for _, r := range expected {
+		if _, ok := annIndex[r]; !ok {
+			missing = append(missing, r)
+		}
+	}
+	return missing
+}
 
 // Route annotators used when registering handlers.
 //
@@ -34,4 +73,14 @@ func Require(obj, act string) Annotator {
 	_ = obj
 	_ = act
 	return func(next http.Handler) http.Handler { return next }
+}
+
+// AnnotateRoute records that a route registration made an explicit authz
+// decision (Public/Require). It does not change runtime behavior yet.
+func AnnotateRoute(method, path string, ann Annotator, h http.Handler) http.Handler {
+	recordAnnotation(method, path)
+	if ann == nil {
+		return h
+	}
+	return ann(h)
 }

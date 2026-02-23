@@ -6,8 +6,10 @@ package main
 
 import (
 	"context"
+	"net/http"
 
 	cloudinitv1 "github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
+	"github.com/OpenCHAMI/cloud-init/internal/authz"
 	"github.com/OpenCHAMI/cloud-init/internal/storage"
 	"github.com/OpenCHAMI/cloud-init/pkg/handlers"
 	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
@@ -84,9 +86,11 @@ func (s *StorageAdapter) GetGroupData(name string) (*cloudinitv1.Group, error) {
 // RegisterCloudInitRoutes registers the cloud-init metadata server endpoints
 func RegisterCloudInitRoutes(r chi.Router, smd smdclient.SMDClient, store handlers.Store) {
 	// Cloud-init metadata endpoints
-	r.Get("/meta-data", handlers.MetaDataHandler(smd, store))
-	r.Get("/user-data", handlers.UserDataHandler)
-	r.Get("/vendor-data", handlers.VendorDataHandler(smd, store))
-	r.Get("/network-config", handlers.NetworkConfigHandler(smd, store))
-	r.Get("/{group}.yaml", handlers.GroupUserDataHandler(smd, store))
+	// These endpoints are consumed by cloud-init and should be callable without
+	// OpenCHAMI authn/authz.
+	r.Method(http.MethodGet, "/meta-data", authz.AnnotateRoute(http.MethodGet, "/meta-data", authz.Public(), handlers.MetaDataHandler(smd, store)))
+	r.Method(http.MethodGet, "/user-data", authz.AnnotateRoute(http.MethodGet, "/user-data", authz.Public(), http.HandlerFunc(handlers.UserDataHandler)))
+	r.Method(http.MethodGet, "/vendor-data", authz.AnnotateRoute(http.MethodGet, "/vendor-data", authz.Public(), handlers.VendorDataHandler(smd, store)))
+	r.Method(http.MethodGet, "/network-config", authz.AnnotateRoute(http.MethodGet, "/network-config", authz.Public(), handlers.NetworkConfigHandler(smd, store)))
+	r.Method(http.MethodGet, "/{group}.yaml", authz.AnnotateRoute(http.MethodGet, "/{group}.yaml", authz.Public(), handlers.GroupUserDataHandler(smd, store)))
 }
