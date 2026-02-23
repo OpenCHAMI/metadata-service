@@ -105,6 +105,19 @@ Enable with `--wireguard_server` to expose `/wg-init` and `/phone-home/{id}` for
 go run ./cmd/server serve --port 8888 --wireguard_server
 ```
 
+## Authorization (JWT + Casbin RBAC)
+
+metadata-service supports optional Casbin-based authorization via the shared `tokensmith` middleware.
+
+Operational enable/verify/rollback steps:
+- `docs/authz_operational.md`
+
+Route inventory (what is Public vs Protected) and object/action mapping:
+- `docs/authz_route_inventory.md`
+
+Policy fragment shipped in this repo:
+- `policies/metadata-service/policy.csv`
+
 ## Development
 
 ```bash
