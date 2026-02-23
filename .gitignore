@@ -1,36 +1,7 @@
-# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
-#
-# SPDX-License-Identifier: MIT
-
-# Binaries
 bin/
-*.exe
-*.exe*.dll
-*.so
-*.dylib
+coverage.out
+coverage.html
 
-# Test binary, built with go test -c
-*.test
-
-# Output of the go coverage tool
-*.out
-
-# Go workspace file
-go.work
-
-# Data directories
-data/
-*.db
-
-# Config files (may contain secrets)
-*.yaml
-*.yml
-!example.yaml
-!example.yml
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Local build artifacts
+cmd/server/server
+cmd/client/client
