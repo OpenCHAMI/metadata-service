@@ -5,27 +5,78 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
 	"github.com/rs/zerolog/log"
 )
 
 // initSMDClient initializes the SMD client based on configuration
-func initSMDClient() smdclient.SMDClient {
+func initSMDClient(cfg *Config) (smdclient.SMDClient, *smdclient.ServiceTokenManager, error) {
 	// Check if SMD URL is configured
 	smdURL := os.Getenv("SMD_URL")
 	if smdURL == "" {
 		log.Warn().Msg("SMD_URL not configured, using mock SMD client for development")
-		return createMockSMDClient()
+		return createMockSMDClient(), nil, nil
 	}
 
-	jwt := os.Getenv("SMD_JWT")
-	if jwt == "" {
-		jwt = os.Getenv("SMD_TOKEN")
+	httpClient := smdclient.NewHTTPClient(smdURL, resolveStaticSMDToken())
+
+	if strings.TrimSpace(cfg.TokenSmithURL) == "" {
+		log.Info().Msg("SMD_URL configured, using real SMD HTTP client")
+		return httpClient, nil, nil
 	}
-	log.Info().Msg("SMD_URL configured, using real SMD HTTP client")
-	return smdclient.NewHTTPClient(smdURL, jwt)
+
+	bootstrapToken := strings.TrimSpace(cfg.TokenSmithBootstrapToken)
+	bootstrapSource := "config"
+	if bootstrapToken == "" {
+		bootstrapToken = strings.TrimSpace(os.Getenv("OCHAMI_METADATA_TOKENSMITH_BOOTSTRAP_TOKEN"))
+		bootstrapSource = "env:OCHAMI_METADATA_TOKENSMITH_BOOTSTRAP_TOKEN"
+	}
+	if bootstrapToken == "" {
+		return nil, nil, fmt.Errorf("tokensmith_url is configured but no bootstrap token was provided")
+	}
+
+	tokenCfg := smdclient.DefaultTokenExchangeConfig()
+	tokenCfg.TokenSmithURL = strings.TrimSpace(cfg.TokenSmithURL)
+	tokenCfg.BootstrapToken = bootstrapToken
+	tokenCfg.TargetService = strings.TrimSpace(cfg.TokenSmithTargetService)
+	tokenCfg.Scopes = parseScopeCSV(cfg.TokenSmithScopes)
+	tokenCfg.RefreshBefore = time.Duration(cfg.TokenSmithRefreshSkewSec) * time.Second
+
+	manager := smdclient.NewServiceTokenManager(tokenCfg)
+
+	log.Info().
+		Str("component", "server").
+		Str("event", "smd_tokensmith_init").
+		Str("endpoint", strings.TrimRight(tokenCfg.TokenSmithURL, "/")+"/service/token").
+		Str("target", tokenCfg.TargetService).
+		Strs("scopes", tokenCfg.Scopes).
+		Bool("bootstrap_token_present", true).
+		Str("bootstrap_token_source", bootstrapSource).
+		Msg("initializing TokenSmith-backed SMD authentication")
+
+	initialTokenCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := manager.Initialize(initialTokenCtx); err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize SMD service token exchange: %w", err)
+	}
+
+	httpClient.WithAuthTokenProvider(manager.GetToken)
+	log.Info().Msg("SMD_URL configured, using TokenSmith-backed dynamic SMD auth")
+	return httpClient, manager, nil
+}
+
+func resolveStaticSMDToken() string {
+	jwt := strings.TrimSpace(os.Getenv("SMD_JWT"))
+	if jwt == "" {
+		jwt = strings.TrimSpace(os.Getenv("SMD_TOKEN"))
+	}
+	return jwt
 }
 
 // createMockSMDClient creates a mock SMD client with sample data for development

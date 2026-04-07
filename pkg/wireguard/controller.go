@@ -243,6 +243,17 @@ func (c *Controller) RemovePeer(clientIP string) error {
 	return nil
 }
 
+// GetPeerVPNIP returns the allocated VPN IP for a peer keyed by peerID, if it exists.
+// This is safe to call concurrently.
+func (c *Controller) GetPeerVPNIP(peerID string) (string, bool) {
+	c.PeersMutex.RLock()
+	defer c.PeersMutex.RUnlock()
+	if peer, ok := c.Peers[peerID]; ok {
+		return peer.VPNIP, true
+	}
+	return "", false
+}
+
 // PublicKey returns the controller's server public key.
 func (c *Controller) PublicKey() string { return c.Device.PublicKeyValue() }
 

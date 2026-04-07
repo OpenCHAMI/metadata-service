@@ -126,7 +126,7 @@ func TestIntegrationCloudInitFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("meta-data request failed: %v", err)
 	}
-	defer metaResp.Body.Close()
+	defer metaResp.Body.Close() //nolint:errcheck
 
 	if metaResp.StatusCode != http.StatusOK {
 		t.Fatalf("meta-data status %d", metaResp.StatusCode)
@@ -166,7 +166,7 @@ func TestIntegrationCloudInitFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vendor-data request failed: %v", err)
 	}
-	defer vendorResp.Body.Close()
+	defer vendorResp.Body.Close() //nolint:errcheck
 
 	if vendorResp.StatusCode != http.StatusOK {
 		t.Fatalf("vendor-data status %d", vendorResp.StatusCode)
@@ -201,7 +201,7 @@ func TestIntegrationCloudInitFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("group request failed: %v", err)
 	}
-	defer groupResp.Body.Close()
+	defer groupResp.Body.Close() //nolint:errcheck
 
 	if groupResp.StatusCode != http.StatusOK {
 		t.Fatalf("group status %d", groupResp.StatusCode)
@@ -296,7 +296,7 @@ func TestIntegrationSyslogRackMetadataIsolation(t *testing.T) {
 			t.Fatalf("syslog request failed: %v", err)
 		}
 		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		resp.Body.Close() //nolint:errcheck
 		if err != nil {
 			t.Fatalf("syslog response read failed: %v", err)
 		}
