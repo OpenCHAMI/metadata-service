@@ -20,13 +20,14 @@ const smdAPIVersionPath = "/apis/smd/hsm/v2"
 
 // HTTPClient is an SMD client backed by the SMD HTTP API.
 type HTTPClient struct {
-	baseURL           string
-	client            *http.Client
-	cache             *smdCache
-	jwt               string
-	authTokenProvider func(context.Context) (string, error)
-	wgmu              sync.RWMutex
-	wgip              map[string]string
+	baseURL             string
+	client              *http.Client
+	cache               *smdCache
+	jwt                 string
+	authTokenProvider   func(context.Context) (string, error)
+	serviceTokenManager *ServiceTokenManager
+	wgmu                sync.RWMutex
+	wgip                map[string]string
 }
 
 // NewHTTPClient creates an SMD client backed by the SMD HTTP API.
@@ -45,6 +46,11 @@ func NewHTTPClient(baseURL, jwt string) *HTTPClient {
 // WithAuthTokenProvider configures dynamic bearer token retrieval for each request.
 func (c *HTTPClient) WithAuthTokenProvider(provider func(context.Context) (string, error)) {
 	c.authTokenProvider = provider
+}
+
+// WithServiceTokenManager configures TokenSmith-backed token management directly.
+func (c *HTTPClient) WithServiceTokenManager(manager *ServiceTokenManager) {
+	c.serviceTokenManager = manager
 }
 
 func normalizeBaseURL(baseURL string) string {
@@ -245,7 +251,13 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if c.authTokenProvider != nil {
+	if c.serviceTokenManager != nil {
+		if refreshErr := c.serviceTokenManager.RefreshTokenIfNeeded(context.Background()); refreshErr == nil {
+			if token := c.serviceTokenManager.GetServiceToken(); token != nil && strings.TrimSpace(token.Token) != "" {
+				req.Header.Set("Authorization", "Bearer "+token.Token)
+			}
+		}
+	} else if c.authTokenProvider != nil {
 		token, providerErr := c.authTokenProvider(context.Background())
 		if providerErr == nil && strings.TrimSpace(token) != "" {
 			req.Header.Set("Authorization", "Bearer "+token)

@@ -34,8 +34,8 @@ func initSMDClient(cfg *Config) (smdclient.SMDClient, *smdclient.ServiceTokenMan
 	bootstrapToken := strings.TrimSpace(cfg.TokenSmithBootstrapToken)
 	bootstrapSource := "config"
 	if bootstrapToken == "" {
-		bootstrapToken = strings.TrimSpace(os.Getenv("OCHAMI_METADATA_TOKENSMITH_BOOTSTRAP_TOKEN"))
-		bootstrapSource = "env:OCHAMI_METADATA_TOKENSMITH_BOOTSTRAP_TOKEN"
+		bootstrapToken = strings.TrimSpace(os.Getenv("TOKENSMITH_BOOTSTRAP_TOKEN"))
+		bootstrapSource = "env:TOKENSMITH_BOOTSTRAP_TOKEN"
 	}
 	if bootstrapToken == "" {
 		return nil, nil, fmt.Errorf("tokensmith_url is configured but no bootstrap token was provided")
@@ -66,7 +66,7 @@ func initSMDClient(cfg *Config) (smdclient.SMDClient, *smdclient.ServiceTokenMan
 		return nil, nil, fmt.Errorf("failed to initialize SMD service token exchange: %w", err)
 	}
 
-	httpClient.WithAuthTokenProvider(manager.GetToken)
+	httpClient.WithServiceTokenManager(manager)
 	log.Info().Msg("SMD_URL configured, using TokenSmith-backed dynamic SMD auth")
 	return httpClient, manager, nil
 }

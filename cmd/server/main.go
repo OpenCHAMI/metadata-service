@@ -88,16 +88,16 @@ func main() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "github.com/OpenCHAMI/cloud-init",
-	Short: "",
-	Long:  `github.com/OpenCHAMI/cloud-init - A Fabrica-generated OpenCHAMI service`,
+	Use:   "ochami-metadata-server",
+	Short: "OpenCHAMI metadata service",
+	Long:  `ochami-metadata-server - OpenCHAMI metadata service`,
 	RunE:  runServer,
 }
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Start the github.com/OpenCHAMI/cloud-init server",
-	Long:  `Start the github.com/OpenCHAMI/cloud-init HTTP server with the configured options`,
+	Short: "Start the ochami-metadata-server server",
+	Long:  `Start the ochami-metadata-server HTTP server with the configured options`,
 	RunE:  runServer,
 }
 
@@ -120,11 +120,12 @@ func init() {
 	// WireGuard flags
 	serveCmd.Flags().String("wireguard-state-file", "./data/wireguard/state.yaml", "Path to WireGuard state file for persistence")
 	serveCmd.Flags().Bool("wireguard-only", false, "Restrict access to WireGuard network only")
-	serveCmd.Flags().String("tokensmith-url", "", "TokenSmith service URL for dynamic service tokens")
-	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "Bootstrap JWT for service token exchange (prefer env var)")
-	serveCmd.Flags().String("tokensmith-target-service", "smd", "Target service name for TokenSmith exchange")
-	serveCmd.Flags().String("tokensmith-scopes", "", "Comma-separated scopes for TokenSmith service token")
-	serveCmd.Flags().Int("tokensmith-refresh-skew-sec", 120, "Seconds before expiry to proactively refresh token")
+	serveCmd.Flags().String("wireguard-server", "", "Enable WireGuard userspace controller (CIDR, e.g. 100.97.0.1/16)")
+	serveCmd.Flags().String("tokensmith-url", "", "TokenSmith service URL for dynamic service tokens (env: TOKENSMITH_URL)")
+	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "Bootstrap JWT for service token exchange (prefer env: TOKENSMITH_BOOTSTRAP_TOKEN)")
+	serveCmd.Flags().String("tokensmith-target-service", "smd", "Target service name for TokenSmith exchange (env: TOKENSMITH_TARGET_SERVICE)")
+	serveCmd.Flags().String("tokensmith-scopes", "", "Comma-separated scopes for TokenSmith service token (env: TOKENSMITH_SCOPES)")
+	serveCmd.Flags().Int("tokensmith-refresh-skew-sec", 120, "Seconds before expiry to proactively refresh token (env: TOKENSMITH_REFRESH_SKEW_SEC)")
 
 	// Bind flags to viper
 	viper.BindPFlags(serveCmd.Flags())
@@ -134,6 +135,11 @@ func init() {
 	viper.RegisterAlias("tokensmith_target_service", "tokensmith-target-service")
 	viper.RegisterAlias("tokensmith_scopes", "tokensmith-scopes")
 	viper.RegisterAlias("tokensmith_refresh_skew_sec", "tokensmith-refresh-skew-sec")
+	viper.BindEnv("tokensmith_url", "TOKENSMITH_URL")                           //nolint:errcheck
+	viper.BindEnv("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN")   //nolint:errcheck
+	viper.BindEnv("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE")     //nolint:errcheck
+	viper.BindEnv("tokensmith_scopes", "TOKENSMITH_SCOPES")                     //nolint:errcheck
+	viper.BindEnv("tokensmith_refresh_skew_sec", "TOKENSMITH_REFRESH_SKEW_SEC") //nolint:errcheck
 
 	// Add subcommands
 	rootCmd.AddCommand(serveCmd)
