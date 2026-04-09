@@ -17,20 +17,15 @@ bin/
 
 # Go workspace file
 go.work
+go.work.sum
 
 # Data directories
 data/
 *.db
-
-# Config files (may contain secrets)
-*.yaml
-*.yml
-!example.yaml
-!example.yml
 
 # IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
+

@@ -1,0 +1,11 @@
+groups:
+  - name: cloud-init.openchami.io
+    storageVersion: v1
+    versions:
+      - v1
+    resources:
+      - ClusterDefaults
+      - Group
+      - InstanceInfo
+      - Profile
+      - WireGuardPeer
