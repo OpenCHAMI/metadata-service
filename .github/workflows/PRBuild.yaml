@@ -98,7 +98,7 @@ jobs:
       - name: Attest Binaries
         uses: actions/attest-build-provenance@v4.1.0
         with:
-          subject-path: dist/metadata-service*
+          subject-path: dist/**/metadata-*
       - name: generate build provenance
         uses: actions/attest-build-provenance@v4.1.0
         with:
