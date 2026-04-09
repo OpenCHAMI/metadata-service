@@ -54,66 +54,30 @@ builds:
          -X main.BuildUser={{ .Env.BUILD_USER }} "
 
 
-dockers:
-  - image_templates:
-      - &amd64_linux_image ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}-amd64
-      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}-amd64
-      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-amd64
-    use: buildx
-    build_flag_templates:
+dockers_v2:
+  - id: "metadata-server"
+    ids:
+      - "metadata-server"
+    images:
+      - "ghcr.io/openchami/{{.ProjectName}}"
+    tags:
+      - "latest"
+      - "{{ .Tag }}"
+      - "{{ .Major }}"
+      - "{{ .Major }}.{{ .Minor }}"
+    labels:
+      "org.opencontainers.image.created": "{{.Date}}"
+      "org.opencontainers.image.title": "{{.ProjectName}}"
+      "org.opencontainers.image.revision": "{{.FullCommit}}"
+      "org.opencontainers.image.version": "{{.Version}}"
+    platforms:
+      - "linux/amd64"
+      - "linux/arm64"
+    flags:
       - "--pull"
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-    goarch: amd64
-    goamd64: v3
-
     extra_files:
-      - LICENSE
-      - CHANGELOG.md
-      - README.md
-      - entrypoint.sh
-  - image_templates:
-      - &arm64v8_linux_image ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}-arm64
-      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}-arm64
-      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-arm64
-    use: buildx
-    build_flag_templates:
-      - "--pull"
-      - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-    extra_files:
-      - LICENSE
-      - CHANGELOG.md
-      - README.md
-      - entrypoint.sh
-    goarch: arm64
-
-docker_manifests:
-  - name_template: "ghcr.io/openchami/{{.ProjectName}}:latest"
-    image_templates:
-      - *amd64_linux_image
-      - *arm64v8_linux_image
-
-  - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}"
-    image_templates:
-      - *amd64_linux_image
-      - *arm64v8_linux_image
-
-  - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}"
-    image_templates:
-      - *amd64_linux_image
-      - *arm64v8_linux_image
-
-  - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}"
-    image_templates:
-      - *amd64_linux_image
-      - *arm64v8_linux_image
+      - "LICENSES/MIT.txt"
+      - "README.md"
 
 archives:
   - id: "tokensmith"
