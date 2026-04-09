@@ -108,7 +108,7 @@ release:
   disable: "{{ if eq .Env.IS_PR_BUILD \"true\" }}true{{ else }}false{{ end }}"
   github:
     owner: OpenCHAMI
-    name: tokensmith
+    name: metadata-service
   name_template: 'v{{ .Version }}'
   prerelease: auto
   mode: replace
