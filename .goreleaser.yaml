@@ -80,7 +80,7 @@ dockers_v2:
       - "README.md"
 
 archives:
-  - id: "tokensmith"
+  - id: "metadata-service"
     # this name template makes the OS and Arch compatible with the results of uname.
     name_template: >-
       {{ .ProjectName }}_
