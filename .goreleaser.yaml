@@ -126,10 +126,8 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     files:
-      - LICENSE
-      - CHANGELOG.md
+      - LICENSES/MIT.txt
       - README.md
-      - entrypoint.sh
 
 checksum:
   name_template: 'checksums.txt'
