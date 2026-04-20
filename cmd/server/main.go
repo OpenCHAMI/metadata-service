@@ -251,6 +251,10 @@ func runServer(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
+	if err := registerResourcePrefixes(); err != nil {
+		return fmt.Errorf("failed to register resource prefixes: %w", err)
+	}
+
 	RegisterGeneratedRoutes(r)
 	r.Get("/health", healthHandler)
 
