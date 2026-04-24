@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
+project:
+  name: cloud-init
+  module: github.com/OpenCHAMI/cloud-init
+  description: Cloud-init metadata service with Fabrica-generated REST APIs
+  created: 2026-04-24T00:00:00Z
+features:
+  validation:
+    enabled: true
+    mode: strict
+  events:
+    enabled: true
+    bus_type: memory
+  conditional:
+    enabled: true
+    etag_algorithm: sha256
+  auth:
+    enabled: false
+  security:
+    authn:
+      enabled: false
+    authz:
+      enabled: false
+      mode: enforce
+  storage:
+    enabled: true
+    type: file
+  metrics:
+    enabled: false
+generation:
+  handlers: true
+  storage: true
+  client: true
+  openapi: true
+  events: true
+  middleware: true
+  reconciliation: false

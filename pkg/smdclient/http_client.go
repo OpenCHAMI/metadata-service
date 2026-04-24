@@ -233,7 +233,7 @@ func (c *HTTPClient) doGet(path string, params url.Values, out any) error {
 
 func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 	fullURL := c.baseURL + path
-	if params != nil && len(params) > 0 {
+	if len(params) > 0 {
 		fullURL += "?" + params.Encode()
 	}
 

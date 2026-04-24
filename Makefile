@@ -45,6 +45,24 @@ install: ## Install dependencies
 tidy: ## Tidy go.mod
 	$(GO) mod tidy
 
+generate: ## Regenerate Fabrica code from API/resource definitions
+	go run github.com/openchami/fabrica/cmd/fabrica@v0.4.0 generate
+
+generate-check: ## Verify generated code is up-to-date
+	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+		echo "Working tree must be clean before running generate-check."; \
+		echo "Commit or stash local changes, then re-run make generate-check."; \
+		exit 2; \
+	fi
+	@go run github.com/openchami/fabrica/cmd/fabrica@v0.4.0 generate >/dev/null
+	@if ! git diff --quiet; then \
+		echo "Generated files are out of date. Run 'make generate' and commit results."; \
+		git --no-pager diff --stat; \
+		exit 1; \
+	fi
+
+dev: clean generate build ## Clean, regenerate code, and build binaries
+
 run: build ## Build and run the application
 	./bin/$(BINARY_NAME)
 
