@@ -241,8 +241,8 @@ go test ./...
 # Handler tests only
 go test ./pkg/handlers/ -v
 
-# Group validation tests
-go test ./pkg/resources/group/ -v
+# API type package tests
+go test ./apis/cloud-init.openchami.io/v1/... -v
 ```
 
 ## Development

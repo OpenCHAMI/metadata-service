@@ -35,17 +35,18 @@ This service replaces the original [OpenCHAMI/cloud-init](https://github.com/Ope
 ## Architecture & Key Components
 
 ### Core Technologies
-- **Fabrica Framework**: Auto-generates REST API, storage, and client from resource definitions in `pkg/resources/`
+- **Fabrica Framework**: Auto-generates REST API, storage, and client from resource definitions in `apis/cloud-init.openchami.io/v1/`
 - **Pongo2 Templates**: Jinja2-compatible templating for cloud-init configs with variable substitution
 - **SMD Integration**: Hardware component lookup and group membership via `pkg/smdclient/` interface
 - **Chi Router**: HTTP routing with cloud-init specific endpoints in `cmd/server/cloudinit_routes.go`
 
-### Resource Model (3 Core Types)
+### Resource Model (Core Types)
 ```
-pkg/resources/
-├── group/          # Template-based node group configs with Jinja2 rendering
-├── clusterdefaults/# Cluster-wide defaults (hostnames, SSH keys, regions)
-└── instanceinfo/   # Instance-specific overrides (per-node customization)
+apis/cloud-init.openchami.io/v1/
+├── group_types.go            # Template-based node group configs with Jinja2 rendering
+├── clusterdefaults_types.go  # Cluster-wide defaults (hostnames, SSH keys, regions)
+├── instanceinfo_types.go     # Instance-specific overrides (per-node customization)
+└── wireguardpeer_types.go    # WireGuard peer configuration resource
 ```
 
 ### Generated Code Structure
@@ -62,7 +63,7 @@ pkg/resources/
 ## Critical Development Patterns
 
 ### Resource Validation
-Custom validation in `pkg/resources/group/group.go`:
+Custom validation in `apis/cloud-init.openchami.io/v1/group_types.go`:
 ```go
 func (r *Group) Validate(ctx context.Context) error {
     // Extract template variables using regex
@@ -114,7 +115,7 @@ curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/meta-data
 ```
 
 ### Testing Approach
-- **Unit Tests**: Focus on custom validation logic in `pkg/resources/*/`
+- **Unit Tests**: Focus on custom validation logic in `apis/cloud-init.openchami.io/v1/`
 - **Integration Tests**: Cloud-init handlers in `pkg/handlers/metadata_test.go`
 - **Demo Script**: End-to-end workflow validation in `examples/demo.sh`
 
@@ -146,7 +147,7 @@ go run ./cmd/client/main.go --server http://localhost:8888 group create --spec "
 ```
 
 ### Adding New Resources
-1. Create struct in `pkg/resources/newtype/`
+1. Create or update resource types in `apis/cloud-init.openchami.io/v1/*_types.go`
 2. Implement custom `Validate()` if needed
 3. Run `fabrica generate`
 4. Handlers, storage, client auto-generated
@@ -266,7 +267,7 @@ This project adds a userspace WireGuard controller to support VPN-style tunnels 
 - **Routes**: Legacy-compatible endpoints mounted when enabled:
   - `/wg-init` – Bootstrap peer credentials and allocated IP for the caller.
   - `/phone-home/{id}` – Minimal status/identification hook for compatibility.
-- **Server wiring**: Enabled via `--wireguard_server` (viper flag/env). When set, `cmd/server/main.go` initializes the controller and registers routes in the existing chi router.
+- **Server wiring**: Enabled via `--wireguard_server` (viper flag/env). Custom integration is centralized in `cmd/server/server_extensions.go` and invoked by `cmd/server/main.go`.
 
 ### Quickstart (Local Dev)
 ```bash
@@ -289,5 +290,5 @@ curl http://localhost:8888/phone-home/x1000c0s0b0n0
 - Update mock to track WGIP allocations for test nodes.
 
 ### Future Resource Model (Fabrica)
-- Define `WireGuardPeer` in `pkg/resources/wireguardpeer/` with `Validate()` triggering reconciliation via the controller.
+- Define or extend `WireGuardPeer` in `apis/cloud-init.openchami.io/v1/wireguardpeer_types.go` with `Validate()` and reconciliation hooks via the controller.
 - Run `fabrica generate` to produce handlers and storage, integrating with existing server patterns.
