@@ -111,8 +111,12 @@ go run ./cmd/server serve --port 8888 --wireguard_server
 # Install dependencies
 go mod tidy
 
-# Regenerate Fabrica code
-fabrica generate
+# Regenerate Fabrica code (default: released module)
+make generate
+
+# Optional: use local Fabrica checkout (sibling ../fabrica)
+(cd ../fabrica && go build -o bin/fabrica ./cmd/fabrica)
+make generate FABRICA_LOCAL=1
 
 # Run the server
 go run ./cmd/server serve --port 8888

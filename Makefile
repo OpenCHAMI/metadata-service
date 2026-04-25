@@ -13,6 +13,11 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
+FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@v0.4.0
+
+ifeq ($(FABRICA_LOCAL),1)
+FABRICA_CMD := ../fabrica/bin/fabrica
+endif
 
 help: ## Display this help screen
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
@@ -46,7 +51,12 @@ tidy: ## Tidy go.mod
 	$(GO) mod tidy
 
 generate: ## Regenerate Fabrica code from API/resource definitions
-	go run github.com/openchami/fabrica/cmd/fabrica@v0.4.0 generate
+	@if [ "$(FABRICA_LOCAL)" = "1" ] && [ ! -x ../fabrica/bin/fabrica ]; then \
+		echo "Local Fabrica binary not found at ../fabrica/bin/fabrica"; \
+		echo "Build it with: (cd ../fabrica && go build -o bin/fabrica ./cmd/fabrica)"; \
+		exit 1; \
+	fi
+	$(FABRICA_CMD) generate
 
 generate-check: ## Verify generated code is up-to-date
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
@@ -54,7 +64,7 @@ generate-check: ## Verify generated code is up-to-date
 		echo "Commit or stash local changes, then re-run make generate-check."; \
 		exit 2; \
 	fi
-	@go run github.com/openchami/fabrica/cmd/fabrica@v0.4.0 generate >/dev/null
+	@$(MAKE) generate FABRICA_LOCAL=$(FABRICA_LOCAL) >/dev/null
 	@if ! git diff --quiet; then \
 		echo "Generated files are out of date. Run 'make generate' and commit results."; \
 		git --no-pager diff --stat; \

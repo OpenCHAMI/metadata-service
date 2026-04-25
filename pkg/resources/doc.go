@@ -15,10 +15,10 @@ resource registration and generation compatibility helpers.
 
 The service manages these primary resource types in the `apis/.../v1` package:
 
-	- Group
-	- ClusterDefaults
-	- InstanceInfo
-	- WireGuardPeer
+  - Group
+  - ClusterDefaults
+  - InstanceInfo
+  - WireGuardPeer
 
 # Generated Code
 
