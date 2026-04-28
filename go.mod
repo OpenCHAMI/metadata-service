@@ -8,6 +8,8 @@ go 1.26.2
 
 replace github.com/OpenCHAMI/cloud-init => .
 
+replace github.com/openchami/fabrica => ../fabrica
+
 require (
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/getkin/kin-openapi v0.133.0
