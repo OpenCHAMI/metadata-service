@@ -109,6 +109,10 @@ func GenerateOpenAPISpec() *openapi3.T {
 	registerInstanceInfoPaths(spec)
 	registerWireGuardPeerPaths(spec)
 
+	// Register custom (non-Fabrica-generated) paths.
+	// Defined in openapi_extensions.go – safe to edit, never overwritten.
+	registerCustomOpenAPIPaths(spec)
+
 	return spec
 }
 
