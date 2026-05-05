@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 project:
-  name: cloud-init
-  module: github.com/OpenCHAMI/cloud-init
+  name: metadata-service
+  module: github.com/OpenCHAMI/metadata-service
   description: Cloud-init metadata service with Fabrica-generated REST APIs
   created: 2026-04-24T00:00:00Z
 features:

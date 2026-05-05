@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	group "github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
-	"github.com/OpenCHAMI/cloud-init/pkg/handlers"
-	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
+	group "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
+	"github.com/OpenCHAMI/metadata-service/pkg/handlers"
+	"github.com/OpenCHAMI/metadata-service/pkg/smdclient"
 	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v3"
 )

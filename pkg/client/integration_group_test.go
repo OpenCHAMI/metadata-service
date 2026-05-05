@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	group "github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
+	group "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
 	"github.com/openchami/fabrica/pkg/fabrica"
 
-	"github.com/OpenCHAMI/cloud-init/pkg/client"
+	"github.com/OpenCHAMI/metadata-service/pkg/client"
 	"github.com/stretchr/testify/require"
 )
 

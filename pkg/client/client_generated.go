@@ -61,7 +61,7 @@ import (
 	"net/url"
 	"path"
 
-	"github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
+	"github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
 )
 
 // Client provides access to the inventory API

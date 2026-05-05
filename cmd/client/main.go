@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 //
-// This file provides a Cobra-based CLI for the cloud_init API.
+// This file provides a Cobra-based CLI for the metadata_service API.
 // Generated from: pkg/codegen/templates/client-cmd.go.tmpl
 //
 // To modify the CLI:
@@ -19,17 +19,17 @@
 //
 // Global flags (available for all commands):
 //
-//	--server       Server URL (env: CLOUD_INIT_SERVER)
-//	--timeout      Request timeout (env: CLOUD_INIT_TIMEOUT)
-//	--output, -o   Output format: table, json, yaml (env: CLOUD_INIT_OUTPUT)
-//	--version, -v  API version to request: v1, v2beta1, etc. (env: CLOUD_INIT_VERSION)
-//	--token        JWT bearer token (env: CLOUD_INIT_TOKEN)
-//	--config       Config file path (default: ~/.cloud_init-cli.yaml)
+//	--server       Server URL (env: METADATA_SERVICE_SERVER)
+//	--timeout      Request timeout (env: METADATA_SERVICE_TIMEOUT)
+//	--output, -o   Output format: table, json, yaml (env: METADATA_SERVICE_OUTPUT)
+//	--version, -v  API version to request: v1, v2beta1, etc. (env: METADATA_SERVICE_VERSION)
+//	--token        JWT bearer token (env: METADATA_SERVICE_TOKEN)
+//	--config       Config file path (default: ~/.metadata_service-cli.yaml)
 //
 // Configuration sources (in order of precedence):
 //  1. Command-line flags
-//  2. Environment variables (CLOUD_INIT_*)
-//  3. Config file (~/.cloud_init-cli.yaml)
+//  2. Environment variables (METADATA_SERVICE_*)
+//  3. Config file (~/.metadata_service-cli.yaml)
 //  4. Default values
 //
 // Usage examples:
@@ -50,8 +50,8 @@
 //	client clusterdefaults create --spec '{"name":"clusterdefaults-01","description":"Example ClusterDefaults"}'
 //
 //	# Use environment variables
-//	export CLOUD_INIT_SERVER=https://cloud_init.example.com
-//	export CLOUD_INIT_VERSION=v2beta1
+//	export METADATA_SERVICE_SERVER=https://metadata_service.example.com
+//	export METADATA_SERVICE_VERSION=v2beta1
 //	client clusterdefaults list
 //
 // To add custom commands:
@@ -77,7 +77,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenCHAMI/cloud-init/pkg/client"
+	"github.com/OpenCHAMI/metadata-service/pkg/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -100,16 +100,16 @@ func main() {
 
 var rootCmd = &cobra.Command{
 	Use:   filepath.Base(os.Args[0]),
-	Short: "cloud_init CLI",
-	Long:  `A command-line interface for managing cloud_init resources.`,
+	Short: "metadata_service CLI",
+	Long:  `A command-line interface for managing metadata_service resources.`,
 }
 
 func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cloud_init-cli.yaml)")
-	rootCmd.PersistentFlags().StringVar(&serverURL, "server", "http://localhost:8080", "cloud_init server URL")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.metadata_service-cli.yaml)")
+	rootCmd.PersistentFlags().StringVar(&serverURL, "server", "http://localhost:8080", "metadata_service server URL")
 	rootCmd.PersistentFlags().DurationVar(&timeout, "timeout", 30*time.Second, "request timeout")
 	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "output format: table, json, yaml")
 	rootCmd.PersistentFlags().StringVarP(&apiVersion, "version", "v", "", "API version to request (e.g., v1, v2beta1)")
@@ -123,7 +123,7 @@ func init() {
 	viper.BindPFlag("token", rootCmd.PersistentFlags().Lookup("token"))
 
 	// Environment variable support
-	viper.SetEnvPrefix("CLOUD_INIT")
+	viper.SetEnvPrefix("METADATA_SERVICE")
 	viper.AutomaticEnv()
 
 	// Add resource commands
@@ -146,7 +146,7 @@ func initConfig() {
 
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".cloud_init-cli")
+		viper.SetConfigName(".metadata_service-cli")
 	}
 
 	if err := viper.ReadInConfig(); err == nil {

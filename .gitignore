@@ -29,6 +29,8 @@ data/
 !example.yml
 !.fabrica.yaml
 !apis.yaml
+!.github/workflows/*.yaml
+!.github/workflows/*.yml
 
 # Runtime config (contains environment-specific values)
 config.yaml

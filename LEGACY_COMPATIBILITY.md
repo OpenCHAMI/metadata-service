@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Legacy cloud-init service compatibility
 
 This document compares the legacy OpenCHAMI cloud-init service with the current Fabrica-based metadata service to help sysadmins evaluate compatibility and migration steps.

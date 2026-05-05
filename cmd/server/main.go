@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/OpenCHAMI/cloud-init/internal/storage"
+	"github.com/OpenCHAMI/metadata-service/internal/storage"
 )
 
 // Config holds all configuration for the service
@@ -75,16 +75,16 @@ func main() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "github.com/OpenCHAMI/cloud-init",
+	Use:   "github.com/OpenCHAMI/metadata-service",
 	Short: "",
-	Long:  `github.com/OpenCHAMI/cloud-init - A Fabrica-generated OpenCHAMI service`,
+	Long:  `github.com/OpenCHAMI/metadata-service - A Fabrica-generated OpenCHAMI service`,
 	RunE:  runServer,
 }
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Start the github.com/OpenCHAMI/cloud-init server",
-	Long:  `Start the github.com/OpenCHAMI/cloud-init HTTP server with the configured options`,
+	Short: "Start the github.com/OpenCHAMI/metadata-service server",
+	Long:  `Start the github.com/OpenCHAMI/metadata-service HTTP server with the configured options`,
 	RunE:  runServer,
 }
 
@@ -157,7 +157,7 @@ func initConfig() {
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
-	log.Printf("Starting github.com/OpenCHAMI/cloud-init server...")
+	log.Printf("Starting github.com/OpenCHAMI/metadata-service server...")
 
 	// Initialize storage backend
 
@@ -224,14 +224,14 @@ func runServer(cmd *cobra.Command, args []string) error {
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"healthy","service":"github.com/OpenCHAMI/cloud-init"}`))
+	w.Write([]byte(`{"status":"healthy","service":"github.com/OpenCHAMI/metadata-service"}`))
 }
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version number",
-	Long:  `Print the version number of github.com/OpenCHAMI/cloud-init`,
+	Long:  `Print the version number of github.com/OpenCHAMI/metadata-service`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("github.com/OpenCHAMI/cloud-init v1.0.0")
+		fmt.Println("github.com/OpenCHAMI/metadata-service v1.0.0")
 	},
 }

@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
+	"github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
 )
@@ -43,7 +43,7 @@ func ServeSwaggerUI(w http.ResponseWriter, r *http.Request) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>cloud_init API Documentation</title>
+    <title>metadata_service API Documentation</title>
     <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css">
     <style>
         html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
@@ -83,7 +83,7 @@ func GenerateOpenAPISpec() *openapi3.T {
 	spec := &openapi3.T{
 		OpenAPI: "3.0.0",
 		Info: &openapi3.Info{
-			Title:       "cloud_init API",
+			Title:       "metadata_service API",
 			Description: "Fabrica-generated REST API with Kubernetes-style resource management",
 			Version:     "1.0.0",
 			Contact: &openapi3.Contact{

@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
-	"github.com/OpenCHAMI/cloud-init/pkg/wireguard"
+	"github.com/OpenCHAMI/metadata-service/pkg/smdclient"
+	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
 	"github.com/go-chi/chi/v5"
 )
 

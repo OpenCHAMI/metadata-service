@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
 SPDX-License-Identifier: MIT
 -->
 
-# github.com/OpenCHAMI/cloud-init
+# github.com/OpenCHAMI/metadata-service
 
 Cloud-init metadata service built on the OpenCHAMI Fabrica framework. It serves nocloud-net metadata endpoints for HPC nodes, renders Jinja2/Pongo2 templates for group configs, and integrates with a State Management Database (SMD) or a mock client for local development. It is a drop-in replacement for the legacy `cloud-init/admin` service with stronger validation and generated APIs.
 

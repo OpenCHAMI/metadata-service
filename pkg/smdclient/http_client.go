@@ -205,10 +205,7 @@ func (c *HTTPClient) EthernetInterfaces(id string) ([]EthernetInterface, error) 
 	for _, iface := range resp {
 		ipMappings := make([]IPMapping, 0, len(iface.IPAddresses))
 		for _, ip := range iface.IPAddresses {
-			ipMappings = append(ipMappings, IPMapping{
-				IPAddress: ip.IPAddress,
-				Network:   ip.Network,
-			})
+			ipMappings = append(ipMappings, IPMapping(ip))
 		}
 		ifaces = append(ifaces, EthernetInterface{
 			ID:          iface.ID,
@@ -248,11 +245,13 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
 	body, err := io.ReadAll(resp.Body)
+	closeErr := resp.Body.Close()
 	if err != nil {
 		return nil, err
+	}
+	if closeErr != nil {
+		return nil, closeErr
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, fmt.Errorf("smd request failed: %s", strings.TrimSpace(string(body)))

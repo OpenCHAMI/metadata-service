@@ -7,7 +7,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/OpenCHAMI/cloud-init/pkg/wireguard"
+	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
 )
 
 // wireGuardOnlyMiddleware rejects requests whose client IP is not within the WireGuard network when enabled.

@@ -8,7 +8,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/OpenCHAMI/cloud-init/pkg/wireguard"
+	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
 	"github.com/go-chi/chi/v5"
 	"github.com/spf13/viper"
 )
