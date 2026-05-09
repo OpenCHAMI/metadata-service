@@ -111,6 +111,7 @@ func init() {
 	// Bind flags to viper
 	viper.BindPFlags(serveCmd.Flags())
 	viper.BindPFlags(rootCmd.PersistentFlags())
+	registerDashAliases(rootCmd.PersistentFlags(), serveCmd.Flags())
 
 	// Add subcommands
 	rootCmd.AddCommand(serveCmd)

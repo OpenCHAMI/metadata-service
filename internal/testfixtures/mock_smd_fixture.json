@@ -1,0 +1,140 @@
+{
+  "components": [
+    {
+      "id": "x1000c0s0b0n0",
+      "nid": 1000,
+      "role": "compute",
+      "mac": "b4:2e:99:be:1a:6d",
+      "ip": "10.252.0.26",
+      "groups": ["compute", "green"],
+      "ethernet_nics": [
+        {
+          "RedfishID": "1",
+          "Description": "Node Management Network",
+          "MACAddress": "b4:2e:99:be:1a:6d",
+          "PermanentMACAddress": "b4:2e:99:be:1a:6d",
+          "InterfaceEnabled": true
+        },
+        {
+          "RedfishID": "2",
+          "Description": "High Speed Network",
+          "MACAddress": "b4:2e:99:be:1a:6e",
+          "PermanentMACAddress": "b4:2e:99:be:1a:6e",
+          "InterfaceEnabled": true
+        }
+      ],
+      "ethernet_interfaces": [
+        {
+          "ID": "b42e99be1a6d",
+          "Description": "Node Management Network",
+          "MACAddress": "b4:2e:99:be:1a:6d",
+          "IPAddresses": [
+            {
+              "IPAddress": "10.252.0.26",
+              "Network": "HMN"
+            }
+          ],
+          "ComponentID": "x1000c0s0b0n0",
+          "Type": "Node"
+        },
+        {
+          "ID": "b42e99be1a6e",
+          "Description": "High Speed Network",
+          "MACAddress": "b4:2e:99:be:1a:6e",
+          "IPAddresses": [
+            {
+              "IPAddress": "10.100.0.26",
+              "Network": "HSN"
+            }
+          ],
+          "ComponentID": "x1000c0s0b0n0",
+          "Type": "Node"
+        }
+      ]
+    },
+    {
+      "id": "x1000c0s0b0n1",
+      "nid": 1001,
+      "role": "compute",
+      "mac": "b4:2e:99:be:1a:7d",
+      "ip": "10.252.0.27",
+      "groups": ["compute", "blue"],
+      "ethernet_nics": [
+        {
+          "RedfishID": "1",
+          "Description": "Node Management Network",
+          "MACAddress": "b4:2e:99:be:1a:7d",
+          "PermanentMACAddress": "b4:2e:99:be:1a:7d",
+          "InterfaceEnabled": true
+        },
+        {
+          "RedfishID": "2",
+          "Description": "High Speed Network",
+          "MACAddress": "b4:2e:99:be:1a:7e",
+          "PermanentMACAddress": "b4:2e:99:be:1a:7e",
+          "InterfaceEnabled": true
+        }
+      ],
+      "ethernet_interfaces": [
+        {
+          "ID": "b42e99be1a7d",
+          "Description": "Node Management Network",
+          "MACAddress": "b4:2e:99:be:1a:7d",
+          "IPAddresses": [
+            {
+              "IPAddress": "10.252.0.27",
+              "Network": "HMN"
+            }
+          ],
+          "ComponentID": "x1000c0s0b0n1",
+          "Type": "Node"
+        },
+        {
+          "ID": "b42e99be1a7e",
+          "Description": "High Speed Network",
+          "MACAddress": "b4:2e:99:be:1a:7e",
+          "IPAddresses": [
+            {
+              "IPAddress": "10.100.0.27",
+              "Network": "HSN"
+            }
+          ],
+          "ComponentID": "x1000c0s0b0n1",
+          "Type": "Node"
+        }
+      ]
+    },
+    {
+      "id": "x1000c0s1b0n0",
+      "nid": 1002,
+      "role": "storage",
+      "mac": "b4:2e:99:be:1a:8d",
+      "ip": "10.252.0.28",
+      "groups": ["storage"],
+      "ethernet_nics": [
+        {
+          "RedfishID": "1",
+          "Description": "Node Management Network",
+          "MACAddress": "b4:2e:99:be:1a:8d",
+          "PermanentMACAddress": "b4:2e:99:be:1a:8d",
+          "InterfaceEnabled": true
+        }
+      ],
+      "ethernet_interfaces": [
+        {
+          "ID": "b42e99be1a8d",
+          "Description": "Node Management Network",
+          "MACAddress": "b4:2e:99:be:1a:8d",
+          "IPAddresses": [
+            {
+              "IPAddress": "10.252.0.28",
+              "Network": "HMN"
+            }
+          ],
+          "ComponentID": "x1000c0s1b0n0",
+          "Type": "Node"
+        }
+      ]
+    }
+  ]
+}
