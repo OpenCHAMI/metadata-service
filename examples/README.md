@@ -191,7 +191,7 @@ go run ../cmd/client/main.go --server http://localhost:8888 instanceinfo delete 
 
 Or simply delete the data directory and restart:
 ```bash
-rm -rf ../data/*
+rm -rf /data/*
 ```
 
 ## Troubleshooting

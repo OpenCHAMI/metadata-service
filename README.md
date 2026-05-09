@@ -12,7 +12,7 @@ Key capabilities
 - Auto-generated REST resources for groups, cluster defaults, and instance info
 - Server-side template validation (Jinja2-compatible, YAML-safe)
 - SMD-backed identity and group membership with mock mode when `SMD_URL` is unset
-- File-based storage with persistence under `./data/`
+- File-based storage with persistence under `/data/`
 - Optional userspace WireGuard controller for compatible VPN-style bootstrapping
 
 
@@ -30,9 +30,9 @@ Key capabilities
 	curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/vendor-data
 	curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/compute.yaml
 	```
-4. Data lives under `./data/`. Remove it to reset state:
+4. Data lives under `/data/`. Remove it to reset state:
 	```bash
-	rm -rf ./data/*
+	rm -rf /data/*
 	```
 
 Mock nodes available by default:

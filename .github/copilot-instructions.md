@@ -128,7 +128,7 @@ curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/meta-data
 ## Common Patterns & Gotchas
 
 ### Storage Backend
-File-based storage in `./data/{resource-type}/` with JSON serialization. Status fields persist automatically when validation modifies them.
+File-based storage in `/data/{resource-type}/` with JSON serialization. Status fields persist automatically when validation modifies them.
 
 ### Template History Tracking
 Version tracking implemented in custom `Validate()` method using SHA256 hashes:

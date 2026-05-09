@@ -20,9 +20,9 @@ This service implements a cloud-init metadata server compatible with the nocloud
   curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/vendor-data
   curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/compute.yaml
   ```
-3. Reset state by clearing `./data/` (file-backed storage):
+3. Reset state by clearing `/data/` (file-backed storage):
   ```bash
-  rm -rf ./data/*
+  rm -rf /data/*
   ```
 
 Mock SMD nodes available out of the box:

@@ -54,9 +54,9 @@ func DefaultConfig() *Config {
 		WriteTimeout: 15,
 		IdleTimeout:  60,
 
-		DataDir: "./data",
+		DataDir: "/data",
 
-		WireGuardStateFile: "./data/wireguard/state.yaml",
+		WireGuardStateFile: "/data/wireguard/state.yaml",
 		WireGuardOnly:      false,
 
 		Debug: false,
@@ -102,10 +102,10 @@ func init() {
 	serveCmd.Flags().Int("write-timeout", 15, "Write timeout in seconds")
 	serveCmd.Flags().Int("idle-timeout", 60, "Idle timeout in seconds")
 
-	serveCmd.Flags().String("data-dir", "./data", "Directory for file storage")
+	serveCmd.Flags().String("data-dir", "/data", "Directory for file storage")
 
 	// WireGuard flags
-	serveCmd.Flags().String("wireguard-state-file", "./data/wireguard/state.yaml", "Path to WireGuard state file for persistence")
+	serveCmd.Flags().String("wireguard-state-file", "/data/wireguard/state.yaml", "Path to WireGuard state file for persistence")
 	serveCmd.Flags().Bool("wireguard-only", false, "Restrict access to WireGuard network only")
 
 	// Bind flags to viper

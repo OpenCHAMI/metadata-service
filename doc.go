@@ -39,7 +39,7 @@ Key Technologies
   - Chi Router: Lightweight HTTP router for cloud-init endpoint handling with support for
     custom middleware and request transformations.
 
-  - File-Based Storage: JSON-based persistent storage in ./data/{resource-type}/ directory.
+  - File-Based Storage: JSON-based persistent storage in /data/{resource-type}/ directory.
     Suitable for development and small deployments; can be extended for other backends.
 
 # Resource Model
@@ -145,10 +145,10 @@ Example Group validation process:
 
 # Storage
 
-Resources are persisted as JSON files in ./data/{resource-type}/:
-  - ./data/Group/*.json: Group configurations
-  - ./data/ClusterDefaults/*.json: Cluster-wide defaults
-  - ./data/InstanceInfo/*.json: Instance-specific overrides
+Resources are persisted as JSON files in /data/{resource-type}/:
+  - /data/Group/*.json: Group configurations
+  - /data/ClusterDefaults/*.json: Cluster-wide defaults
+  - /data/InstanceInfo/*.json: Instance-specific overrides
 
 Status fields are automatically updated during validation and persist to storage. The storage
 implementation supports file-based persistence with minimal overhead for development.
@@ -185,10 +185,10 @@ The service is configured via:
 
 Common configuration options:
 
-	--port: HTTP server port (default: 8080)
-	--host: Bind address (default: 0.0.0.0)
-	--data-dir: Data storage directory (default: ./data)
-	--debug: Enable debug logging (default: false)
+		--port: HTTP server port (default: 8080)
+		--host: Bind address (default: 0.0.0.0)
+	  --data-dir: Data storage directory (default: /data)
+		--debug: Enable debug logging (default: false)
 
 For SMD integration:
 

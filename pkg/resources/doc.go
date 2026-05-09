@@ -74,9 +74,9 @@ from the UID and can be used for logical identification but is not the primary k
 
 Resources are persisted as JSON files in the data directory:
 
-	./data/Group/*.json: Group configurations
-	./data/ClusterDefaults/*.json: Cluster-wide defaults
-	./data/InstanceInfo/*.json: Instance-specific overrides
+	/data/Group/*.json: Group configurations
+	/data/ClusterDefaults/*.json: Cluster-wide defaults
+	/data/InstanceInfo/*.json: Instance-specific overrides
 
 Each resource file contains the complete resource definition including:
   - Metadata (name, UID, creation/update timestamps)
