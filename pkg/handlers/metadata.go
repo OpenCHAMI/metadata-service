@@ -99,6 +99,10 @@ func getActualRequestIP(r *http.Request) string {
 	return ip
 }
 
+func resolveRequestComponentID(smd smdclient.SMDClient, ip string) (string, error) {
+	return smdclient.ResolveComponentID(smd, ip)
+}
+
 // MetaDataHandler returns metadata for the requesting node based on its IP address
 func MetaDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +110,7 @@ func MetaDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 		ip := getActualRequestIP(r)
 		log.Debug().Msgf("Metadata request from IP: %s", ip)
 
-		id, err := smd.IDfromIP(ip)
+		id, err := resolveRequestComponentID(smd, ip)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to get component ID from IP %s", ip)
 			http.Error(w, "node not found", http.StatusNotFound)
@@ -376,7 +380,7 @@ func NetworkConfigHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 		ip := getActualRequestIP(r)
 		log.Debug().Msgf("Network-config request from IP: %s", ip)
 
-		id, err := smd.IDfromIP(ip)
+		id, err := resolveRequestComponentID(smd, ip)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to get component ID from IP %s", ip)
 			http.Error(w, "node not found", http.StatusNotFound)
@@ -465,7 +469,7 @@ func VendorDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 		ip := getActualRequestIP(r)
 		log.Debug().Msgf("Vendor-data request from IP: %s", ip)
 
-		id, err := smd.IDfromIP(ip)
+		id, err := resolveRequestComponentID(smd, ip)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to get component ID from IP %s", ip)
 			http.Error(w, "node not found", http.StatusNotFound)
@@ -521,7 +525,7 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 		ip := getActualRequestIP(r)
 		log.Debug().Msgf("Group user-data request from IP: %s for group: %s", ip, groupName)
 
-		id, err := smd.IDfromIP(ip)
+		id, err := resolveRequestComponentID(smd, ip)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to get component ID from IP %s", ip)
 			http.Error(w, "node not found", http.StatusNotFound)

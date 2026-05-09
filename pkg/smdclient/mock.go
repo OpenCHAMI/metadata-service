@@ -74,6 +74,18 @@ func (m *MockSMDClient) IDfromIP(ip string) (string, error) {
 	return "", fmt.Errorf("no component found for IP %s", ip)
 }
 
+// IDfromWGIP returns the component ID for a given WireGuard IP address
+func (m *MockSMDClient) IDfromWGIP(wgip string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for id, storedWGIP := range m.wgip {
+		if storedWGIP == wgip {
+			return id, nil
+		}
+	}
+	return "", fmt.Errorf("no component found for WireGuard IP %s", wgip)
+}
+
 // IPfromID returns the IP address for a given component ID
 func (m *MockSMDClient) IPfromID(id string) (string, error) {
 	m.mu.RLock()

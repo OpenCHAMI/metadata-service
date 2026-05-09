@@ -64,7 +64,7 @@ func registerWireGuardRoutes(r chi.Router, controller *wireguard.Controller, smd
 			return
 		}
 		if smd != nil {
-			if id, err := smd.IDfromIP(clientIP); err == nil {
+			if id, err := smdclient.ResolveComponentID(smd, clientIP); err == nil {
 				_ = smd.AddWGIP(id, vpnIP)
 			}
 		}
@@ -88,7 +88,7 @@ func registerWireGuardRoutes(r chi.Router, controller *wireguard.Controller, smd
 		clientIP := getClientIPFromRequest(r)
 		peerKey := clientIP
 		if smd != nil {
-			if id, err := smd.IDfromIP(clientIP); err == nil {
+			if id, err := smdclient.ResolveComponentID(smd, clientIP); err == nil {
 				if ip, err := smd.IPfromID(id); err == nil && ip != "" {
 					peerKey = ip
 				}

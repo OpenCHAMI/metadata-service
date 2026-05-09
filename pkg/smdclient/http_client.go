@@ -67,6 +67,18 @@ func (c *HTTPClient) IDfromIP(ip string) (string, error) {
 	return resp[0].ComponentID, nil
 }
 
+// IDfromWGIP returns the component ID for a given WireGuard IP address.
+func (c *HTTPClient) IDfromWGIP(wgip string) (string, error) {
+	c.wgmu.RLock()
+	defer c.wgmu.RUnlock()
+	for id, storedWGIP := range c.wgip {
+		if storedWGIP == wgip {
+			return id, nil
+		}
+	}
+	return "", fmt.Errorf("no component found for WireGuard IP %s", wgip)
+}
+
 // IPfromID returns the IP address for a given component ID (HMN-first).
 func (c *HTTPClient) IPfromID(id string) (string, error) {
 	ifaces, err := c.EthernetInterfaces(id)
@@ -75,6 +87,9 @@ func (c *HTTPClient) IPfromID(id string) (string, error) {
 	}
 	if ip := pickHMNIP(ifaces); ip != "" {
 		return ip, nil
+	}
+	if component, err := c.ComponentInformation(id); err == nil && component.IP != "" {
+		return component.IP, nil
 	}
 	return "", fmt.Errorf("no IP found for ID %s", id)
 }
@@ -87,6 +102,9 @@ func (c *HTTPClient) MACfromID(id string) (string, error) {
 	}
 	if mac := pickHMNMAC(ifaces); mac != "" {
 		return mac, nil
+	}
+	if component, err := c.ComponentInformation(id); err == nil && component.MAC != "" {
+		return component.MAC, nil
 	}
 	return "", fmt.Errorf("no MAC found for ID %s", id)
 }
@@ -105,7 +123,11 @@ func (c *HTTPClient) ComponentInformation(id string) (*Component, error) {
 
 	var single componentResponse
 	if err := json.Unmarshal(body, &single); err == nil && single.ID != "" {
-		component := &Component{ID: single.ID, NID: single.NID, Role: single.Role}
+		ip := single.IP
+		if ip == "" {
+			ip = single.IPAddress
+		}
+		component := &Component{ID: single.ID, NID: single.NID, Role: single.Role, MAC: single.MAC, IP: ip}
 		c.cache.setComponent(id, component)
 		return component, nil
 	}
@@ -117,7 +139,11 @@ func (c *HTTPClient) ComponentInformation(id string) (*Component, error) {
 	if len(list.Components) == 0 {
 		return nil, fmt.Errorf("no component found for ID %s", id)
 	}
-	component := &Component{ID: list.Components[0].ID, NID: list.Components[0].NID, Role: list.Components[0].Role}
+	ip := list.Components[0].IP
+	if ip == "" {
+		ip = list.Components[0].IPAddress
+	}
+	component := &Component{ID: list.Components[0].ID, NID: list.Components[0].NID, Role: list.Components[0].Role, MAC: list.Components[0].MAC, IP: ip}
 	c.cache.setComponent(id, component)
 	return component, nil
 }
@@ -260,9 +286,12 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 }
 
 type componentResponse struct {
-	ID   string `json:"ID"`
-	NID  int64  `json:"NID"`
-	Role string `json:"Role"`
+	ID        string `json:"ID"`
+	NID       int64  `json:"NID"`
+	Role      string `json:"Role"`
+	MAC       string `json:"MAC,omitempty"`
+	IP        string `json:"IP,omitempty"`
+	IPAddress string `json:"IPAddress,omitempty"`
 }
 
 type componentListResponse struct {
