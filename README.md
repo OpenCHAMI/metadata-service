@@ -122,7 +122,7 @@ make test
 ```
 
 ### Using GoReleaser
-OpenCHAMI employs [GoReleaser](https://goreleaser.com/) for automated releases and build metadata tracking. 
+OpenCHAMI employs [GoReleaser](https://goreleaser.com/) for automated releases and build metadata tracking.
 
 To build locally:
 #### Set Environment Variables
