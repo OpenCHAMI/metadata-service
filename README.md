@@ -114,17 +114,33 @@ go mod tidy
 # Regenerate Fabrica code (default: released module)
 make generate
 
-# Optional: use local Fabrica checkout (sibling ../fabrica)
-(cd ../fabrica && go build -o bin/fabrica ./cmd/fabrica)
-# Makefile local mode passes --fabrica-source ../fabrica automatically
-make generate FABRICA_LOCAL=1
-
 # Run the server
 go run ./cmd/server serve --port 8888
 
 # Run tests (skips integration tests that need a legacy server)
 make test
 ```
+
+### Using GoReleaser
+OpenCHAMI employs [GoReleaser](https://goreleaser.com/) for automated releases and build metadata tracking. 
+
+To build locally:
+#### Set Environment Variables
+```bash
+export GIT_STATE=$(if git diff-index --quiet HEAD --; then echo 'clean'; else echo 'dirty'; fi)
+export BUILD_HOST=$(hostname)
+export GO_VERSION=$(go version | awk '{print $3}')
+export BUILD_USER=$(whoami)
+```
+
+#### Install GoReleaser
+Follow [GoReleaser’s installation guide](https://goreleaser.com/install/).
+
+#### Build Locally
+```bash
+goreleaser release --snapshot --clean
+```
+Built binaries will be located in the `dist/` directory.
 
 ## Legacy parity highlights
 
