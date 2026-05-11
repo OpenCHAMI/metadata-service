@@ -109,6 +109,20 @@ func GenerateOpenAPISpec() *openapi3.T {
 	registerInstanceInfoPaths(spec)
 	registerWireGuardPeerPaths(spec)
 
+	// Register /health endpoint
+	healthOp := openapi3.NewOperation()
+	healthOp.OperationID = "health"
+	healthOp.Summary = "Service health"
+	healthOp.Description = "Returns service health information"
+	healthOp.Tags = []string{"Service"}
+	healthOp.Responses = openapi3.NewResponses()
+	healthOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Healthy").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}),
+	})
+	spec.Paths.Set("/health", &openapi3.PathItem{Get: healthOp})
+
 	// Register custom (non-Fabrica-generated) paths.
 	// Defined in openapi_extensions.go – safe to edit, never overwritten.
 	registerCustomOpenAPIPaths(spec)
@@ -127,6 +141,9 @@ func registerClusterDefaultsPaths(spec *openapi3.T) {
 
 	updateReqSchema, _ := openapi3gen.NewSchemaRefForValue(&UpdateClusterDefaultsRequest{}, spec.Components.Schemas)
 	spec.Components.Schemas["UpdateClusterDefaultsRequest"] = updateReqSchema
+
+	statusSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.ClusterDefaultsStatus{}, spec.Components.Schemas)
+	spec.Components.Schemas["ClusterDefaultsStatus"] = statusSchema
 
 	// Error response schema
 	if _, exists := spec.Components.Schemas["ErrorResponse"]; !exists {
@@ -224,6 +241,65 @@ func registerClusterDefaultsPaths(spec *openapi3.T) {
 	updateOp.Responses.Set("404", errorResponse())
 	updateOp.Responses.Set("500", errorResponse())
 
+	// Patch ClusterDefaults operation
+	patchOp := openapi3.NewOperation()
+	patchOp.OperationID = "patchClusterDefaults"
+	patchOp.Summary = "Patch a ClusterDefaults resource"
+	patchOp.Description = "Partially updates an existing ClusterDefaults resource using patch semantics"
+	patchOp.Tags = []string{"ClusterDefaults"}
+	patchOp.RequestBody = patchRequestBody()
+	patchOp.Responses = openapi3.NewResponses()
+	patchOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/ClusterDefaults",
+			}),
+	})
+	patchOp.Responses.Set("400", errorResponse())
+	patchOp.Responses.Set("404", errorResponse())
+	patchOp.Responses.Set("422", errorResponse())
+	patchOp.Responses.Set("500", errorResponse())
+
+	// Update ClusterDefaults status operation
+	updateStatusOp := openapi3.NewOperation()
+	updateStatusOp.OperationID = "updateClusterDefaultsStatus"
+	updateStatusOp.Summary = "Update ClusterDefaults status"
+	updateStatusOp.Description = "Updates only the status subresource for an existing ClusterDefaults"
+	updateStatusOp.Tags = []string{"ClusterDefaults"}
+	updateStatusOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/ClusterDefaultsStatus"}),
+	}
+	updateStatusOp.Responses = openapi3.NewResponses()
+	updateStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status updated successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/ClusterDefaults"}),
+	})
+	updateStatusOp.Responses.Set("400", errorResponse())
+	updateStatusOp.Responses.Set("404", errorResponse())
+	updateStatusOp.Responses.Set("500", errorResponse())
+
+	// Patch ClusterDefaults status operation
+	patchStatusOp := openapi3.NewOperation()
+	patchStatusOp.OperationID = "patchClusterDefaultsStatus"
+	patchStatusOp.Summary = "Patch ClusterDefaults status"
+	patchStatusOp.Description = "Partially updates only the status subresource for an existing ClusterDefaults"
+	patchStatusOp.Tags = []string{"ClusterDefaults"}
+	patchStatusOp.RequestBody = patchRequestBody()
+	patchStatusOp.Responses = openapi3.NewResponses()
+	patchStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/ClusterDefaults"}),
+	})
+	patchStatusOp.Responses.Set("400", errorResponse())
+	patchStatusOp.Responses.Set("404", errorResponse())
+	patchStatusOp.Responses.Set("422", errorResponse())
+	patchStatusOp.Responses.Set("500", errorResponse())
+
 	// Delete ClusterDefaults operation
 	deleteOp := openapi3.NewOperation()
 	deleteOp.OperationID = "deleteClusterDefaults"
@@ -256,7 +332,16 @@ func registerClusterDefaultsPaths(spec *openapi3.T) {
 	itemPath := &openapi3.PathItem{
 		Get:    getOp,
 		Put:    updateOp,
+		Patch:  patchOp,
 		Delete: deleteOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	statusPath := &openapi3.PathItem{
+		Put:   updateStatusOp,
+		Patch: patchStatusOp,
 		Parameters: []*openapi3.ParameterRef{
 			{Value: uidParam},
 		},
@@ -265,6 +350,7 @@ func registerClusterDefaultsPaths(spec *openapi3.T) {
 	// Add paths to spec
 	spec.Paths.Set("/clusterdefaultss", collectionPath)
 	spec.Paths.Set("/clusterdefaultss/{uid}", itemPath)
+	spec.Paths.Set("/clusterdefaultss/{uid}/status", statusPath)
 }
 
 // registerGroupPaths registers OpenAPI paths for Group resources
@@ -278,6 +364,9 @@ func registerGroupPaths(spec *openapi3.T) {
 
 	updateReqSchema, _ := openapi3gen.NewSchemaRefForValue(&UpdateGroupRequest{}, spec.Components.Schemas)
 	spec.Components.Schemas["UpdateGroupRequest"] = updateReqSchema
+
+	statusSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.GroupStatus{}, spec.Components.Schemas)
+	spec.Components.Schemas["GroupStatus"] = statusSchema
 
 	// Error response schema
 	if _, exists := spec.Components.Schemas["ErrorResponse"]; !exists {
@@ -375,6 +464,65 @@ func registerGroupPaths(spec *openapi3.T) {
 	updateOp.Responses.Set("404", errorResponse())
 	updateOp.Responses.Set("500", errorResponse())
 
+	// Patch Group operation
+	patchOp := openapi3.NewOperation()
+	patchOp.OperationID = "patchGroup"
+	patchOp.Summary = "Patch a Group resource"
+	patchOp.Description = "Partially updates an existing Group resource using patch semantics"
+	patchOp.Tags = []string{"Group"}
+	patchOp.RequestBody = patchRequestBody()
+	patchOp.Responses = openapi3.NewResponses()
+	patchOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/Group",
+			}),
+	})
+	patchOp.Responses.Set("400", errorResponse())
+	patchOp.Responses.Set("404", errorResponse())
+	patchOp.Responses.Set("422", errorResponse())
+	patchOp.Responses.Set("500", errorResponse())
+
+	// Update Group status operation
+	updateStatusOp := openapi3.NewOperation()
+	updateStatusOp.OperationID = "updateGroupStatus"
+	updateStatusOp.Summary = "Update Group status"
+	updateStatusOp.Description = "Updates only the status subresource for an existing Group"
+	updateStatusOp.Tags = []string{"Group"}
+	updateStatusOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/GroupStatus"}),
+	}
+	updateStatusOp.Responses = openapi3.NewResponses()
+	updateStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status updated successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/Group"}),
+	})
+	updateStatusOp.Responses.Set("400", errorResponse())
+	updateStatusOp.Responses.Set("404", errorResponse())
+	updateStatusOp.Responses.Set("500", errorResponse())
+
+	// Patch Group status operation
+	patchStatusOp := openapi3.NewOperation()
+	patchStatusOp.OperationID = "patchGroupStatus"
+	patchStatusOp.Summary = "Patch Group status"
+	patchStatusOp.Description = "Partially updates only the status subresource for an existing Group"
+	patchStatusOp.Tags = []string{"Group"}
+	patchStatusOp.RequestBody = patchRequestBody()
+	patchStatusOp.Responses = openapi3.NewResponses()
+	patchStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/Group"}),
+	})
+	patchStatusOp.Responses.Set("400", errorResponse())
+	patchStatusOp.Responses.Set("404", errorResponse())
+	patchStatusOp.Responses.Set("422", errorResponse())
+	patchStatusOp.Responses.Set("500", errorResponse())
+
 	// Delete Group operation
 	deleteOp := openapi3.NewOperation()
 	deleteOp.OperationID = "deleteGroup"
@@ -407,7 +555,16 @@ func registerGroupPaths(spec *openapi3.T) {
 	itemPath := &openapi3.PathItem{
 		Get:    getOp,
 		Put:    updateOp,
+		Patch:  patchOp,
 		Delete: deleteOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	statusPath := &openapi3.PathItem{
+		Put:   updateStatusOp,
+		Patch: patchStatusOp,
 		Parameters: []*openapi3.ParameterRef{
 			{Value: uidParam},
 		},
@@ -416,6 +573,7 @@ func registerGroupPaths(spec *openapi3.T) {
 	// Add paths to spec
 	spec.Paths.Set("/groups", collectionPath)
 	spec.Paths.Set("/groups/{uid}", itemPath)
+	spec.Paths.Set("/groups/{uid}/status", statusPath)
 }
 
 // registerInstanceInfoPaths registers OpenAPI paths for InstanceInfo resources
@@ -429,6 +587,9 @@ func registerInstanceInfoPaths(spec *openapi3.T) {
 
 	updateReqSchema, _ := openapi3gen.NewSchemaRefForValue(&UpdateInstanceInfoRequest{}, spec.Components.Schemas)
 	spec.Components.Schemas["UpdateInstanceInfoRequest"] = updateReqSchema
+
+	statusSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.InstanceInfoStatus{}, spec.Components.Schemas)
+	spec.Components.Schemas["InstanceInfoStatus"] = statusSchema
 
 	// Error response schema
 	if _, exists := spec.Components.Schemas["ErrorResponse"]; !exists {
@@ -526,6 +687,65 @@ func registerInstanceInfoPaths(spec *openapi3.T) {
 	updateOp.Responses.Set("404", errorResponse())
 	updateOp.Responses.Set("500", errorResponse())
 
+	// Patch InstanceInfo operation
+	patchOp := openapi3.NewOperation()
+	patchOp.OperationID = "patchInstanceInfo"
+	patchOp.Summary = "Patch a InstanceInfo resource"
+	patchOp.Description = "Partially updates an existing InstanceInfo resource using patch semantics"
+	patchOp.Tags = []string{"InstanceInfo"}
+	patchOp.RequestBody = patchRequestBody()
+	patchOp.Responses = openapi3.NewResponses()
+	patchOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/InstanceInfo",
+			}),
+	})
+	patchOp.Responses.Set("400", errorResponse())
+	patchOp.Responses.Set("404", errorResponse())
+	patchOp.Responses.Set("422", errorResponse())
+	patchOp.Responses.Set("500", errorResponse())
+
+	// Update InstanceInfo status operation
+	updateStatusOp := openapi3.NewOperation()
+	updateStatusOp.OperationID = "updateInstanceInfoStatus"
+	updateStatusOp.Summary = "Update InstanceInfo status"
+	updateStatusOp.Description = "Updates only the status subresource for an existing InstanceInfo"
+	updateStatusOp.Tags = []string{"InstanceInfo"}
+	updateStatusOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/InstanceInfoStatus"}),
+	}
+	updateStatusOp.Responses = openapi3.NewResponses()
+	updateStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status updated successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/InstanceInfo"}),
+	})
+	updateStatusOp.Responses.Set("400", errorResponse())
+	updateStatusOp.Responses.Set("404", errorResponse())
+	updateStatusOp.Responses.Set("500", errorResponse())
+
+	// Patch InstanceInfo status operation
+	patchStatusOp := openapi3.NewOperation()
+	patchStatusOp.OperationID = "patchInstanceInfoStatus"
+	patchStatusOp.Summary = "Patch InstanceInfo status"
+	patchStatusOp.Description = "Partially updates only the status subresource for an existing InstanceInfo"
+	patchStatusOp.Tags = []string{"InstanceInfo"}
+	patchStatusOp.RequestBody = patchRequestBody()
+	patchStatusOp.Responses = openapi3.NewResponses()
+	patchStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/InstanceInfo"}),
+	})
+	patchStatusOp.Responses.Set("400", errorResponse())
+	patchStatusOp.Responses.Set("404", errorResponse())
+	patchStatusOp.Responses.Set("422", errorResponse())
+	patchStatusOp.Responses.Set("500", errorResponse())
+
 	// Delete InstanceInfo operation
 	deleteOp := openapi3.NewOperation()
 	deleteOp.OperationID = "deleteInstanceInfo"
@@ -558,7 +778,16 @@ func registerInstanceInfoPaths(spec *openapi3.T) {
 	itemPath := &openapi3.PathItem{
 		Get:    getOp,
 		Put:    updateOp,
+		Patch:  patchOp,
 		Delete: deleteOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	statusPath := &openapi3.PathItem{
+		Put:   updateStatusOp,
+		Patch: patchStatusOp,
 		Parameters: []*openapi3.ParameterRef{
 			{Value: uidParam},
 		},
@@ -567,6 +796,7 @@ func registerInstanceInfoPaths(spec *openapi3.T) {
 	// Add paths to spec
 	spec.Paths.Set("/instanceinfos", collectionPath)
 	spec.Paths.Set("/instanceinfos/{uid}", itemPath)
+	spec.Paths.Set("/instanceinfos/{uid}/status", statusPath)
 }
 
 // registerWireGuardPeerPaths registers OpenAPI paths for WireGuardPeer resources
@@ -580,6 +810,9 @@ func registerWireGuardPeerPaths(spec *openapi3.T) {
 
 	updateReqSchema, _ := openapi3gen.NewSchemaRefForValue(&UpdateWireGuardPeerRequest{}, spec.Components.Schemas)
 	spec.Components.Schemas["UpdateWireGuardPeerRequest"] = updateReqSchema
+
+	statusSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.WireGuardPeerStatus{}, spec.Components.Schemas)
+	spec.Components.Schemas["WireGuardPeerStatus"] = statusSchema
 
 	// Error response schema
 	if _, exists := spec.Components.Schemas["ErrorResponse"]; !exists {
@@ -677,6 +910,65 @@ func registerWireGuardPeerPaths(spec *openapi3.T) {
 	updateOp.Responses.Set("404", errorResponse())
 	updateOp.Responses.Set("500", errorResponse())
 
+	// Patch WireGuardPeer operation
+	patchOp := openapi3.NewOperation()
+	patchOp.OperationID = "patchWireGuardPeer"
+	patchOp.Summary = "Patch a WireGuardPeer resource"
+	patchOp.Description = "Partially updates an existing WireGuardPeer resource using patch semantics"
+	patchOp.Tags = []string{"WireGuardPeer"}
+	patchOp.RequestBody = patchRequestBody()
+	patchOp.Responses = openapi3.NewResponses()
+	patchOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/WireGuardPeer",
+			}),
+	})
+	patchOp.Responses.Set("400", errorResponse())
+	patchOp.Responses.Set("404", errorResponse())
+	patchOp.Responses.Set("422", errorResponse())
+	patchOp.Responses.Set("500", errorResponse())
+
+	// Update WireGuardPeer status operation
+	updateStatusOp := openapi3.NewOperation()
+	updateStatusOp.OperationID = "updateWireGuardPeerStatus"
+	updateStatusOp.Summary = "Update WireGuardPeer status"
+	updateStatusOp.Description = "Updates only the status subresource for an existing WireGuardPeer"
+	updateStatusOp.Tags = []string{"WireGuardPeer"}
+	updateStatusOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/WireGuardPeerStatus"}),
+	}
+	updateStatusOp.Responses = openapi3.NewResponses()
+	updateStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status updated successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/WireGuardPeer"}),
+	})
+	updateStatusOp.Responses.Set("400", errorResponse())
+	updateStatusOp.Responses.Set("404", errorResponse())
+	updateStatusOp.Responses.Set("500", errorResponse())
+
+	// Patch WireGuardPeer status operation
+	patchStatusOp := openapi3.NewOperation()
+	patchStatusOp.OperationID = "patchWireGuardPeerStatus"
+	patchStatusOp.Summary = "Patch WireGuardPeer status"
+	patchStatusOp.Description = "Partially updates only the status subresource for an existing WireGuardPeer"
+	patchStatusOp.Tags = []string{"WireGuardPeer"}
+	patchStatusOp.RequestBody = patchRequestBody()
+	patchStatusOp.Responses = openapi3.NewResponses()
+	patchStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/WireGuardPeer"}),
+	})
+	patchStatusOp.Responses.Set("400", errorResponse())
+	patchStatusOp.Responses.Set("404", errorResponse())
+	patchStatusOp.Responses.Set("422", errorResponse())
+	patchStatusOp.Responses.Set("500", errorResponse())
+
 	// Delete WireGuardPeer operation
 	deleteOp := openapi3.NewOperation()
 	deleteOp.OperationID = "deleteWireGuardPeer"
@@ -709,7 +1001,16 @@ func registerWireGuardPeerPaths(spec *openapi3.T) {
 	itemPath := &openapi3.PathItem{
 		Get:    getOp,
 		Put:    updateOp,
+		Patch:  patchOp,
 		Delete: deleteOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	statusPath := &openapi3.PathItem{
+		Put:   updateStatusOp,
+		Patch: patchStatusOp,
 		Parameters: []*openapi3.ParameterRef{
 			{Value: uidParam},
 		},
@@ -718,6 +1019,22 @@ func registerWireGuardPeerPaths(spec *openapi3.T) {
 	// Add paths to spec
 	spec.Paths.Set("/wireguardpeers", collectionPath)
 	spec.Paths.Set("/wireguardpeers/{uid}", itemPath)
+	spec.Paths.Set("/wireguardpeers/{uid}/status", statusPath)
+}
+
+func patchRequestBody() *openapi3.RequestBodyRef {
+	patchSchema := &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
+	return &openapi3.RequestBodyRef{
+		Value: &openapi3.RequestBody{
+			Required: true,
+			Content: openapi3.Content{
+				"application/merge-patch+json": &openapi3.MediaType{Schema: patchSchema},
+				"application/json-patch+json":  &openapi3.MediaType{Schema: patchSchema},
+				"application/shorthand-patch":  &openapi3.MediaType{Schema: patchSchema},
+				"application/json":             &openapi3.MediaType{Schema: patchSchema},
+			},
+		},
+	}
 }
 
 // Helper function for error responses
