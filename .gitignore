@@ -29,8 +29,13 @@ data/
 !example.yml
 !.fabrica.yaml
 !apis.yaml
+!.goreleaser.yaml
+!.pre-commit-config.yaml
 !.github/workflows/*.yaml
 !.github/workflows/*.yml
+
+# Goreleaser dist directory
+dist/
 
 # Runtime config (contains environment-specific values)
 config.yaml
