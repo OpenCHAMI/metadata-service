@@ -58,6 +58,7 @@ dockers_v2:
   - id: "metadata-server"
     ids:
       - "metadata-server"
+      - "metadata-client"
     images:
       - "ghcr.io/openchami/{{.ProjectName}}"
     tags:
