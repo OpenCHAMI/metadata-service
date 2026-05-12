@@ -180,6 +180,11 @@ func runServer(cmd *cobra.Command, args []string) error {
 		r.Mount("/debug", middleware.Profiler())
 	}
 
+	// Public service endpoints.
+	r.Get("/health", healthHandler)
+	r.Get("/openapi.json", ServeOpenAPISpec)
+	r.Get("/docs", ServeSwaggerUI)
+
 	registerCustomServerIntegrations(r)
 
 	// Create HTTP server

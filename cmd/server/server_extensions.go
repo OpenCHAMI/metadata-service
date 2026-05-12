@@ -25,9 +25,8 @@ func registerCustomServerIntegrations(r chi.Router) {
 		}
 	}
 
-	// Register generated API routes and health endpoint.
+	// Register generated API routes.
 	RegisterGeneratedRoutes(r)
-	r.Get("/health", healthHandler)
 
 	smdClient := initSMDClient()
 	storeAdapter := NewStorageAdapter()
