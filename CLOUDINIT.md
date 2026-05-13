@@ -4,54 +4,49 @@ SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
 SPDX-License-Identifier: MIT
 -->
 
-# Cloud-Init Metadata Server Endpoints
+# Cloud-Init Endpoint Reference
 
-This service implements a cloud-init metadata server compatible with the nocloud-net datasource.
+This service implements a NoCloud-style metadata server for cloud-init. It resolves the requesting node through SMD, renders group templates from stored resources, and serves YAML responses suitable for `nocloud-net` bootstrapping.
 
-## Quick start
+## Quick Start
 
-1. Start the server with the default mock SMD client (no `SMD_URL` needed):
-  ```bash
-  go run ./cmd/server serve --port 8888
-  ```
-2. Call the endpoints using a mock node IP via `X-Forwarded-For`:
-  ```bash
-  curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/meta-data
-  curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/vendor-data
-  curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/compute.yaml
-  ```
-3. Reset state by clearing `/data/` (file-backed storage):
-  ```bash
-  rm -rf /data/*
-  ```
+1. Start the server with mock SMD enabled automatically:
 
-Mock SMD nodes available out of the box:
+   ```bash
+   go run ./cmd/server/main.go serve --port 8888
+   ```
 
-| Component ID  | IP           | Groups           |
-|---------------|--------------|------------------|
-| x1000c0s0b0n0 | 10.0.0.100   | compute, green   |
-| x1000c0s0b0n1 | 10.0.0.101   | compute, blue    |
-| x1000c0s1b0n0 | 10.0.0.102   | storage          |
+2. Query the built-in mock nodes by HMN address through `X-Forwarded-For`:
 
-## Endpoints
+   ```bash
+   curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/meta-data
+   curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/user-data
+   curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/network-config
+   ```
+
+3. Create `ClusterDefaults` and `Group` resources before expecting useful `vendor-data` or `/{group}.yaml` responses. Without stored group resources, `/meta-data` still works, but group metadata and include lists will be empty.
+
+Mock nodes available by default
+
+| Component ID  | HMN IP      | Groups           |
+|---------------|-------------|------------------|
+| x1000c0s0b0n0 | 10.252.0.26 | compute, green   |
+| x1000c0s0b0n1 | 10.252.0.27 | compute, blue    |
+| x1000c0s1b0n0 | 10.252.0.28 | storage          |
+
+## Endpoint Behavior
 
 ### `/meta-data`
 
-Returns instance metadata in YAML format. The response includes:
+Returns cloud-init metadata in YAML format.
 
-- Instance ID
-- Hostname information
-- Cloud provider details
-- Network interface information (from SMD discovery)
-- Group memberships
+Current behavior
+- Resolves the node by request IP, honoring `X-Forwarded-For`
+- Prefers a stored WireGuard IP to component lookup before falling back to direct IP lookup
+- Prefers HMN data when choosing the boot IP and MAC for a component with multiple interfaces
+- Includes every group membership in `instance_data.v1.vendor_data.groups`, even if a group has no template
 
-**Authentication**: IP-based (determined from request IP or X-Forwarded-For header)
-
-**Selection policy**: When multiple interfaces are present, the service prefers HMN addresses first, then falls back to the first available IP/MAC.
-
-**Caching**: SMD component and ethernet data is cached for up to 60 seconds to limit SMD request volume.
-
-**Example Response**:
+Example response
 
 ```yaml
 instance-id: x1000c0s0b0n0
@@ -62,18 +57,21 @@ instance_data:
   v1:
     cloud-name: OpenCHAMI
     cloud-provider: OpenCHAMI
-    region: us-test-1
-    availability-zone: test-az-1
+    region: lab
+    availability-zone: lab-a
     instance-id: x1000c0s0b0n0
     local-hostname: tc1000
     hostname: tc1000
-    local-ipv4: 10.0.0.100
+    local-ipv4: 10.252.0.26
+    public_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKeyExample demo@example
     vendor_data:
       version: "1.0"
-      cloud_init_base_url: http://cloud-init.local
+      cloud_init_base_url: http://localhost:8888
       cluster_name: testcluster
       nid: 1000
       role: compute
+      mac: b4:2e:99:be:1a:6d
       interfaces:
         - name: eth0
           mac: b4:2e:99:be:1a:6d
@@ -92,36 +90,50 @@ instance_data:
       groups:
         compute:
           description: Compute nodes
-          custom_key: custom_value
+          scheduler: slurm
+        green:
+          description: Green nodes
+          color: green
 ```
 
 ### `/user-data`
 
-Returns user-provided cloud-config data. This endpoint intentionally returns an empty cloud-config to preserve user override capability.
+Returns a fixed empty cloud-config:
 
-**Response**: `#cloud-config\n`
+```yaml
+#cloud-config
+```
+
+This endpoint is intentionally a no-op so user overrides can still be layered by the client.
 
 ### `/vendor-data`
 
-Returns an include-file list pointing to group-specific configurations.
+Returns a `#include` list of group templates for the requesting node.
 
-**Example Response**:
+Current behavior
+- Uses `ClusterDefaults.Spec.BaseURL` or `InstanceInfo.Spec.CloudInitBaseURL` when building URLs
+- Includes only groups with non-empty templates
+- Still exposes metadata for empty-template groups in `/meta-data`
+
+Example response after creating `compute` and `green` groups:
 
 ```yaml
 #include
-http://cloud-init.local/compute.yaml
-http://cloud-init.local/green.yaml
+http://localhost:8888/compute.yaml
+http://localhost:8888/green.yaml
 ```
 
 ### `/network-config`
 
-Returns cloud-init network configuration (v1 format) with interface details from SMD.
+Returns cloud-init network-config v1 YAML derived from SMD Ethernet data.
 
-**Authentication**: IP-based (determined from request IP or X-Forwarded-For header)
+Current behavior
+- Emits one `physical` config item per discovered interface
+- Uses the interface MAC, description, and IP from SMD
+- Emits static subnet entries using the discovered address with a `/24` mask
+- Returns `version: 1` with an empty `config` list when no interface data is available
 
-**Response Format**: cloud-init network-config v1 YAML
-
-**Example Response** (for a 2-NIC node):
+Example response:
 
 ```yaml
 version: 1
@@ -142,126 +154,92 @@ config:
         address: 10.100.0.26/24
 ```
 
-**Features**:
-
-- Automatically discovers all network interfaces from SMD's EthernetInterface API
-- Maps MAC addresses to IP addresses and networks
-- Returns static IP configuration from SMD data
-- One endpoint for all network configuration (no templating required)
-
 ### `/{group}.yaml`
 
-Returns group-specific cloud-config with template rendering.
+Returns the rendered template for a group the node belongs to.
 
+Current behavior
+- Rejects requests for groups the node is not a member of
+- Renders the stored plain-text template with merged runtime metadata
+- Uses the same identity resolution path as `/meta-data`
 
-**Path Parameters**:
+Template context available to group templates
+- Flat keys: `hostname`, `local_hostname`, `instance_id`, `cluster_name`, `cloud_name`, `cloud_provider`, `availability_zone`, `region`, `local_ipv4`, `base_url`, `nid`, `role`, `mac`, `ip`, `interfaces`, and `public_keys`
+- Nested `vendor_data` matching the vendor-data section of `/meta-data`
+- Nested `meta_data` containing the full cloud-init metadata document
+- Custom keys from `Group.Spec.MetaData`
 
-- `group`: Name of the group
-
-**Authentication**: Verifies node is a member of the requested group
-
-**Template encoding**: Set `templateEncoding: base64` on create/update to submit base64-encoded templates. The server decodes and stores plain text.
-
-**Template Variables Available**:
-
-- `hostname`: Generated hostname (e.g., `tc1000`)
-- `instance_id`: Component ID (e.g., `x1000c0s0b0n0`)
-- `nid`: Node ID number
-- `role`: Component role
-- Plus any custom metadata defined in the group
-
-**Example Response**:
+Example response:
 
 ```yaml
 #cloud-config
 hostname: tc1000
-fqdn: tc1000.testcluster.local
+write_files:
+  - path: /etc/node-role
+    content: |
+      ROLE=compute
+      NID=1000
+      IP=10.252.0.26
 ```
 
-## Configuration
+## Resource Inputs Used By The Endpoints
 
-### Environment Variables
+### ClusterDefaults
 
-- `SMD_URL`: URL of the State Management Database (SMD) service. If not set, a mock SMD client will be used for development.
-- `SMD_JWT`: JWT to authenticate to SMD (optional).
-- `SMD_TOKEN`: Alias for `SMD_JWT` (optional).
+Relevant fields from `ClusterDefaults.Spec`
+- `base_url`
+- `cloud_provider`
+- `region`
+- `availability_zone`
+- `cluster_name`
+- `short_name`
+- `nid_length`
+- `public_keys`
 
-### Storage
+### InstanceInfo
 
-The service uses three types of resources stored in the configured backend:
+Relevant fields from `InstanceInfo.Spec`
+- `instance_id`
+- `local_hostname`
+- `hostname`
+- `cloud_init_base_url`
+- `public_keys`
 
-#### ClusterDefaults
+### Group
 
-Cluster-wide configuration including:
+Relevant fields from `Group.Spec`
+- `description`
+- `template`
+- `metaData`
+- `osVersion`
 
-- `base_url`: Base URL for cloud-init endpoints
-- `cloud_provider`: Cloud provider name
-- `region`: Cloud region
-- `availability_zone`: Availability zone
-- `cluster_name`: Name of the cluster
-- `short_name`: Abbreviated cluster name (used in hostname generation)
-- `nid_length`: Number of digits for NID padding
-- `public_keys`: List of SSH public keys
-
-#### InstanceInfo
-
-Instance-specific configuration (keyed by component ID):
-
-- `instance_id`: Override for instance ID
-- `local_hostname`: Override for local hostname
-- `hostname`: Override for hostname
-- `cloud_init_base_url`: Override for cloud-init base URL
-- `public_keys`: Additional SSH public keys
-
-#### Group
-
-Group-specific configuration and templates:
-
-- `description`: Group description
-- `template`: Jinja2-compatible template for cloud-config
-- `templateEncoding`: Optional encoding for `template` (use `base64` to submit encoded templates)
-- `metadata`: Key-value pairs available to templates
+Group templates are stored and rendered as plain text. There is no `templateEncoding` field in the current API.
 
 ## Identity Resolution
 
-The service determines which node is making a request by:
+For both cloud-init and network-config requests, the server determines the node by:
+1. Reading `X-Forwarded-For` if present, otherwise the request remote address.
+2. Looking up a component by WireGuard-assigned IP if one exists.
+3. Falling back to a direct SMD IP lookup.
+4. Querying SMD for component data, group membership, and Ethernet interfaces.
 
-1. Extracting the client IP from the request (supporting X-Forwarded-For for proxied requests)
-2. Looking up the component ID in SMD using the IP address
-3. Retrieving component information and group memberships
+## Related Service Endpoints
 
-## Testing
+- `/health`
+- `/openapi.json`
+- `/docs`
 
-Run the comprehensive test suite:
+## Validation And Testing
+
+Run the project test suite with:
 
 ```bash
-# All tests
-go test ./...
-
-# Handler tests only
-go test ./pkg/handlers/ -v
-
-# API type package tests
-go test ./apis/cloud-init.openchami.io/v1/... -v
+make test
 ```
 
-## Development
-
-When `SMD_URL` is not configured, the service uses a mock SMD client with sample data:
-
-- `x1000c0s0b0n0` (10.0.0.100) - compute, green groups
-- `x1000c0s0b0n1` (10.0.0.101) - compute, blue groups
-- `x1000c0s1b0n0` (10.0.0.102) - storage group
-
-You can test endpoints using curl with the X-Forwarded-For header:
+Useful focused checks:
 
 ```bash
-# Get metadata
-curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8080/meta-data
-
-# Get vendor-data
-curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8080/vendor-data
-
-# Get group config
-curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8080/compute.yaml
+go test ./pkg/handlers/... -v
+go test ./cmd/server/... -v
 ```

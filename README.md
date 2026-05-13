@@ -4,147 +4,180 @@ SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
 SPDX-License-Identifier: MIT
 -->
 
-# github.com/OpenCHAMI/metadata-service
+# OpenCHAMI Metadata Service
 
-Cloud-init metadata service built on the OpenCHAMI Fabrica framework. It serves nocloud-net metadata endpoints for HPC nodes, renders Jinja2/Pongo2 templates for group configs, and integrates with a State Management Database (SMD) or a mock client for local development. It is a drop-in replacement for the legacy `cloud-init/admin` service with stronger validation and generated APIs.
+The OpenCHAMI metadata service provides NoCloud-compatible cloud-init endpoints for HPC nodes and a generated resource API for the data those endpoints render. It is built on Fabrica, stores resources on disk, integrates with SMD for node identity and group membership, and falls back to a mock SMD client for local development when `SMD_URL` is unset.
 
 Key capabilities
-- Auto-generated REST resources for groups, cluster defaults, and instance info
-- Server-side template validation (Jinja2-compatible, YAML-safe)
-- SMD-backed identity and group membership with mock mode when `SMD_URL` is unset
-- File-based storage with persistence under `/data/`
-- Optional userspace WireGuard controller for compatible VPN-style bootstrapping
+- NoCloud-style endpoints: `/meta-data`, `/user-data`, `/vendor-data`, `/network-config`, and `/{group}.yaml`
+- Generated resource APIs and client commands for `clusterdefaults`, `group`, `instanceinfo`, and `wireguardpeer`
+- Server-side template validation for group cloud-config templates using Pongo2 plus YAML validation
+- OpenAPI output at `/openapi.json` and Swagger UI at `/docs`
+- Optional userspace WireGuard bootstrap endpoints at `/wg-init` and `/phone-home/{id}`
 
+## Quick Start
 
+The server defaults to port `8080`. The examples below use `8888` explicitly.
 
-## Quick start (mock SMD)
+1. Start the server with the built-in mock SMD data:
 
-1. Ensure Go 1.22+ is installed.
-2. From the repo root, start the server (mock SMD is automatic when `SMD_URL` is unset):
-	```bash
-	go run ./cmd/server serve --port 8888
-	```
-3. Hit the cloud-init endpoints using the bundled mock nodes:
-	```bash
-	curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/meta-data
-	curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/vendor-data
-	curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/compute.yaml
-	```
-4. Data lives under `/data/`. Remove it to reset state:
-	```bash
-	rm -rf /data/*
-	```
+	 ```bash
+	 go run ./cmd/server/main.go serve --port 8888
+	 ```
 
-Mock nodes available by default:
-- `10.0.0.100` (`x1000c0s0b0n0`): groups compute, green
-- `10.0.0.101` (`x1000c0s0b0n1`): groups compute, blue
-- `10.0.0.102` (`x1000c0s1b0n0`): group storage
+2. Verify the service endpoints that work without any stored resources:
 
-## Manage resources with the generated client
+	 ```bash
+	 curl http://localhost:8888/health
+	 curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/meta-data
+	 curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/user-data
+	 curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/network-config
+	 ```
 
-Use the generated CLI to create or update cluster defaults, groups, and instance overrides.
+3. Create the minimum resources needed for meaningful `vendor-data` and group template rendering. The generated client expects a full request object with both `metadata` and `spec`.
+
+	 ```bash
+	 cat > /tmp/clusterdefaults.json <<'EOF'
+	 {
+		 "metadata": {
+			 "name": "demo-cluster"
+		 },
+		 "spec": {
+			 "description": "Local demo cluster defaults",
+			 "base_url": "http://localhost:8888",
+			 "cloud_provider": "OpenCHAMI",
+			 "region": "lab",
+			 "availability_zone": "lab-a",
+			 "cluster_name": "testcluster",
+			 "short_name": "tc",
+			 "nid_length": 4,
+			 "public_keys": [
+				 "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKeyExample demo@example"
+			 ]
+		 }
+	 }
+	 EOF
+	 go run ./cmd/client/main.go --server http://localhost:8888 clusterdefaults create --spec "$(cat /tmp/clusterdefaults.json)"
+
+	 cat > /tmp/compute-group.json <<'EOF'
+	 {
+		 "metadata": {
+			 "name": "compute"
+		 },
+		 "spec": {
+			 "description": "Compute nodes",
+			 "template": "#cloud-config\nhostname: {{ hostname }}\nwrite_files:\n  - path: /etc/node-role\n    content: |\n      ROLE={{ role }}\n      NID={{ nid }}\n      IP={{ ip }}\n",
+			 "metaData": {
+				 "scheduler": "slurm"
+			 }
+		 }
+	 }
+	 EOF
+	 go run ./cmd/client/main.go --server http://localhost:8888 group create --spec "$(cat /tmp/compute-group.json)"
+
+	 cat > /tmp/green-group.json <<'EOF'
+	 {
+		 "metadata": {
+			 "name": "green"
+		 },
+		 "spec": {
+			 "description": "Green nodes",
+			 "template": "#cloud-config\nwrite_files:\n  - path: /etc/node-color\n    content: |\n      COLOR={{ color }}\n",
+			 "metaData": {
+				 "color": "green"
+			 }
+		 }
+	 }
+	 EOF
+	 go run ./cmd/client/main.go --server http://localhost:8888 group create --spec "$(cat /tmp/green-group.json)"
+	 ```
+
+4. With those resources in place, test the rendered cloud-init flows for the first mock node:
+
+	 ```bash
+	 curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/vendor-data
+	 curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/compute.yaml
+	 curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/green.yaml
+	 ```
+
+Mock SMD nodes available by default
+- `x1000c0s0b0n0` at `10.252.0.26` with groups `compute`, `green`
+- `x1000c0s0b0n1` at `10.252.0.27` with groups `compute`, `blue`
+- `x1000c0s1b0n0` at `10.252.0.28` with group `storage`
+
+## API Surface
+
+Public service endpoints
+- `/health`
+- `/openapi.json`
+- `/docs`
+
+Cloud-init endpoints
+- `/meta-data`
+- `/user-data`
+- `/vendor-data`
+- `/network-config`
+- `/{group}.yaml`
+
+Generated resource APIs
+- Prefer the generated client commands: `clusterdefaults`, `group`, `instanceinfo`, `wireguardpeer`
+- The raw generated REST collections are `/clusterdefaultss`, `/groups`, `/instanceinfos`, and `/wireguardpeers`
+
+## Template Context
+
+Group templates are stored as plain text and rendered with these runtime values:
+- Flat keys such as `hostname`, `local_hostname`, `instance_id`, `cluster_name`, `cloud_provider`, `region`, `nid`, `role`, `mac`, `ip`, `interfaces`, and `public_keys`
+- Nested `vendor_data` matching the `/meta-data` payload
+- Nested `meta_data` containing the full cloud-init metadata document
+- Custom keys from `Group.Spec.MetaData`
+
+The server validates templates at create and update time. A template must render successfully against sample metadata and produce valid YAML.
+
+## Running With Real SMD
+
+Set `SMD_URL` to use a real SMD instance. If authentication is required, set either `SMD_JWT` or `SMD_TOKEN`.
 
 ```bash
-# Create cluster defaults
-go run ./cmd/client --server http://localhost:8888 clusterdefaults create --spec '{"name":"demo","base_url":"http://localhost:8888","cloud_provider":"OpenCHAMI","region":"dev","nid_length":4,"public_keys":["ssh-ed25519 AAA... user@example"]}'
-
-# Create a group with a simple template
-cat > /tmp/compute.json <<'EOF'
-{
-  "name": "compute",
-  "description": "Compute nodes",
-  "template": "#cloud-config\nhostname: {{ hostname }}\nusers:\n  - name: hpc\n    ssh-authorized-keys: {{ metadata.public_keys }}\n",
-  "metadata": {
-	 "public_keys": ["ssh-ed25519 AAA... user@example"]
-  }
-}
-EOF
-go run ./cmd/client --server http://localhost:8888 group create --spec "$(cat /tmp/compute.json)"
-
-# Create a group with base64-encoded template content
-cat > /tmp/compute-b64.json <<'EOF'
-{
-	"name": "compute",
-	"description": "Compute nodes",
-	"template": "I2Nsb3VkLWNvbmZpZ1xuaG9zdG5hbWU6IHt7IGhvc3RuYW1lIH19XG4=",
-	"templateEncoding": "base64",
-	"metadata": {
-		"public_keys": ["ssh-ed25519 AAA... user@example"]
-	}
-}
-EOF
-go run ./cmd/client --server http://localhost:8888 group create --spec "$(cat /tmp/compute-b64.json)"
-
-# Optional: instance-specific overrides
-go run ./cmd/client --server http://localhost:8888 instanceinfo create --spec '{"name":"x1000c0s0b0n0","hostname":"custom-host"}'
+SMD_URL=https://smd.example.com \
+SMD_JWT="$JWT" \
+go run ./cmd/server/main.go serve --port 8888
 ```
 
-## Cloud-init endpoints
+Request identity resolution prefers a WireGuard reverse lookup when available, then falls back to direct IP lookup through SMD.
 
-The service implements nocloud-net compatible endpoints. See [CLOUDINIT.md](CLOUDINIT.md) for full details and response examples.
+## Optional WireGuard Support
 
-- `/meta-data` — YAML metadata for the requesting node (IP- or X-Forwarded-For-based identity)
-- `/vendor-data` — include file list of group YAMLs
-- `/user-data` — empty `#cloud-config` to preserve user overrides
-- `/{group}.yaml` — rendered group template (requires group membership)
-
-## Running with real SMD
-
-Set `SMD_URL` to point at your SMD service. Identity, group membership, and overrides will be sourced from SMD instead of the mock client.
-If your SMD requires authentication, provide a JWT via `SMD_JWT` (or `SMD_TOKEN`).
+Enable the userspace WireGuard controller by passing a CIDR whose host address is the server address inside the VPN network.
 
 ```bash
-SMD_URL=https://smd.example.com SMD_JWT="$JWT" go run ./cmd/server serve --port 8888
+go run ./cmd/server/main.go serve --port 8888 --wireguard-server 100.97.0.1/16
 ```
 
-## Optional: userspace WireGuard endpoints
-
-Enable with `--wireguard_server` to expose `/wg-init` and `/phone-home/{id}` for userspace WireGuard bootstrapping.
+Bootstrap a peer with:
 
 ```bash
-go run ./cmd/server serve --port 8888 --wireguard_server
+curl \
+	-X POST \
+	-H "Content-Type: application/json" \
+	-H "X-Forwarded-For: 10.252.0.26" \
+	-d '{"public_key":"REPLACE_WITH_BASE64_WIREGUARD_PUBLIC_KEY"}' \
+	http://localhost:8888/wg-init
 ```
+
+If you also pass `--wireguard-only`, the server will reject requests whose remote address is not inside the configured WireGuard CIDR.
 
 ## Development
 
 ```bash
-# Install dependencies
 go mod tidy
-
-# Regenerate Fabrica code (default: released module)
 make generate
-
-# Run the server
-go run ./cmd/server serve --port 8888
-
-# Run tests (skips integration tests that need a legacy server)
+make build
 make test
+make pre-commit-run
 ```
 
-### Using GoReleaser
-OpenCHAMI employs [GoReleaser](https://goreleaser.com/) for automated releases and build metadata tracking.
+Additional examples live in [examples/README.md](examples/README.md).
 
-To build locally:
-#### Set Environment Variables
-```bash
-export GIT_STATE=$(if git diff-index --quiet HEAD --; then echo 'clean'; else echo 'dirty'; fi)
-export BUILD_HOST=$(hostname)
-export GO_VERSION=$(go version | awk '{print $3}')
-export BUILD_USER=$(whoami)
-```
+## Release Notes
 
-#### Install GoReleaser
-Follow [GoReleaser’s installation guide](https://goreleaser.com/install/).
-
-#### Build Locally
-```bash
-goreleaser release --snapshot --clean
-```
-Built binaries will be located in the `dist/` directory.
-
-## Legacy parity highlights
-
-- Same nocloud-net endpoints as the legacy service (`/meta-data`, `/user-data`, `/vendor-data`, `/{group}.yaml`)
-- Server-side template validation (Jinja2/Pongo2 + YAML) prevents invalid configs at create time
-- Mock SMD replaces legacy impersonation routes; use `X-Forwarded-For` to simulate callers
-- Resources created via generated client (`clusterdefaults`, `group`, `instanceinfo`) instead of legacy `/cloud-init/admin/*` routes
+See [CHANGELOG.md](CHANGELOG.md) for the `0.1.0` release notes.

@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	pongo2 "github.com/flosch/pongo2/v6"
@@ -87,17 +88,31 @@ func MergeMetadata(defaultMeta map[string]any, groupMeta map[string]string) map[
 
 // RenderTemplate renders a Jinja2-compatible template using pongo2.
 func RenderTemplate(templateStr string, metadata map[string]interface{}) (string, error) {
-	tpl, err := pongo2.FromString(templateStr)
-	if err != nil {
-		return "", err
-	}
-	return tpl.Execute(metadata)
+	templateSet := pongo2.NewSet("group-template", pongo2.MustNewLocalFileSystemLoader(""))
+	return templateSet.RenderTemplateString(templateStr, metadata)
 }
 
 // validateYAML checks if a string is valid YAML.
 func validateYAML(s string) error {
 	var out interface{}
 	return yaml.Unmarshal([]byte(s), &out)
+}
+
+func hasTemplateVariableData(metadata map[string]interface{}, variable string) bool {
+	current := any(metadata)
+	for _, part := range strings.Split(variable, ".") {
+		switch typed := current.(type) {
+		case map[string]interface{}:
+			next, ok := typed[part]
+			if !ok {
+				return false
+			}
+			current = next
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // extractTemplateVariables finds {{var}} references.
@@ -197,7 +212,7 @@ func (r *Group) Validate(ctx context.Context) error { //nolint: revive
 	merged := MergeMetadata(sampleMetadata(), r.Spec.MetaData)
 	missing := []string{}
 	for _, v := range vars {
-		if _, ok := merged[v]; !ok {
+		if !hasTemplateVariableData(merged, v) {
 			missing = append(missing, v)
 		}
 	}
@@ -226,7 +241,6 @@ func (r *Group) Validate(ctx context.Context) error { //nolint: revive
 	r.Status.Valid = true
 	r.Status.ErrorMessage = ""
 	r.trackTemplateVersion(true, "")
-	fmt.Printf("DEBUG: Template history length after tracking: %d, current version: %s\n", len(r.Status.TemplateHistory), r.Status.CurrentTemplateVersion)
 	return nil
 }
 

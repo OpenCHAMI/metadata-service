@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	cloudinitv1 "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
 	"github.com/OpenCHAMI/metadata-service/internal/storage"
@@ -22,11 +23,46 @@ func NewStorageAdapter() *StorageAdapter {
 	return &StorageAdapter{}
 }
 
+func latestClusterDefaults(resources []*cloudinitv1.ClusterDefaults) *cloudinitv1.ClusterDefaults {
+	latest := resources[0]
+	for _, resource := range resources[1:] {
+		if resource.Metadata.UpdatedAt.After(latest.Metadata.UpdatedAt) {
+			latest = resource
+		}
+	}
+	return latest
+}
+
+func latestInstanceInfoByName(resources []*cloudinitv1.InstanceInfo, id string) *cloudinitv1.InstanceInfo {
+	var latest *cloudinitv1.InstanceInfo
+	for _, resource := range resources {
+		if resource.Metadata.Name != id && resource.Spec.InstanceID != id {
+			continue
+		}
+		if latest == nil || resource.Metadata.UpdatedAt.After(latest.Metadata.UpdatedAt) {
+			latest = resource
+		}
+	}
+	return latest
+}
+
+func latestGroupByName(resources []*cloudinitv1.Group, name string) *cloudinitv1.Group {
+	var latest *cloudinitv1.Group
+	for _, resource := range resources {
+		if resource.Metadata.Name != name {
+			continue
+		}
+		if latest == nil || resource.Metadata.UpdatedAt.After(latest.Metadata.UpdatedAt) {
+			latest = resource
+		}
+	}
+	return latest
+}
+
 // GetClusterDefaults retrieves cluster defaults from storage
 func (s *StorageAdapter) GetClusterDefaults() (*handlers.ClusterDefaults, error) {
 	ctx := context.Background()
 
-	// Get the first (and presumably only) ClusterDefaults resource
 	resources, err := storage.LoadAllClusterDefaultss(ctx)
 	if err != nil {
 		return nil, err
@@ -36,8 +72,7 @@ func (s *StorageAdapter) GetClusterDefaults() (*handlers.ClusterDefaults, error)
 		return nil, nil
 	}
 
-	// Get the first ClusterDefaults
-	cd := resources[0]
+	cd := latestClusterDefaults(resources)
 
 	return &handlers.ClusterDefaults{
 		BaseURL:          cd.Spec.BaseURL,
@@ -55,9 +90,14 @@ func (s *StorageAdapter) GetClusterDefaults() (*handlers.ClusterDefaults, error)
 func (s *StorageAdapter) GetInstanceInfo(id string) (*handlers.InstanceInfo, error) {
 	ctx := context.Background()
 
-	ii, err := storage.LoadInstanceInfo(ctx, id)
+	resources, err := storage.LoadAllInstanceInfos(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	ii := latestInstanceInfoByName(resources, id)
+	if ii == nil {
+		return nil, fmt.Errorf("no instance info for %s", id)
 	}
 
 	return &handlers.InstanceInfo{
@@ -73,9 +113,14 @@ func (s *StorageAdapter) GetInstanceInfo(id string) (*handlers.InstanceInfo, err
 func (s *StorageAdapter) GetGroupData(name string) (*cloudinitv1.Group, error) {
 	ctx := context.Background()
 
-	g, err := storage.LoadGroup(ctx, name)
+	resources, err := storage.LoadAllGroups(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	g := latestGroupByName(resources, name)
+	if g == nil {
+		return nil, fmt.Errorf("no data for group %s", name)
 	}
 
 	return g, nil

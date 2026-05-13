@@ -18,6 +18,10 @@ import (
 func registerCustomServerIntegrations(r chi.Router) {
 	wgController := setupWireGuardController(r)
 
+	if err := registerResourcePrefixes(); err != nil {
+		log.Printf("Failed to register resource prefixes: %v", err)
+	}
+
 	if wgController != nil {
 		r.Use(wireGuardControllerMiddleware(wgController))
 		if viper.GetBool("wireguard_only") {
