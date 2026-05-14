@@ -166,9 +166,9 @@ func TestRegisterCustomServerIntegrationsAllowsGeneratedCreateRoutes(t *testing.
 	t.Setenv("SMD_TOKEN", "")
 
 	r := chi.NewRouter()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	registerCustomServerIntegrations(ctx, r)
+	if err := registerCustomServerIntegrations(context.Background(), r); err != nil {
+		t.Fatalf("registerCustomServerIntegrations returned error: %v", err)
+	}
 
 	server := httptest.NewServer(r)
 	defer server.Close()

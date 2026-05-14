@@ -33,25 +33,23 @@ type Config struct {
 	IdleTimeout  int    `mapstructure:"idle_timeout"`
 
 	// Storage Configuration
-
 	DataDir string `mapstructure:"data_dir"`
 
 	// WireGuard Configuration
-	WireGuardStateFile string `mapstructure:"wireguard_state_file"`
-	WireGuardOnly      bool   `mapstructure:"wireguard_only"`
+	WireGuardStateFile       string `mapstructure:"wireguard_state_file"`
+	WireGuardOnly            bool   `mapstructure:"wireguard_only"`
+	TokenSmithURL            string `mapstructure:"tokensmith_url"`
+	TokenSmithBootstrapToken string `mapstructure:"tokensmith_bootstrap_token"`
+	TokenSmithTargetService  string `mapstructure:"tokensmith_target_service"`
+	TokenSmithScopes         string `mapstructure:"tokensmith_scopes"`
+	TokenSmithRefreshSkewSec int    `mapstructure:"tokensmith_refresh_skew_sec"`
+	TokenSmithScopeHint      string `mapstructure:"tokensmith_scope_hint"`
 
 	// SMD Integration Configuration
 	SMDSyncEnabled  bool `mapstructure:"smd_sync_enabled"`
 	SMDSyncInterval int  `mapstructure:"smd_sync_interval"`
 
-	TokenSmithRefreshSkewSec int    `mapstructure:"tokensmith_refresh_skew_sec"`
-	TokenSmithTargetService  string `mapstructure:"tokensmith_target_service"`
-	TokenSmithURL            string `mapstructure:"tokensmith_url"`
-	TokenSmithBootstrapToken string `mapstructure:"tokensmith_bootstrap_token"`
-	TokenSmithScopeHint      string `mapstructure:"tokensmith_scope_hint"`
-
 	// Feature Flags
-
 	Debug bool `mapstructure:"debug"`
 }
 
@@ -66,17 +64,17 @@ func DefaultConfig() *Config {
 
 		DataDir: "/data",
 
-		WireGuardStateFile: "/data/wireguard/state.yaml",
-		WireGuardOnly:      false,
+		WireGuardStateFile:       "/data/wireguard/state.yaml",
+		WireGuardOnly:            false,
+		TokenSmithURL:            "",
+		TokenSmithBootstrapToken: "",
+		TokenSmithTargetService:  "smd",
+		TokenSmithScopes:         "",
+		TokenSmithRefreshSkewSec: 300,
+		TokenSmithScopeHint:      "",
 
 		SMDSyncEnabled:  true,
 		SMDSyncInterval: 5,
-
-		TokenSmithRefreshSkewSec: 60,
-		TokenSmithTargetService:  "hsm",
-		TokenSmithURL:            "",
-		TokenSmithBootstrapToken: "",
-		TokenSmithScopeHint:      "",
 
 		Debug: false,
 	}
@@ -131,13 +129,6 @@ func init() {
 	serveCmd.Flags().Bool("smd-sync-enabled", true, "Enable background SMD cache sync worker")
 	serveCmd.Flags().Int("smd-sync-interval", 5, "SMD cache sync interval in minutes")
 
-	// TokenSmith flags
-	serveCmd.Flags().String("tokensmith-url", "", "TokenSmith token exchange endpoint URL")
-	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "Bootstrap token used to exchange for SMD service token")
-	serveCmd.Flags().String("tokensmith-target-service", "hsm", "TokenSmith target service for token exchange")
-	serveCmd.Flags().Int("tokensmith-refresh-skew-sec", 60, "Refresh token this many seconds before expiry")
-	serveCmd.Flags().String("tokensmith-scope-hint", "", "Optional TokenSmith scope hint for diagnostics")
-
 	// Bind flags to viper
 	viper.BindPFlags(serveCmd.Flags())
 	viper.BindPFlags(rootCmd.PersistentFlags())
@@ -145,9 +136,6 @@ func init() {
 
 	// Add subcommands
 	rootCmd.AddCommand(serveCmd)
-
-	rootCmd.AddCommand(versionCmd)
-
 }
 
 func initConfig() {
@@ -193,8 +181,6 @@ func runServer(cmd *cobra.Command, args []string) error {
 	appCtx, appCancel := context.WithCancel(context.Background())
 	defer appCancel()
 
-	// Initialize storage backend
-
 	if err := storage.InitFileBackend(config.DataDir); err != nil {
 		return fmt.Errorf("failed to initialize file storage: %w", err)
 	}
@@ -218,7 +204,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 	r.Get("/openapi.json", ServeOpenAPISpec)
 	r.Get("/docs", ServeSwaggerUI)
 
-	registerCustomServerIntegrations(appCtx, r)
+	if err := registerCustomServerIntegrations(appCtx, r); err != nil {
+		return err
+	}
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
@@ -233,7 +221,6 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Start server in goroutine
 	go func() {
 		log.Printf("Server starting on %s", addr)
-
 		log.Printf("Storage: file backend in %s", config.DataDir)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -264,14 +251,5 @@ func runServer(cmd *cobra.Command, args []string) error {
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"healthy","service":"github.com/OpenCHAMI/metadata-service"}`))
-}
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version number",
-	Long:  `Print the version number of github.com/OpenCHAMI/metadata-service`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("github.com/OpenCHAMI/metadata-service v1.0.0")
-	},
+	_, _ = w.Write([]byte(`{"status":"healthy","service":"github.com/OpenCHAMI/metadata-service"}`))
 }

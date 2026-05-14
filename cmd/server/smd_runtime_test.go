@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/openchami/tokensmith/pkg/tokenservice"
 	"github.com/spf13/viper"
 )
 
@@ -32,14 +33,24 @@ func TestInitSMDRuntimeTokenSmithBootstrapInjectsBearer(t *testing.T) {
 	const exchangedToken = "tokensmith-service-token"
 
 	tokensmith := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/oauth/token" {
+			http.NotFound(w, r)
+			return
+		}
 		if r.Method != http.MethodPost {
 			t.Fatalf("expected POST to TokenSmith, got %s", r.Method)
 		}
-		if got := r.Header.Get("Authorization"); got != "Bearer bootstrap-token" {
-			t.Fatalf("expected bootstrap authorization header, got %q", got)
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm failed: %v", err)
+		}
+		if r.Form.Get("grant_type") != tokenservice.GrantTypeTokenExchange {
+			t.Fatalf("expected token exchange grant, got %q", r.Form.Get("grant_type"))
+		}
+		if r.Form.Get("subject_token") != "bootstrap-token" {
+			t.Fatalf("expected bootstrap subject token, got %q", r.Form.Get("subject_token"))
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"token":"` + exchangedToken + `","expires_in":3600}`))
+		_, _ = w.Write([]byte(`{"access_token":"` + exchangedToken + `","token_type":"bearer","expires_in":3600,"refresh_token":"refresh-token","refresh_expires_in":7200,"issued_token_type":"urn:ietf:params:oauth:token-type:access-token"}`))
 	}))
 	defer tokensmith.Close()
 

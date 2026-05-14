@@ -135,13 +135,39 @@ The server validates templates at create and update time. A template must render
 
 ## Running With Real SMD
 
-Set `SMD_URL` to use a real SMD instance. If authentication is required, set either `SMD_JWT` or `SMD_TOKEN`.
+Set `SMD_URL` to use a real SMD instance.
+
+Static auth mode (default when `tokensmith_url` is unset):
+- Uses `SMD_JWT` (or `SMD_TOKEN`) as the outbound `Authorization: Bearer` token.
 
 ```bash
 SMD_URL=https://smd.example.com \
 SMD_JWT="$JWT" \
 go run ./cmd/server/main.go serve --port 8888
 ```
+
+TokenSmith dynamic auth mode (enabled when `tokensmith_url` is set):
+- Exchanges `tokensmith_bootstrap_token` for a service token through `POST /oauth/token`.
+- Refreshes tokens in the background and uses the dynamic token for all outbound SMD requests.
+- Requires a bootstrap token from `tokensmith_bootstrap_token` (or `TOKENSMITH_BOOTSTRAP_TOKEN` fallback).
+- If dynamic token retrieval/refresh fails, SMD requests fail closed (no silent fallback).
+
+```bash
+SMD_URL=https://smd.example.com \
+TOKENSMITH_URL=https://tokensmith.example.com \
+TOKENSMITH_BOOTSTRAP_TOKEN="$BOOTSTRAP_TOKEN" \
+go run ./cmd/server/main.go serve --port 8888 \
+  --tokensmith-target-service smd \
+  --tokensmith-scopes metadata:read,groups:read \
+  --tokensmith-refresh-skew-sec 300
+```
+
+TokenSmith server options:
+- `tokensmith_url` / `TOKENSMITH_URL`
+- `tokensmith_bootstrap_token` / `TOKENSMITH_BOOTSTRAP_TOKEN`
+- `tokensmith_target_service` / `TOKENSMITH_TARGET_SERVICE` (default: `smd`)
+- `tokensmith_scopes` / `TOKENSMITH_SCOPES` (diagnostics metadata only)
+- `tokensmith_refresh_skew_sec` / `TOKENSMITH_REFRESH_SKEW_SEC` (default: `300`)
 
 Request identity resolution prefers a WireGuard reverse lookup when available, then falls back to direct IP lookup through SMD.
 

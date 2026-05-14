@@ -41,6 +41,15 @@ For SMD integration:
 
 	SMD_URL: SMD base URL for production (e.g., http://smd.example.com:27779)
 	         Unset for mock SMD in development
+	SMD_JWT / SMD_TOKEN: Static bearer token for outbound SMD auth (legacy mode)
+
+For TokenSmith-backed dynamic SMD auth:
+
+	tokensmith_url / TOKENSMITH_URL: Enable dynamic service-token mode
+	tokensmith_bootstrap_token / TOKENSMITH_BOOTSTRAP_TOKEN: Required bootstrap token
+	tokensmith_target_service / TOKENSMITH_TARGET_SERVICE: Target service metadata (default: smd)
+	tokensmith_scopes / TOKENSMITH_SCOPES: Scope metadata for diagnostics
+	tokensmith_refresh_skew_sec / TOKENSMITH_REFRESH_SKEW_SEC: Refresh threshold in seconds
 
 # Usage
 
@@ -132,8 +141,9 @@ For production, consider backing /data with persistent volumes or cloud storage.
 The server initializes the SMD client:
  1. Checks SMD_URL environment variable
  2. If set, creates HTTP client connecting to real SMD
- 3. If unset, creates mock client for development with test nodes
- 4. Implements retry logic and timeout handling
+ 3. If tokensmith_url is set, exchanges/refreshes service tokens via TokenSmith /oauth/token
+ 4. If tokensmith_url is unset, uses static SMD_JWT or SMD_TOKEN bearer auth
+ 5. If unset, creates mock client for development with test nodes
 
 The mock client provides:
   - Three test nodes: x1000c0s0b0n0, x1000c0s1b0n0, x1000c0s2b0n0

@@ -5,16 +5,11 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/OpenCHAMI/metadata-service/pkg/smdclient"
@@ -22,191 +17,141 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
-	defaultSMDSyncIntervalMinutes = 5
-	defaultTokenSmithRefreshSkew  = 60
-	defaultTokenSmithTarget       = "hsm"
-)
+const defaultSMDSyncIntervalMinutes = 5
 
 type smdRuntime struct {
 	client       smdclient.SMDClient
 	startWorkers func(context.Context)
 }
 
-type tokenSmithConfig struct {
-	URL            string
-	BootstrapToken string
-	TargetService  string
-	RefreshSkewSec int
-	ScopeHint      string
+func initSMDClient(ctx context.Context) (smdclient.SMDClient, error) {
+	smdURL := firstConfiguredValue("smd_url", "SMD_URL")
+	if smdURL == "" {
+		log.Warn().Msg("SMD_URL not configured, using mock SMD client for development")
+		return createMockSMDClient(), nil
+	}
+
+	client, _, err := initLiveSMDClient(ctx, false)
+	return client, err
 }
 
-func (c tokenSmithConfig) Enabled() bool {
-	return c.URL != "" && c.BootstrapToken != ""
-}
-
-type tokenSmithResponse struct {
-	Token        string `json:"token"`
-	ServiceToken string `json:"service_token"`
-	AccessToken  string `json:"access_token"`
-	JWT          string `json:"jwt"`
-	ExpiresAt    string `json:"expires_at"`
-	Expiry       string `json:"expiry"`
-	ExpiresIn    int64  `json:"expires_in"`
-}
-
-type serviceTokenManager struct {
-	cfg    tokenSmithConfig
-	client *http.Client
-
-	mu      sync.RWMutex
-	token   string
-	expires time.Time
-}
-
-func newServiceTokenManager(cfg tokenSmithConfig, client *http.Client) *serviceTokenManager {
-	if client == nil {
-		client = &http.Client{Timeout: 10 * time.Second}
-	}
-	return &serviceTokenManager{
-		cfg:    cfg,
-		client: client,
-	}
-}
-
-func (m *serviceTokenManager) Token() string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.token
-}
-
-func (m *serviceTokenManager) needsRefresh() bool {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.token == "" || m.expires.IsZero() {
-		return true
-	}
-	return time.Until(m.expires) <= time.Duration(m.cfg.RefreshSkewSec)*time.Second
-}
-
-func (m *serviceTokenManager) setToken(token string, expiry time.Time) {
-	m.mu.Lock()
-	m.token = token
-	m.expires = expiry
-	m.mu.Unlock()
-}
-
-func (m *serviceTokenManager) refresh(ctx context.Context) error {
-	payload := map[string]string{
-		"target_service": m.cfg.TargetService,
-	}
-	if m.cfg.ScopeHint != "" {
-		payload["scope_hint"] = m.cfg.ScopeHint
-	}
-	if m.cfg.BootstrapToken != "" {
-		payload["bootstrap_token"] = m.cfg.BootstrapToken
-	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal TokenSmith payload: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.cfg.URL, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("create TokenSmith request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	if m.cfg.BootstrapToken != "" {
-		req.Header.Set("Authorization", "Bearer "+m.cfg.BootstrapToken)
-	}
-
-	resp, err := m.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("execute TokenSmith request: %w", err)
-	}
-	respBody, err := io.ReadAll(resp.Body)
-	closeErr := resp.Body.Close()
-	if err != nil {
-		return fmt.Errorf("read TokenSmith response: %w", err)
-	}
-	if closeErr != nil {
-		return fmt.Errorf("close TokenSmith response body: %w", closeErr)
-	}
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("TokenSmith exchange failed: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
-	}
-
-	var parsed tokenSmithResponse
-	if err := json.Unmarshal(respBody, &parsed); err != nil {
-		return fmt.Errorf("decode TokenSmith response: %w", err)
-	}
-
-	token := strings.TrimSpace(parsed.Token)
-	if token == "" {
-		token = strings.TrimSpace(parsed.ServiceToken)
-	}
-	if token == "" {
-		token = strings.TrimSpace(parsed.AccessToken)
-	}
-	if token == "" {
-		token = strings.TrimSpace(parsed.JWT)
-	}
-	if token == "" {
-		return fmt.Errorf("TokenSmith response missing token field")
-	}
-
-	expiry := time.Now().Add(time.Hour)
-	if parsed.ExpiresIn > 0 {
-		expiry = time.Now().Add(time.Duration(parsed.ExpiresIn) * time.Second)
-	} else {
-		expiresAt := strings.TrimSpace(parsed.ExpiresAt)
-		if expiresAt == "" {
-			expiresAt = strings.TrimSpace(parsed.Expiry)
+// initSMDRuntime initializes SMD integration and background sync behavior.
+func initSMDRuntime() smdRuntime {
+	smdURL := firstConfiguredValue("smd_url", "SMD_URL")
+	if smdURL == "" {
+		log.Warn().Msg("SMD_URL not configured, using mock SMD client for development")
+		mock := createMockSMDClient()
+		service := smdclient.NewSMDIntegrationService(mock, smdSyncOptions())
+		return smdRuntime{
+			client: service,
+			startWorkers: func(ctx context.Context) {
+				service.StartSyncWorker(ctx)
+			},
 		}
-		if expiresAt != "" {
-			if parsedTime, err := time.Parse(time.RFC3339, expiresAt); err == nil {
-				expiry = parsedTime
+	}
+
+	client, startTokenWorkers, err := initLiveSMDClient(context.Background(), true)
+	if err != nil {
+		jwt := firstConfiguredValue("smd_jwt", "SMD_JWT")
+		if jwt == "" {
+			jwt = firstConfiguredValue("smd_token", "SMD_TOKEN")
+		}
+		log.Warn().Err(err).Msg("Falling back to static SMD HTTP client")
+		client = smdclient.NewHTTPClient(smdURL, jwt)
+	}
+
+	service := smdclient.NewSMDIntegrationService(client, smdSyncOptions())
+	return smdRuntime{
+		client: service,
+		startWorkers: func(ctx context.Context) {
+			if startTokenWorkers != nil {
+				startTokenWorkers(ctx)
 			}
-		}
+			service.StartSyncWorker(ctx)
+		},
 	}
-
-	m.setToken(token, expiry)
-	return nil
 }
 
-func (m *serviceTokenManager) StartRefreshWorker(ctx context.Context) {
-	go func() {
-		ticker := time.NewTicker(15 * time.Second)
-		defer ticker.Stop()
+func initLiveSMDClient(ctx context.Context, degradeOnTokenSmithFailure bool) (smdclient.SMDClient, func(context.Context), error) {
+	smdURL := firstConfiguredValue("smd_url", "SMD_URL")
+	jwt := firstConfiguredValue("smd_jwt", "SMD_JWT")
+	if jwt == "" {
+		jwt = firstConfiguredValue("smd_token", "SMD_TOKEN")
+	}
 
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				if !m.needsRefresh() {
-					continue
-				}
-				if err := m.refresh(ctx); err != nil {
-					log.Warn().Err(err).Msg("Failed to refresh TokenSmith service token")
-				}
-			}
+	client := smdclient.NewHTTPClient(smdURL, jwt)
+	managerConfig, dynamicEnabled, err := loadTokenExchangeConfig()
+	if err != nil {
+		if degradeOnTokenSmithFailure {
+			log.Warn().Err(err).Msg("TokenSmith configuration invalid; continuing with static SMD auth")
+			return client, nil, nil
 		}
-	}()
+		return nil, nil, err
+	}
+	if !dynamicEnabled {
+		log.Info().Msg("SMD_URL configured, using real SMD HTTP client with static auth mode")
+		return client, nil, nil
+	}
+
+	bootstrapCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	manager := smdclient.NewServiceTokenManager(managerConfig)
+	if err := manager.Initialize(bootstrapCtx); err != nil {
+		if degradeOnTokenSmithFailure {
+			log.Warn().Err(err).Msg("TokenSmith bootstrap exchange failed; continuing with static SMD auth")
+			return client, nil, nil
+		}
+		return nil, nil, err
+	}
+
+	stats := manager.Stats()
+	log.Info().
+		Str("tokensmith_url", managerConfig.TokenSmithURL).
+		Str("token_endpoint", stats.TokenEndpoint).
+		Str("target_service", stats.TargetService).
+		Strs("scopes", stats.Scopes).
+		Dur("refresh_before", managerConfig.RefreshBefore).
+		Msg("SMD_URL configured, using real SMD HTTP client with TokenSmith dynamic auth mode")
+
+	return client.WithServiceTokenManager(manager), func(workerCtx context.Context) {
+		manager.StartAutoRefresh(workerCtx)
+	}, nil
 }
 
-func configString(key string, envKeys ...string) string {
-	if viper.IsSet(key) {
-		value := strings.TrimSpace(viper.GetString(key))
-		if value != "" {
-			return value
-		}
+func loadTokenExchangeConfig() (smdclient.TokenExchangeConfig, bool, error) {
+	url := firstConfiguredValue("tokensmith_url", "TOKENSMITH_URL")
+	if url == "" {
+		return smdclient.TokenExchangeConfig{}, false, nil
 	}
-	for _, envKey := range envKeys {
-		value := strings.TrimSpace(os.Getenv(envKey))
-		if value != "" {
+
+	bootstrapToken := firstConfiguredValue("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN")
+	if bootstrapToken == "" {
+		return smdclient.TokenExchangeConfig{}, true, fmt.Errorf("TokenSmith dynamic auth requires bootstrap token: set tokensmith_bootstrap_token or TOKENSMITH_BOOTSTRAP_TOKEN")
+	}
+
+	config := smdclient.DefaultTokenExchangeConfig()
+	config.TokenSmithURL = url
+	config.BootstrapToken = bootstrapToken
+	if targetService := firstConfiguredValue("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE"); targetService != "" {
+		config.TargetService = targetService
+	}
+	config.Scopes = parseScopes(firstConfiguredValue("tokensmith_scopes", "TOKENSMITH_SCOPES"))
+
+	defaultRefreshBefore := int(config.RefreshBefore / time.Second)
+	if skewSeconds := configIntOrDefault("tokensmith_refresh_skew_sec", defaultRefreshBefore, "TOKENSMITH_REFRESH_SKEW_SEC"); skewSeconds > 0 {
+		config.RefreshBefore = time.Duration(skewSeconds) * time.Second
+	}
+
+	return config, true, nil
+}
+
+func firstConfiguredValue(viperKey string, envVars ...string) string {
+	if value := strings.TrimSpace(viper.GetString(viperKey)); value != "" {
+		return value
+	}
+	for _, envVar := range envVars {
+		if value := strings.TrimSpace(os.Getenv(envVar)); value != "" {
 			return value
 		}
 	}
@@ -241,26 +186,6 @@ func configBoolOrDefault(key string, defaultValue bool, envKeys ...string) bool 
 	return defaultValue
 }
 
-func loadTokenSmithConfig() tokenSmithConfig {
-	target := configString("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE")
-	if target == "" {
-		target = defaultTokenSmithTarget
-	}
-
-	refreshSkew := configIntOrDefault("tokensmith_refresh_skew_sec", defaultTokenSmithRefreshSkew, "TOKENSMITH_REFRESH_SKEW_SEC")
-	if refreshSkew < 0 {
-		refreshSkew = defaultTokenSmithRefreshSkew
-	}
-
-	return tokenSmithConfig{
-		URL:            configString("tokensmith_url", "TOKENSMITH_URL"),
-		BootstrapToken: configString("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN"),
-		TargetService:  target,
-		RefreshSkewSec: refreshSkew,
-		ScopeHint:      configString("tokensmith_scope_hint", "TOKENSMITH_SCOPE_HINT"),
-	}
-}
-
 func smdSyncOptions() smdclient.IntegrationOptions {
 	enabled := configBoolOrDefault("smd_sync_enabled", true, "SMD_SYNC_ENABLED")
 	intervalMinutes := configIntOrDefault("smd_sync_interval", defaultSMDSyncIntervalMinutes, "SMD_SYNC_INTERVAL")
@@ -273,59 +198,20 @@ func smdSyncOptions() smdclient.IntegrationOptions {
 	}
 }
 
-// initSMDRuntime initializes SMD integration based on configuration.
-func initSMDRuntime() smdRuntime {
-	smdURL := configString("smd_url", "SMD_URL")
-	if smdURL == "" {
-		log.Warn().Msg("SMD_URL not configured, using mock SMD client for development")
-		mock := createMockSMDClient()
-		service := smdclient.NewSMDIntegrationService(mock, smdSyncOptions())
-		return smdRuntime{
-			client: service,
-			startWorkers: func(ctx context.Context) {
-				service.StartSyncWorker(ctx)
-			},
+func parseScopes(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	pieces := strings.Split(raw, ",")
+	out := make([]string, 0, len(pieces))
+	for _, piece := range pieces {
+		scope := strings.TrimSpace(piece)
+		if scope == "" {
+			continue
 		}
+		out = append(out, scope)
 	}
-
-	jwt := configString("smd_jwt", "SMD_JWT")
-	if jwt == "" {
-		jwt = configString("smd_token", "SMD_TOKEN")
-	}
-
-	tokenManager := (*serviceTokenManager)(nil)
-	tokenSmith := loadTokenSmithConfig()
-	if tokenSmith.Enabled() {
-		tokenManager = newServiceTokenManager(tokenSmith, &http.Client{Timeout: 10 * time.Second})
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		if err := tokenManager.refresh(ctx); err != nil {
-			log.Warn().Err(err).Msg("TokenSmith bootstrap exchange failed; starting in degraded mode")
-		}
-		cancel()
-	}
-
-	tokenProvider := func() string {
-		if tokenManager != nil {
-			if token := strings.TrimSpace(tokenManager.Token()); token != "" {
-				return token
-			}
-		}
-		return strings.TrimSpace(jwt)
-	}
-
-	log.Info().Msg("SMD_URL configured, using real SMD HTTP client")
-	liveClient := smdclient.NewHTTPClientWithTokenProvider(smdURL, tokenProvider)
-	service := smdclient.NewSMDIntegrationService(liveClient, smdSyncOptions())
-
-	return smdRuntime{
-		client: service,
-		startWorkers: func(ctx context.Context) {
-			if tokenManager != nil {
-				tokenManager.StartRefreshWorker(ctx)
-			}
-			service.StartSyncWorker(ctx)
-		},
-	}
+	return out
 }
 
 // createMockSMDClient creates a mock SMD client with sample data for development
@@ -366,9 +252,7 @@ func createMockSMDClient() *smdclient.MockSMDClient {
 			ID:          "b42e99be1a6d",
 			Description: "Node Management Network",
 			MACAddress:  "b4:2e:99:be:1a:6d",
-			IPAddresses: []smdclient.IPMapping{
-				{IPAddress: "10.252.0.26", Network: "HMN"},
-			},
+			IPAddresses: []smdclient.IPMapping{{IPAddress: "10.252.0.26", Network: "HMN"}},
 			ComponentID: "x1000c0s0b0n0",
 			Type:        "Node",
 		},
@@ -376,9 +260,7 @@ func createMockSMDClient() *smdclient.MockSMDClient {
 			ID:          "b42e99be1a6e",
 			Description: "High Speed Network",
 			MACAddress:  "b4:2e:99:be:1a:6e",
-			IPAddresses: []smdclient.IPMapping{
-				{IPAddress: "10.100.0.26", Network: "HSN"},
-			},
+			IPAddresses: []smdclient.IPMapping{{IPAddress: "10.100.0.26", Network: "HSN"}},
 			ComponentID: "x1000c0s0b0n0",
 			Type:        "Node",
 		},
@@ -417,9 +299,7 @@ func createMockSMDClient() *smdclient.MockSMDClient {
 			ID:          "b42e99be1a7d",
 			Description: "Node Management Network",
 			MACAddress:  "b4:2e:99:be:1a:7d",
-			IPAddresses: []smdclient.IPMapping{
-				{IPAddress: "10.252.0.27", Network: "HMN"},
-			},
+			IPAddresses: []smdclient.IPMapping{{IPAddress: "10.252.0.27", Network: "HMN"}},
 			ComponentID: "x1000c0s0b0n1",
 			Type:        "Node",
 		},
@@ -427,9 +307,7 @@ func createMockSMDClient() *smdclient.MockSMDClient {
 			ID:          "b42e99be1a7e",
 			Description: "High Speed Network",
 			MACAddress:  "b4:2e:99:be:1a:7e",
-			IPAddresses: []smdclient.IPMapping{
-				{IPAddress: "10.100.0.27", Network: "HSN"},
-			},
+			IPAddresses: []smdclient.IPMapping{{IPAddress: "10.100.0.27", Network: "HSN"}},
 			ComponentID: "x1000c0s0b0n1",
 			Type:        "Node",
 		},
@@ -445,29 +323,23 @@ func createMockSMDClient() *smdclient.MockSMDClient {
 	mock.AddGroupMembership("x1000c0s1b0n0", []string{"storage"})
 
 	// Add EthernetNICInfo for x1000c0s1b0n0 (1 NIC)
-	mock.AddEthernetNICInfo("x1000c0s1b0n0", []smdclient.EthernetNIC{
-		{
-			RedfishID:           "1",
-			Description:         "Node Management Network",
-			MACAddress:          "b4:2e:99:be:1a:8d",
-			PermanentMACAddress: "b4:2e:99:be:1a:8d",
-			InterfaceEnabled:    true,
-		},
-	})
+	mock.AddEthernetNICInfo("x1000c0s1b0n0", []smdclient.EthernetNIC{{
+		RedfishID:           "1",
+		Description:         "Node Management Network",
+		MACAddress:          "b4:2e:99:be:1a:8d",
+		PermanentMACAddress: "b4:2e:99:be:1a:8d",
+		InterfaceEnabled:    true,
+	}})
 
 	// Add EthernetInterfaces for x1000c0s1b0n0
-	mock.AddEthernetInterfaces("x1000c0s1b0n0", []smdclient.EthernetInterface{
-		{
-			ID:          "b42e99be1a8d",
-			Description: "Node Management Network",
-			MACAddress:  "b4:2e:99:be:1a:8d",
-			IPAddresses: []smdclient.IPMapping{
-				{IPAddress: "10.252.0.28", Network: "HMN"},
-			},
-			ComponentID: "x1000c0s1b0n0",
-			Type:        "Node",
-		},
-	})
+	mock.AddEthernetInterfaces("x1000c0s1b0n0", []smdclient.EthernetInterface{{
+		ID:          "b42e99be1a8d",
+		Description: "Node Management Network",
+		MACAddress:  "b4:2e:99:be:1a:8d",
+		IPAddresses: []smdclient.IPMapping{{IPAddress: "10.252.0.28", Network: "HMN"}},
+		ComponentID: "x1000c0s1b0n0",
+		Type:        "Node",
+	}})
 
 	log.Info().Msg("Mock SMD client initialized with sample data including EthernetInterface info")
 	return mock

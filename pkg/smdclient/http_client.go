@@ -19,13 +19,14 @@ const smdAPIVersionPath = "/apis/smd/hsm/v2"
 
 // HTTPClient is an SMD client backed by the SMD HTTP API.
 type HTTPClient struct {
-	baseURL string
-	client  *http.Client
-	cache   *smdCache
-	jwt     string
-	tokenFn func() string
-	wgmu    sync.RWMutex
-	wgip    map[string]string
+	baseURL      string
+	client       *http.Client
+	cache        *smdCache
+	jwt          string
+	tokenFn      func() string
+	tokenManager *ServiceTokenManager
+	wgmu         sync.RWMutex
+	wgip         map[string]string
 }
 
 // NewHTTPClient creates an SMD client backed by the SMD HTTP API.
@@ -49,6 +50,12 @@ func NewHTTPClientWithTokenProvider(baseURL string, tokenFn func() string) *HTTP
 	}
 }
 
+// WithServiceTokenManager enables dynamic TokenSmith-backed auth for outbound SMD requests.
+func (c *HTTPClient) WithServiceTokenManager(manager *ServiceTokenManager) *HTTPClient {
+	c.tokenManager = manager
+	return c
+}
+
 func normalizeBaseURL(baseURL string) string {
 	trimmed := strings.TrimRight(baseURL, "/")
 	if strings.Contains(trimmed, "/apis/smd/hsm/") {
@@ -65,8 +72,16 @@ func (c *HTTPClient) IDfromIP(ip string) (string, error) {
 
 	params := url.Values{}
 	params.Set("ipaddr", ip)
+	body, err := c.getRaw("/Inventory/EthernetInterfaces", params)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(string(body)) == "" {
+		return "", fmt.Errorf("no component found for IP %s", ip)
+	}
+
 	var resp []compEthInterfaceV2
-	if err := c.doGet("/Inventory/EthernetInterfaces", params, &resp); err != nil {
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return "", err
 	}
 	if len(resp) == 0 || resp[0].ComponentID == "" {
@@ -273,12 +288,20 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	token := c.jwt
-	if c.tokenFn != nil {
-		token = strings.TrimSpace(c.tokenFn())
-	}
-	if token != "" {
+	if c.tokenManager != nil {
+		token, tokenErr := c.tokenManager.GetToken(req.Context())
+		if tokenErr != nil {
+			return nil, fmt.Errorf("failed to get dynamic SMD auth token: %w", tokenErr)
+		}
 		req.Header.Set("Authorization", "Bearer "+token)
+	} else {
+		token := c.jwt
+		if c.tokenFn != nil {
+			token = strings.TrimSpace(c.tokenFn())
+		}
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 	}
 	resp, err := c.client.Do(req)
 	if err != nil {
