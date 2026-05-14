@@ -63,8 +63,16 @@ func (c *HTTPClient) IDfromIP(ip string) (string, error) {
 
 	params := url.Values{}
 	params.Set("ipaddr", ip)
+	body, err := c.getRaw("/Inventory/EthernetInterfaces", params)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(string(body)) == "" {
+		return "", fmt.Errorf("no component found for IP %s", ip)
+	}
+
 	var resp []compEthInterfaceV2
-	if err := c.doGet("/Inventory/EthernetInterfaces", params, &resp); err != nil {
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return "", err
 	}
 	if len(resp) == 0 || resp[0].ComponentID == "" {

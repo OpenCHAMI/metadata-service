@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -72,6 +73,44 @@ func TestResolveComponentIDPrefersWireGuardLookup(t *testing.T) {
 	}
 	if id != "x1000c0s0b0n0" {
 		t.Fatalf("expected component ID x1000c0s0b0n0, got %q", id)
+	}
+}
+
+func TestHTTPClientIDfromIPTreatsEmptyLookupResponsesAsNotFound(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		body       string
+	}{
+		{name: "empty body", statusCode: http.StatusOK, body: ""},
+		{name: "no content", statusCode: http.StatusNoContent, body: ""},
+		{name: "whitespace body", statusCode: http.StatusOK, body: "   \n\t  "},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/apis/smd/hsm/v2/Inventory/EthernetInterfaces" {
+					http.NotFound(w, r)
+					return
+				}
+				w.WriteHeader(tc.statusCode)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer server.Close()
+
+			client := NewHTTPClient(server.URL, "")
+			_, err := client.IDfromIP("10.252.0.26")
+			if err == nil {
+				t.Fatal("expected IDfromIP to return an error")
+			}
+			if !strings.Contains(err.Error(), "no component found for IP 10.252.0.26") {
+				t.Fatalf("expected not-found error, got %v", err)
+			}
+			if strings.Contains(err.Error(), "unexpected end of JSON input") {
+				t.Fatalf("expected lookup error instead of JSON decode failure, got %v", err)
+			}
+		})
 	}
 }
 
