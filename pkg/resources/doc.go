@@ -2,28 +2,23 @@
 // SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
 
 /*
-Package resources defines the core data models for the cloud-init metadata service.
+Package resources contains Fabrica registration glue for the cloud-init metadata service.
 
-This package contains the resource type definitions that are used by the Fabrica framework
-to auto-generate REST API handlers, storage operations, and client code. Each resource type
-is defined in its own subpackage with custom validation logic as needed.
+Authoritative resource type definitions live under:
 
-# Resource Types
+	apis/cloud-init.openchami.io/v1/
 
-The service manages three primary resource types:
+This package should not define long-lived resource models. It exists primarily for
+resource registration and generation compatibility helpers.
 
-  - Group: Template-based node group configurations. Each group contains a Jinja2 template
-    that produces cloud-init configuration in YAML format. Groups are the primary mechanism
-    for defining group-specific configurations that are rendered and returned via
-    /{group}.yaml cloud-init endpoints.
+# Source of Truth
 
-  - ClusterDefaults: Cluster-wide default configuration shared across all nodes. Contains
-    base URLs, cloud provider information, SSH public keys, and naming conventions that
-    are injected into group templates as template variables.
+The service manages these primary resource types in the `apis/.../v1` package:
 
-  - InstanceInfo: Per-node instance-specific configuration overrides. Allows customization
-    of hostname, SSH keys, and cloud-init URLs on a per-instance basis, overriding
-    cluster defaults.
+  - Group
+  - ClusterDefaults
+  - InstanceInfo
+  - WireGuardPeer
 
 # Generated Code
 
@@ -35,38 +30,14 @@ definitions. These files should NOT be manually edited:
   - routes_generated.go: HTTP route definitions
   - register_generated.go: Resource registration with the Fabrica system
 
-To regenerate after modifying resource definitions:
+To regenerate after modifying resource definitions in `apis/.../v1`:
 
 	fabrica generate
 
 # Custom Validation
 
-Resource-specific validation logic is implemented in each resource's subpackage:
-
-  - resources/group: Custom validation for Jinja2 template syntax and YAML output
-  - resources/clusterdefaults: Validation of cluster configuration
-  - resources/instanceinfo: Validation of per-instance overrides
-
-Custom validation follows this pattern:
-
- 1. Implement Validate(ctx context.Context) error method on resource type
- 2. Fabrica framework calls Validate() during Create and Update operations
- 3. Validation can modify Status fields to track history or version information
- 4. Status modifications automatically persist to storage
-
-Example: Group Template Validation
-
-The Group resource implements custom validation that:
-
- 1. Parses the Jinja2 template
- 2. Extracts template variable references
- 3. Renders template with sample data (cluster defaults + mock SMD component)
- 4. Validates rendered output is valid YAML
- 5. Tracks template versions with SHA256 hashing
- 6. Stores validation errors in Status.ValidationError for client visibility
-
-This ensures templates are syntactically correct before being deployed to production,
-preventing runtime failures when nodes request group configurations.
+Resource-specific validation logic is implemented directly on resource types in
+`apis/cloud-init.openchami.io/v1`.
 
 # REST API Endpoints
 
@@ -103,9 +74,9 @@ from the UID and can be used for logical identification but is not the primary k
 
 Resources are persisted as JSON files in the data directory:
 
-	./data/Group/*.json: Group configurations
-	./data/ClusterDefaults/*.json: Cluster-wide defaults
-	./data/InstanceInfo/*.json: Instance-specific overrides
+	/data/Group/*.json: Group configurations
+	/data/ClusterDefaults/*.json: Cluster-wide defaults
+	/data/InstanceInfo/*.json: Instance-specific overrides
 
 Each resource file contains the complete resource definition including:
   - Metadata (name, UID, creation/update timestamps)
@@ -119,12 +90,9 @@ access management.
 
 To add or modify a resource:
 
-1. Edit the resource struct in pkg/resources/{type}/{type}.go
-2. Implement or update Validate() method if custom validation is needed
-3. Update .fabrica.yaml if adding new resources
-4. Run fabrica generate to regenerate all handlers and storage code
-5. Handlers, storage operations, and client code are automatically updated
-
-See individual resource subpackages for specific implementation details and examples.
+1. Edit the resource struct in `apis/cloud-init.openchami.io/v1/*_types.go`
+2. Implement or update `Validate()` on that type as needed
+3. Update `apis.yaml` and `.fabrica.yaml` if adding new resources/features
+4. Run `fabrica generate` to regenerate handlers, middleware, storage, and client code
 */
 package resources

@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: Copyright © 2025 OpenCHAMI a Series of LF Projects, LLC
+# SPDX-License-Identifier: MIT
+version: 2
+project_name: "metadata-service"
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: "metadata-server"
+    binary: "metadata-server"
+    dir: "cmd/server"
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    goamd64:
+      - v3
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - "-s -w -X main.GitCommit={{.Commit}} \
+         -X main.BuildTime={{.Timestamp}} \
+         -X main.Version={{.Version}} \
+         -X main.GitBranch={{.Branch}} \
+         -X main.GitTag={{.Tag}} \
+         -X main.GitState={{ .Env.GIT_STATE }} \
+         -X main.BuildHost={{ .Env.BUILD_HOST }} \
+         -X main.GoVersion={{ .Env.GO_VERSION }} \
+         -X main.BuildUser={{ .Env.BUILD_USER }} "
+
+  - id: "metadata-client"
+    binary: "metadata-client"
+    dir: "cmd/client"
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    goamd64:
+      - v3
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - "-s -w -X main.GitCommit={{.Commit}} \
+         -X main.BuildTime={{.Timestamp}} \
+         -X main.Version={{.Version}} \
+         -X main.GitBranch={{.Branch}} \
+         -X main.GitTag={{.Tag}} \
+         -X main.GitState={{ .Env.GIT_STATE }} \
+         -X main.BuildHost={{ .Env.BUILD_HOST }} \
+         -X main.GoVersion={{ .Env.GO_VERSION }} \
+         -X main.BuildUser={{ .Env.BUILD_USER }} "
+
+
+dockers_v2:
+  - id: "metadata-server"
+    ids:
+      - "metadata-server"
+      - "metadata-client"
+    images:
+      - "ghcr.io/openchami/{{.ProjectName}}"
+    tags:
+      - "latest"
+      - "{{ .Tag }}"
+      - "{{ .Major }}"
+      - "{{ .Major }}.{{ .Minor }}"
+    labels:
+      "org.opencontainers.image.created": "{{.Date}}"
+      "org.opencontainers.image.title": "{{.ProjectName}}"
+      "org.opencontainers.image.revision": "{{.FullCommit}}"
+      "org.opencontainers.image.version": "{{.Version}}"
+    platforms:
+      - "linux/amd64"
+      - "linux/arm64"
+    flags:
+      - "--pull"
+    extra_files:
+      - "LICENSES/MIT.txt"
+      - "README.md"
+
+archives:
+  - id: "metadata-service"
+    # this name template makes the OS and Arch compatible with the results of uname.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - LICENSES/MIT.txt
+      - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+release:
+  disable: "{{ if eq .Env.IS_PR_BUILD \"true\" }}true{{ else }}false{{ end }}"
+  github:
+    owner: OpenCHAMI
+    name: metadata-service
+  name_template: 'v{{ .Version }}'
+  prerelease: auto
+  mode: replace
+
+
+# The lines beneath this are called `modelines`. See `:help modeline`
+# Feel free to remove those if you don't want/use them.
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj

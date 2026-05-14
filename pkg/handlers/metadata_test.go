@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	group "github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
-	"github.com/OpenCHAMI/cloud-init/pkg/handlers"
-	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
+	group "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
+	"github.com/OpenCHAMI/metadata-service/pkg/handlers"
+	"github.com/OpenCHAMI/metadata-service/pkg/smdclient"
 	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v3"
 )
@@ -334,6 +334,55 @@ func TestMetaDataHandler_XForwardedFor(t *testing.T) {
 	// Verify it resolved to the correct component
 	if metadata.InstanceID != "x1000c0s0b0n0" {
 		t.Errorf("Expected instance ID 'x1000c0s0b0n0', got '%s'", metadata.InstanceID)
+	}
+}
+
+func TestMetaDataHandler_WireGuardIP(t *testing.T) {
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		IP:   "10.0.0.100",
+	})
+	if err := smd.AddWGIP("x1000c0s0b0n0", "10.100.1.25"); err != nil {
+		t.Fatalf("AddWGIP returned error: %v", err)
+	}
+	smd.AddGroupMembership("x1000c0s0b0n0", []string{"compute"})
+
+	store := &mockStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			ClusterName: "testcluster",
+			ShortName:   "tc",
+			NidLength:   4,
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{},
+		groupData:    map[string]*group.Group{},
+	}
+
+	handler := handlers.MetaDataHandler(smd, store)
+	req := httptest.NewRequest("GET", "/meta-data", nil)
+	req.RemoteAddr = "10.100.1.25:12345"
+	resp := httptest.NewRecorder()
+
+	handler(resp, req)
+
+	if resp.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.Code)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	var metadata handlers.MetaData
+	if err := yaml.Unmarshal(body, &metadata); err != nil {
+		t.Fatalf("Failed to unmarshal metadata: %v", err)
+	}
+
+	if metadata.InstanceID != "x1000c0s0b0n0" {
+		t.Fatalf("Expected instance ID 'x1000c0s0b0n0', got '%s'", metadata.InstanceID)
 	}
 }
 

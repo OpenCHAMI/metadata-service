@@ -23,7 +23,8 @@ The service is organized into several key packages:
 
   - cmd/server: HTTP server implementation with cloud-init endpoints
   - pkg/handlers: Cloud-init endpoint handlers (metadata, user-data, vendor-data)
-  - pkg/resources: Resource definitions (Group, ClusterDefaults, InstanceInfo) with validation
+  - apis/cloud-init.openchami.io/v1: Authoritative resource definitions and validation logic
+  - pkg/resources: Generated registration glue for resource wiring
   - pkg/smdclient: Interface for SMD integration with mock implementation for development
   - pkg/client: Generated REST API client for resource management
 
@@ -38,7 +39,7 @@ Key Technologies
   - Chi Router: Lightweight HTTP router for cloud-init endpoint handling with support for
     custom middleware and request transformations.
 
-  - File-Based Storage: JSON-based persistent storage in ./data/{resource-type}/ directory.
+  - File-Based Storage: JSON-based persistent storage in /data/{resource-type}/ directory.
     Suitable for development and small deployments; can be extended for other backends.
 
 # Resource Model
@@ -128,7 +129,7 @@ To regenerate after modifying resource definitions:
 
 # Custom Validation
 
-Resource validation is customized in pkg/resources/{type}/. The validation process:
+Resource validation is customized in apis/cloud-init.openchami.io/v1/*_types.go. The validation process:
 1. Parses resource definitions
 2. Extracts template variables using regex
 3. Renders templates with sample data
@@ -144,10 +145,10 @@ Example Group validation process:
 
 # Storage
 
-Resources are persisted as JSON files in ./data/{resource-type}/:
-  - ./data/Group/*.json: Group configurations
-  - ./data/ClusterDefaults/*.json: Cluster-wide defaults
-  - ./data/InstanceInfo/*.json: Instance-specific overrides
+Resources are persisted as JSON files in /data/{resource-type}/:
+  - /data/Group/*.json: Group configurations
+  - /data/ClusterDefaults/*.json: Cluster-wide defaults
+  - /data/InstanceInfo/*.json: Instance-specific overrides
 
 Status fields are automatically updated during validation and persist to storage. The storage
 implementation supports file-based persistence with minimal overhead for development.
@@ -184,10 +185,10 @@ The service is configured via:
 
 Common configuration options:
 
-	--port: HTTP server port (default: 8080)
-	--host: Bind address (default: 0.0.0.0)
-	--data-dir: Data storage directory (default: ./data)
-	--debug: Enable debug logging (default: false)
+		--port: HTTP server port (default: 8080)
+		--host: Bind address (default: 0.0.0.0)
+	  --data-dir: Data storage directory (default: /data)
+		--debug: Enable debug logging (default: false)
 
 For SMD integration:
 

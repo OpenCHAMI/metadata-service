@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-.PHONY: help build test lint clean install run docker-build docker-run
+.PHONY: help build test lint clean install run docker-build docker-run generate generate-check dev
 
 # Variables
 BINARY_NAME=ochami-metadata
@@ -13,6 +13,18 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
+FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@latest
+FABRICA_SOURCE_ARG ?=
+FABRICA_FORCE_FLAG ?=
+FABRICA_ENV ?=
+LOCAL_FABRICA ?=
+
+ifneq ($(strip $(LOCAL_FABRICA)),)
+FABRICA_CMD := $(LOCAL_FABRICA)/bin/fabrica
+FABRICA_SOURCE_ARG := --fabrica-source $(LOCAL_FABRICA)
+FABRICA_FORCE_FLAG := --force
+FABRICA_ENV := GOTOOLCHAIN=auto
+endif
 
 help: ## Display this help screen
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
@@ -36,7 +48,7 @@ lint-fix: ## Run golangci-lint with auto-fix
 
 clean: ## Clean build artifacts
 	rm -rf bin/ dist/ coverage.out coverage.html
-	$(GO) clean
+	$(GO) clean -cache
 
 install: ## Install dependencies
 	$(GO) mod download
@@ -44,6 +56,31 @@ install: ## Install dependencies
 
 tidy: ## Tidy go.mod
 	$(GO) mod tidy
+
+generate: ## Regenerate Fabrica code from API/resource definitions
+ifneq ($(strip $(LOCAL_FABRICA)),)
+	@if [ ! -x $(LOCAL_FABRICA)/bin/fabrica ]; then \
+		echo "Local Fabrica binary not found at $(LOCAL_FABRICA)/bin/fabrica"; \
+		echo "Build it with: (cd $(LOCAL_FABRICA) && go build -o bin/fabrica ./cmd/fabrica)"; \
+		exit 1; \
+	fi
+endif
+	$(FABRICA_ENV) $(FABRICA_CMD) generate $(FABRICA_SOURCE_ARG) $(FABRICA_FORCE_FLAG)
+
+generate-check: ## Verify generated code is up-to-date
+	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+		echo "Working tree must be clean before running generate-check."; \
+		echo "Commit or stash local changes, then re-run make generate-check."; \
+		exit 2; \
+	fi
+	@$(MAKE) generate LOCAL_FABRICA="$(LOCAL_FABRICA)" >/dev/null
+	@if ! git diff --quiet; then \
+		echo "Generated files are out of date. Run 'make generate' and commit results."; \
+		git --no-pager diff --stat; \
+		exit 1; \
+	fi
+
+dev: clean generate build ## Clean, regenerate code, and build binaries
 
 run: build ## Build and run the application
 	./bin/$(BINARY_NAME)

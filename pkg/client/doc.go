@@ -50,7 +50,7 @@ Usage Example
 	import (
 	    "context"
 	    "log"
-	    "github.com/OpenCHAMI/cloud-init/pkg/client"
+	    "github.com/OpenCHAMI/metadata-service/pkg/client"
 	)
 
 	func main() {

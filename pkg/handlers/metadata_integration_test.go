@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	cloudinitv1 "github.com/OpenCHAMI/cloud-init/apis/cloud-init.openchami.io/v1"
-	"github.com/OpenCHAMI/cloud-init/pkg/handlers"
-	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
+	cloudinitv1 "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
+	"github.com/OpenCHAMI/metadata-service/pkg/handlers"
+	"github.com/OpenCHAMI/metadata-service/pkg/smdclient"
 	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v3"
 )
@@ -126,7 +126,11 @@ func TestIntegrationCloudInitFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("meta-data request failed: %v", err)
 	}
-	defer metaResp.Body.Close()
+	defer func() {
+		if err := metaResp.Body.Close(); err != nil {
+			t.Errorf("failed to close meta-data response body: %v", err)
+		}
+	}()
 
 	if metaResp.StatusCode != http.StatusOK {
 		t.Fatalf("meta-data status %d", metaResp.StatusCode)
@@ -166,7 +170,11 @@ func TestIntegrationCloudInitFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vendor-data request failed: %v", err)
 	}
-	defer vendorResp.Body.Close()
+	defer func() {
+		if err := vendorResp.Body.Close(); err != nil {
+			t.Errorf("failed to close vendor-data response body: %v", err)
+		}
+	}()
 
 	if vendorResp.StatusCode != http.StatusOK {
 		t.Fatalf("vendor-data status %d", vendorResp.StatusCode)
@@ -201,7 +209,11 @@ func TestIntegrationCloudInitFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("group request failed: %v", err)
 	}
-	defer groupResp.Body.Close()
+	defer func() {
+		if err := groupResp.Body.Close(); err != nil {
+			t.Errorf("failed to close group response body: %v", err)
+		}
+	}()
 
 	if groupResp.StatusCode != http.StatusOK {
 		t.Fatalf("group status %d", groupResp.StatusCode)
@@ -296,7 +308,9 @@ func TestIntegrationSyslogRackMetadataIsolation(t *testing.T) {
 			t.Fatalf("syslog request failed: %v", err)
 		}
 		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("failed to close syslog response body: %v", closeErr)
+		}
 		if err != nil {
 			t.Fatalf("syslog response read failed: %v", err)
 		}

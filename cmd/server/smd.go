@@ -7,7 +7,7 @@ package main
 import (
 	"os"
 
-	"github.com/OpenCHAMI/cloud-init/pkg/smdclient"
+	"github.com/OpenCHAMI/metadata-service/pkg/smdclient"
 	"github.com/rs/zerolog/log"
 )
 

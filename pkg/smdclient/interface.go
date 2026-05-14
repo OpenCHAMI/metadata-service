@@ -43,6 +43,9 @@ type SMDClient interface {
 	// IDfromIP returns the component ID for a given IP address
 	IDfromIP(ip string) (string, error)
 
+	// IDfromWGIP returns the component ID for a given WireGuard IP address
+	IDfromWGIP(wgip string) (string, error)
+
 	// IPfromID returns the IP address for a given component ID
 	IPfromID(id string) (string, error)
 

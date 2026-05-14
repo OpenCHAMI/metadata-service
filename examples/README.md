@@ -4,259 +4,92 @@ SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
 SPDX-License-Identifier: MIT
 -->
 
-# Cloud-Init Metadata API Demo
+# Example Scripts
 
-This directory contains a demonstration script that showcases the cloud-init metadata API functionality using the generated Go client.
+This directory contains two shell scripts for exercising the metadata service against the built-in mock SMD dataset.
 
-## Prerequisites
+## Mock Nodes
 
-1. **Server Running**: The metadata server must be running on port 8888
-   ```bash
-   cd ..
-   go run ./cmd/server serve --port 8888
-   ```
+The mock SMD client created by the server exposes these nodes by default:
 
-2. **Mock SMD Client**: The demo assumes the server is using the mock SMD client (default when `SMD_URL` is not set)
+| Component ID  | HMN IP      | Groups           |
+| --- | --- | --- |
+| x1000c0s0b0n0 | 10.252.0.26 | compute, green   |
+| x1000c0s0b0n1 | 10.252.0.27 | compute, blue    |
+| x1000c0s1b0n0 | 10.252.0.28 | storage          |
 
-## Mock SMD Data
+## Scripts
 
-The demo works with the following pre-configured mock nodes:
+### `quick-test.sh`
 
-| Component ID      | IP Address   | NID  | Role    | Groups          |
-|-------------------|--------------|------|---------|-----------------|
-| x1000c0s0b0n0     | 10.0.0.100   | 1000 | compute | compute, green  |
-| x1000c0s0b0n1     | 10.0.0.101   | 1001 | compute | compute, blue   |
-| x1000c0s1b0n0     | 10.0.0.102   | 1002 | storage | storage         |
+Runs a lightweight health check against a running server and prints:
+- `/health`
+- `/meta-data`
+- `/user-data`
+- `/network-config`
 
-## What the Demo Does
+This script does not create any resources. It is useful for verifying that mock SMD identity resolution and the built-in handlers are working.
 
-The `demo.sh` script demonstrates the complete lifecycle of the cloud-init metadata API:
+### `demo.sh`
 
-### 1. **Creates ClusterDefaults**
+Creates a small end-to-end demo environment by:
+- creating one `ClusterDefaults` resource
+- creating `compute`, `green`, `blue`, and `storage` group resources that match the built-in mock memberships
+- exercising `/meta-data`, `/vendor-data`, `/network-config`, and several rendered `/{group}.yaml` endpoints
+- creating an `InstanceInfo` override for `x1000c0s0b0n0`
 
-- Sets up cluster-wide configuration
-- Defines base URL, cloud provider, region
-- Configures hostname generation parameters
-- Adds cluster-wide SSH public keys
+The demo uses the generated client with the current request shape, which means every create operation sends both `metadata` and `spec`.
 
-### 2. **Creates Group Templates**
+## Running The Scripts
 
-   The demo creates four different group types, each with realistic configurations:
-
-**Compute Nodes** (`compute-nodes`)
-
-- GPU-enabled compute configuration
-- HPC network optimizations
-- Slurm integration
-- Shared filesystem mounts
-- Development tools
-
-**Storage Nodes** (`storage-nodes`)
-
-- Lustre/ZFS storage configuration
-- NFS server setup
-- RAID configuration
-- Export definitions
-
-**Login Nodes** (`login-nodes`)
-
-- Development environment
-- Build tools and compilers
-- Python scientific stack
-- Module system setup
-- Custom MOTD
-
-**GPU Nodes** (`gpu-nodes`)
-
-- NVIDIA driver installation
-- CUDA toolkit
-- Docker with GPU support
-- Slurm GRES configuration
-
-### 3. **Demonstrates Template Features**
-
-   Each template showcases different cloud-init capabilities:
-
-- Variable substitution (`{{ hostname }}`, `{{ instance_id }}`, `{{ nid }}`, etc.)
-- Package installation
-- File creation with dynamic content
-- User configuration
-- Network mount setup
-- Custom metadata fields
-
-### 4. **Tests Cloud-Init Endpoints**
-   - `/meta-data` - Instance metadata with merged defaults
-   - `/vendor-data` - Include-file list for group configs
-   - `/user-data` - Empty config (user override preservation)
-   - `/{group}.yaml` - Rendered group-specific templates
-
-### 5. **Creates Instance Overrides**
-   - Demonstrates instance-specific configuration
-   - Shows hostname overrides
-   - Adds instance-specific SSH keys
-
-### 6. **Validates Template Rendering**
-   - Tests Jinja2 template processing
-   - Verifies variable substitution
-   - Confirms proper YAML formatting
-
-## Running the Demo
+Start the server from the repository root:
 
 ```bash
-# Start the server in one terminal
-cd ..
-go run ./cmd/server serve --port 8888
+go run ./cmd/server/main.go serve --port 8888
+```
 
-# Run the demo in another terminal
+Run the quick verification:
+
+```bash
+cd examples
+./quick-test.sh
+```
+
+Run the end-to-end demo:
+
+```bash
 cd examples
 ./demo.sh
 ```
 
-## Expected Output
+## Manual Checks
 
-The script will:
-1. ✓ Wait for server to be ready
-2. ✓ Create all resources using the generated client
-3. ✓ List and retrieve resources
-4. ✓ Test cloud-init endpoints with mock node IPs
-5. ✓ Show rendered templates with substituted values
-6. ✓ Display cleanup commands (optional)
-
-## Example API Interactions
-
-### Creating a Group
-```bash
-go run ../cmd/client/main.go --server http://localhost:8888 group create --spec "$(cat compute-group.json)"
-```
-
-### Listing Groups
-```bash
-go run ../cmd/client/main.go --server http://localhost:8888 group list
-```
-
-### Getting Group Details
-```bash
-go run ../cmd/client/main.go --server http://localhost:8888 group get compute-nodes
-```
-
-### Deleting a Group
-```bash
-go run ../cmd/client/main.go --server http://localhost:8888 group delete compute-nodes
-```
-
-## Testing Cloud-Init Endpoints Manually
+Before creating resources:
 
 ```bash
-# Get metadata for node at 10.0.0.100
-curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/meta-data
-
-# Get vendor-data (include-file list)
-curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/vendor-data
-
-# Get specific group configuration (requires group membership)
-curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/compute.yaml
+curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/meta-data
+curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/network-config
 ```
 
-## Template Variables
+After running `demo.sh`:
 
-All templates have access to these variables:
-
-### Default Variables (from cluster defaults + component info)
-- `hostname` - Generated hostname (e.g., `prod001000`)
-- `instance_id` - Component ID (e.g., `x1000c0s0b0n0`)
-- `nid` - Node ID number (e.g., `1000`)
-- `role` - Component role (e.g., `compute`)
-- `cluster_name` - From ClusterDefaults
-
-### Custom Variables (from group metadata)
-Each group can define additional variables in its `metadata` field:
-- `compute_type` - Type of compute node
-- `gpu_type` - GPU model name
-- `storage_role` - Storage node role
-- `raid_level` - RAID configuration
-- etc.
+```bash
+curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/vendor-data
+curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/compute.yaml
+curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/green.yaml
+curl -H "X-Forwarded-For: 10.252.0.27" http://localhost:8888/blue.yaml
+curl -H "X-Forwarded-For: 10.252.0.28" http://localhost:8888/storage.yaml
+```
 
 ## Cleanup
 
-To remove all demo resources:
+The default storage directory is `/data`. To reset local state:
 
 ```bash
-go run ../cmd/client/main.go --server http://localhost:8888 group delete compute-nodes
-go run ../cmd/client/main.go --server http://localhost:8888 group delete storage-nodes
-go run ../cmd/client/main.go --server http://localhost:8888 group delete login-nodes
-go run ../cmd/client/main.go --server http://localhost:8888 group delete gpu-nodes
-go run ../cmd/client/main.go --server http://localhost:8888 clusterdefaults delete production-cluster
-go run ../cmd/client/main.go --server http://localhost:8888 instanceinfo delete x1000c0s0b0n0
+rm -rf /data/*
 ```
 
-Or simply delete the data directory and restart:
-```bash
-rm -rf ../data/*
-```
-
-## Troubleshooting
-
-### Server Not Running
-```
-Error: connection refused
-Solution: Start the server with: go run ../cmd/server serve --port 8888
-```
-
-### Wrong Port
-```
-Error: connection refused on localhost:8888
-Solution: Check that server is listening on port 8888
-```
-
-### Missing Client
-```
-Error: cannot find ../cmd/client/main.go
-Solution: Run from the examples directory: cd examples && ./demo.sh
-```
-
-### Resource Already Exists
-```
-Error: resource already exists
-Solution: Delete existing resource first or use a different name
-```
-
-## Advanced Usage
-
-### Custom Node IP Testing
-
-Test endpoints with different mock node IPs:
-
-```bash
-# Test with compute node (groups: compute, green)
-curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/meta-data
-
-# Test with different compute node (groups: compute, blue)
-curl -H "X-Forwarded-For: 10.0.0.101" http://localhost:8888/meta-data
-
-# Test with storage node (groups: storage)
-curl -H "X-Forwarded-For: 10.0.0.102" http://localhost:8888/meta-data
-```
-
-### Template Validation
-
-You can validate templates before creating them by checking the response:
-
-```bash
-# Create group and check validation
-go run ../cmd/client/main.go --server http://localhost:8888 group create --spec "$(cat my-template.json)"
-
-# If validation fails, you'll see error messages about missing variables
-```
-
-### Updating Templates
-
-To update an existing group template:
-
-```bash
-# Get current version
-go run ../cmd/client/main.go --server http://localhost:8888 group get compute-nodes --output json > current.json
-
-# Edit current.json with your changes
+If you started the server on a different port, update `SERVER_URL` in the scripts or export it before running them.
 
 # Update the group
 go run ../cmd/client/main.go --server http://localhost:8888 group update compute-nodes --spec "$(cat current.json)"

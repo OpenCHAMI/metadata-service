@@ -67,6 +67,18 @@ func (c *HTTPClient) IDfromIP(ip string) (string, error) {
 	return resp[0].ComponentID, nil
 }
 
+// IDfromWGIP returns the component ID for a given WireGuard IP address.
+func (c *HTTPClient) IDfromWGIP(wgip string) (string, error) {
+	c.wgmu.RLock()
+	defer c.wgmu.RUnlock()
+	for id, storedWGIP := range c.wgip {
+		if storedWGIP == wgip {
+			return id, nil
+		}
+	}
+	return "", fmt.Errorf("no component found for WireGuard IP %s", wgip)
+}
+
 // IPfromID returns the IP address for a given component ID (HMN-first).
 func (c *HTTPClient) IPfromID(id string) (string, error) {
 	ifaces, err := c.EthernetInterfaces(id)
@@ -75,6 +87,9 @@ func (c *HTTPClient) IPfromID(id string) (string, error) {
 	}
 	if ip := pickHMNIP(ifaces); ip != "" {
 		return ip, nil
+	}
+	if component, err := c.ComponentInformation(id); err == nil && component.IP != "" {
+		return component.IP, nil
 	}
 	return "", fmt.Errorf("no IP found for ID %s", id)
 }
@@ -87,6 +102,9 @@ func (c *HTTPClient) MACfromID(id string) (string, error) {
 	}
 	if mac := pickHMNMAC(ifaces); mac != "" {
 		return mac, nil
+	}
+	if component, err := c.ComponentInformation(id); err == nil && component.MAC != "" {
+		return component.MAC, nil
 	}
 	return "", fmt.Errorf("no MAC found for ID %s", id)
 }
@@ -105,7 +123,11 @@ func (c *HTTPClient) ComponentInformation(id string) (*Component, error) {
 
 	var single componentResponse
 	if err := json.Unmarshal(body, &single); err == nil && single.ID != "" {
-		component := &Component{ID: single.ID, NID: single.NID, Role: single.Role}
+		ip := single.IP
+		if ip == "" {
+			ip = single.IPAddress
+		}
+		component := &Component{ID: single.ID, NID: single.NID, Role: single.Role, MAC: single.MAC, IP: ip}
 		c.cache.setComponent(id, component)
 		return component, nil
 	}
@@ -117,7 +139,11 @@ func (c *HTTPClient) ComponentInformation(id string) (*Component, error) {
 	if len(list.Components) == 0 {
 		return nil, fmt.Errorf("no component found for ID %s", id)
 	}
-	component := &Component{ID: list.Components[0].ID, NID: list.Components[0].NID, Role: list.Components[0].Role}
+	ip := list.Components[0].IP
+	if ip == "" {
+		ip = list.Components[0].IPAddress
+	}
+	component := &Component{ID: list.Components[0].ID, NID: list.Components[0].NID, Role: list.Components[0].Role, MAC: list.Components[0].MAC, IP: ip}
 	c.cache.setComponent(id, component)
 	return component, nil
 }
@@ -205,10 +231,7 @@ func (c *HTTPClient) EthernetInterfaces(id string) ([]EthernetInterface, error) 
 	for _, iface := range resp {
 		ipMappings := make([]IPMapping, 0, len(iface.IPAddresses))
 		for _, ip := range iface.IPAddresses {
-			ipMappings = append(ipMappings, IPMapping{
-				IPAddress: ip.IPAddress,
-				Network:   ip.Network,
-			})
+			ipMappings = append(ipMappings, IPMapping(ip))
 		}
 		ifaces = append(ifaces, EthernetInterface{
 			ID:          iface.ID,
@@ -233,7 +256,7 @@ func (c *HTTPClient) doGet(path string, params url.Values, out any) error {
 
 func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 	fullURL := c.baseURL + path
-	if params != nil && len(params) > 0 {
+	if len(params) > 0 {
 		fullURL += "?" + params.Encode()
 	}
 
@@ -248,11 +271,13 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
 	body, err := io.ReadAll(resp.Body)
+	closeErr := resp.Body.Close()
 	if err != nil {
 		return nil, err
+	}
+	if closeErr != nil {
+		return nil, closeErr
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, fmt.Errorf("smd request failed: %s", strings.TrimSpace(string(body)))
@@ -261,9 +286,12 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 }
 
 type componentResponse struct {
-	ID   string `json:"ID"`
-	NID  int64  `json:"NID"`
-	Role string `json:"Role"`
+	ID        string `json:"ID"`
+	NID       int64  `json:"NID"`
+	Role      string `json:"Role"`
+	MAC       string `json:"MAC,omitempty"`
+	IP        string `json:"IP,omitempty"`
+	IPAddress string `json:"IPAddress,omitempty"`
 }
 
 type componentListResponse struct {

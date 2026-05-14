@@ -1,97 +1,131 @@
-# Legacy cloud-init service compatibility
+<!--
+SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
 
-This document compares the legacy OpenCHAMI cloud-init service with the current Fabrica-based metadata service to help sysadmins evaluate compatibility and migration steps.
+SPDX-License-Identifier: MIT
+-->
+
+# Legacy Cloud-Init Compatibility
+
+This document compares the legacy OpenCHAMI cloud-init service with the current Fabrica-based metadata service.
 
 ## Summary
-- **NoCloud endpoints**: Compatible. `/meta-data`, `/user-data`, `/vendor-data`, and `/{group}.yaml` are provided.
-- **Client-side merge**: Compatible. Vendor-data returns `#include` list of group YAML files.
-- **Group metadata visibility**: Compatible. All group memberships are present under `vendor_data.groups` in `/meta-data` and templates can reference them.
-- **Admin API**: Different. Resource-style endpoints and payload shapes require updates.
-- **Template storage**: Compatible. `templateEncoding: base64` is supported and decoded on create/update (stored as plain text).
-- **Testing workflow**: Different. Uses mock SMD + `X-Forwarded-For` instead of impersonation routes.
 
-## Endpoint comparison
+- NoCloud metadata compatibility is present for `/meta-data`, `/user-data`, `/vendor-data`, and `/{group}.yaml`.
+- The current service also exposes `/network-config`, `/health`, `/openapi.json`, and `/docs`.
+- Group membership metadata remains available under `instance_data.v1.vendor_data.groups` in `/meta-data`.
+- The admin and resource management APIs are different and require updated tooling.
+- Templates are stored as plain text in the current API.
+- Development testing uses mock SMD data plus `X-Forwarded-For` rather than impersonation routes.
+
+## Endpoint Comparison
 
 | Purpose | Legacy | Current |
 | --- | --- | --- |
 | Meta-data | `/cloud-init/meta-data` | `/meta-data` |
 | User-data | `/cloud-init/user-data` | `/user-data` |
 | Vendor-data | `/cloud-init/vendor-data` | `/vendor-data` |
+| Network-config | not provided | `/network-config` |
 | Group YAML | `/cloud-init/{group}.yaml` | `/{group}.yaml` |
-| Admin API | `/cloud-init/admin/...` | `/groups`, `/clusterdefaults`, `/instanceinfo` |
+| Health | not provided | `/health` |
+| OpenAPI JSON | not provided | `/openapi.json` |
+| Swagger UI | not provided | `/docs` |
+| Admin API | `/cloud-init/admin/...` | generated resource collections |
 
-## Behavior parity details
+## Behavior Notes
 
-### 1) Meta-data payload
-**Legacy:** Returns `instance-id`, `hostname`, `local-hostname`, `cluster-name`, and `instance_data.v1` with `vendor_data` including `groups` metadata.
+### Meta-data payload
 
-**Current:** Same structure. All group memberships are included in `instance_data.v1.vendor_data.groups`, even if a group has an empty template. Group templates can reference any variables present in `/meta-data`.
+Legacy behavior
+- Returns the cloud-init metadata document with `instance_data.v1.vendor_data.groups` populated from group membership.
 
-### 2) Vendor-data include list
-**Legacy:** Returns `#include` list with URLs for each group YAML.
+Current behavior
+- Preserves the same high-level structure.
+- Includes all group memberships in `vendor_data.groups`, even when a group has no renderable template.
+- Prefers a WireGuard reverse lookup for request identity when the client IP is a VPN address.
+- Picks HMN interface data first when deciding the boot IP and MAC for multi-NIC nodes.
 
-**Current:** Same behavior, but **filters out groups with empty templates** to avoid empty MIME parts (legacy issue #100 behavior retained).
+### Vendor-data include list
 
-### 3) Group YAML rendering
-**Legacy:** Group templates can reference `vendor_data.groups["<group>"]` for any group metadata in the node’s memberships.
+Legacy behavior
+- Returns a `#include` list of group YAML URLs.
 
-**Current:** Same. Templates receive a context with:
-- `vendor_data.groups` for all memberships.
-- Flattened keys (e.g., `hostname`, `instance_id`, `cluster_name`) for legacy-style access.
-- Full meta-data exposed as `meta_data.*`.
+Current behavior
+- Returns the same `#include` style payload.
+- Filters out groups whose stored template is empty.
 
-### 4) Template encoding (base64)
-**Legacy:** Allows base64-encoded template content with `file.encoding: base64`.
+### Group template rendering
 
-**Current:** Supports `spec.templateEncoding: base64` on create/update. Content is decoded and stored as plain text.
+Legacy behavior
+- Templates can rely on group metadata and node metadata at render time.
 
-### 5) Hostname generation
-**Legacy:** Short name defaults to `fmt.Sprintf("%.2s", clusterName)`.
+Current behavior
+- Templates receive flat keys such as `hostname`, `instance_id`, `cluster_name`, `nid`, `role`, `mac`, `ip`, `interfaces`, and `public_keys`.
+- Templates also receive nested `vendor_data` and nested `meta_data` objects.
+- Custom group metadata is exposed from `Group.Spec.MetaData`.
+- Templates must render successfully and produce valid YAML at create or update time.
 
-**Current:** Uses `clusterName[:2]` when length >= 2; otherwise full string. For single-character cluster names this is slightly different.
+### Template storage
 
-### 6) IP and MAC fields
-**Legacy:** `local_ipv4` can be string or object.
+Legacy behavior
+- Group data could carry encoded file payloads.
 
-**Current:** `local_ipv4` is always a string.
+Current behavior
+- `Group.Spec.Template` is plain text.
+- There is no `templateEncoding` field in the current API.
 
-## Admin API differences
+### Hostname generation
 
-### Groups
-**Legacy create:**
+Legacy behavior
+- Short-name defaults were derived from the cluster name.
+
+Current behavior
+- If `short_name` is unset, the hostname prefix uses the first two characters of `cluster_name` when available, otherwise the full short cluster name.
+
+### IP and MAC lookup
+
+Legacy behavior
+- Boot network information was supplied by the older service path.
+
+Current behavior
+- IP and MAC resolution can fall back to top-level component fields when Ethernet interface data is absent.
+
+## Resource Management API Differences
+
+Prefer the generated client commands over the raw collections. The current raw collection paths are:
+- `/clusterdefaultss`
+- `/groups`
+- `/instanceinfos`
+- `/wireguardpeers`
+
+The generated client commands are:
+- `clusterdefaults`
+- `group`
+- `instanceinfo`
+- `wireguardpeer`
+
+Current create and update requests require both `metadata` and `spec` fields.
+
+Example create request for a group:
+
 ```json
 {
-  "name": "x3001",
-  "data": {"syslog_aggregator": "192.168.0.1"},
-  "file": {"content": "#cloud-config\n...", "encoding": "plain"}
-}
-```
-
-**Current create:**
-```json
-{
-  "apiVersion": "cloud-init.openchami.io/v1",
-  "kind": "Group",
-  "metadata": {"name": "x3001"},
+  "metadata": {
+    "name": "compute"
+  },
   "spec": {
-    "description": "Cabinet x3001",
-    "template": "#cloud-config\n...",
-    "metaData": {"syslog_aggregator": "192.168.0.1"}
+    "description": "Compute nodes",
+    "template": "#cloud-config\nhostname: {{ hostname }}\n",
+    "metaData": {
+      "scheduler": "slurm"
+    }
   }
 }
 ```
 
-### Cluster defaults and instance info
-- **Legacy:** `/admin/cluster-defaults` and `/admin/instance-info/{id}`
-- **Current:** `/clusterdefaults` and `/instanceinfo` with resource-style payloads
+## Migration Checklist
 
-## Migration checklist
-1. Update admin scripts to use resource-style endpoints and payloads.
-2. If sending base64 templates, set `spec.templateEncoding: base64` (the server stores decoded plain text).
-3. Confirm templates reference `vendor_data.groups` or `meta_data` keys as needed.
-4. If relying on impersonation routes, switch to `X-Forwarded-For` with mock SMD for testing.
-5. Validate that any client expecting complex `local_ipv4` handles a string instead.
-
-## References
-- Legacy repo: https://github.com/OpenCHAMI/cloud-init
-- NoCloud datasource docs: https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html
+1. Update admin scripts to use the generated client or the current resource collection paths.
+2. Convert any legacy encoded template workflow to plain-text `spec.template` payloads.
+3. Validate templates against the current runtime context, including `vendor_data` and `meta_data`.
+4. Replace impersonation-based testing with mock SMD requests using `X-Forwarded-For`.
+5. If you rely on raw REST instead of the generated client, confirm your tooling targets `/clusterdefaultss`, `/groups`, `/instanceinfos`, and `/wireguardpeers`.

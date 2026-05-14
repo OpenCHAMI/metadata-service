@@ -13,7 +13,7 @@ initializes the storage system, and manages the server lifecycle.
 The server is organized into several layers:
 
  1. Configuration Layer: Reads config from CLI flags, env vars, and config files
- 2. Storage Layer: File-based JSON storage in ./data/ directory
+ 2. Storage Layer: File-based JSON storage in /data/ directory
  3. SMD Client Layer: Connection to SMD for hardware component lookup
  4. Middleware Layer: Request logging, validation, versioning
  5. Route Layer: REST API routes (auto-generated) + Cloud-Init routes (custom)
@@ -29,13 +29,13 @@ Configuration is managed through multiple sources (in precedence order):
 
 Common configuration options:
 
-	--port: HTTP server port (default: 8080)
-	--host: Bind address (default: 0.0.0.0)
-	--data-dir: Data storage directory (default: ./data)
-	--read-timeout: Read timeout in seconds (default: 10)
-	--write-timeout: Write timeout in seconds (default: 10)
-	--idle-timeout: Idle timeout in seconds (default: 60)
-	--debug: Enable debug logging (default: false)
+		--port: HTTP server port (default: 8080)
+		--host: Bind address (default: 0.0.0.0)
+	  --data-dir: Data storage directory (default: /data)
+		--read-timeout: Read timeout in seconds (default: 10)
+		--write-timeout: Write timeout in seconds (default: 10)
+		--idle-timeout: Idle timeout in seconds (default: 60)
+		--debug: Enable debug logging (default: false)
 
 For SMD integration:
 
@@ -120,12 +120,12 @@ This ensures no requests are interrupted during deployment updates.
 # Storage Initialization
 
 The server initializes file-based storage:
- 1. Creates ./data directory if it doesn't exist
+ 1. Creates /data directory if it doesn't exist
  2. Creates subdirectories for each resource type (Group, ClusterDefaults, InstanceInfo)
  3. Loads all existing resources from JSON files
  4. Sets up file watchers for external modifications (optional)
 
-For production, consider backing ./data with persistent volumes or cloud storage.
+For production, consider backing /data with persistent volumes or cloud storage.
 
 # SMD Client Initialization
 

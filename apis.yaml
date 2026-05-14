@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
+groups:
+  - name: cloud-init.openchami.io
+    storageVersion: v1
+    versions:
+      - v1
+    resources:
+      - ClusterDefaults
+      - Group
+      - InstanceInfo
+      - WireGuardPeer

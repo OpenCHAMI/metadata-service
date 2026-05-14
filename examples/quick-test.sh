@@ -5,9 +5,10 @@
 # SPDX-License-Identifier: MIT
 
 # quick-test.sh - Quick test of the API with minimal resources
-set -e
+set -euo pipefail
 
-SERVER_URL="http://localhost:8888"
+SERVER_URL="${SERVER_URL:-http://localhost:8888}"
+MOCK_IP="${MOCK_IP:-10.252.0.26}"
 
 echo "Quick API Test"
 echo "=============="
@@ -22,23 +23,23 @@ fi
 echo "✓ Server is running"
 echo ""
 
-# Test cloud-init endpoints with mock nodes
-echo "Testing cloud-init endpoints with mock node (10.0.0.100):"
+# Test cloud-init endpoints with mock node
+echo "Testing cloud-init endpoints with mock node (${MOCK_IP}):"
 echo ""
 
 echo "1. /meta-data:"
-curl -s -H "X-Forwarded-For: 10.0.0.100" "${SERVER_URL}/meta-data" | head -15
+curl -s -H "X-Forwarded-For: ${MOCK_IP}" "${SERVER_URL}/meta-data" | head -15
 echo "..."
 echo ""
 
-echo "2. /vendor-data:"
-curl -s -H "X-Forwarded-For: 10.0.0.100" "${SERVER_URL}/vendor-data"
+echo "2. /user-data:"
+curl -s -H "X-Forwarded-For: ${MOCK_IP}" "${SERVER_URL}/user-data"
 echo ""
 
-echo "3. /user-data:"
-curl -s -H "X-Forwarded-For: 10.0.0.100" "${SERVER_URL}/user-data"
+echo "3. /network-config:"
+curl -s -H "X-Forwarded-For: ${MOCK_IP}" "${SERVER_URL}/network-config"
 echo ""
 
 echo "✓ All endpoints responding!"
 echo ""
-echo "Run ./demo.sh for full demonstration with template creation"
+echo "Run ./demo.sh for full demonstration with resource creation and rendered group templates"
