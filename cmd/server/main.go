@@ -37,8 +37,13 @@ type Config struct {
 	DataDir string `mapstructure:"data_dir"`
 
 	// WireGuard Configuration
-	WireGuardStateFile string `mapstructure:"wireguard_state_file"`
-	WireGuardOnly      bool   `mapstructure:"wireguard_only"`
+	WireGuardStateFile       string `mapstructure:"wireguard_state_file"`
+	WireGuardOnly            bool   `mapstructure:"wireguard_only"`
+	TokenSmithURL            string `mapstructure:"tokensmith_url"`
+	TokenSmithBootstrapToken string `mapstructure:"tokensmith_bootstrap_token"`
+	TokenSmithTargetService  string `mapstructure:"tokensmith_target_service"`
+	TokenSmithScopes         string `mapstructure:"tokensmith_scopes"`
+	TokenSmithRefreshSkewSec int    `mapstructure:"tokensmith_refresh_skew_sec"`
 
 	// Feature Flags
 
@@ -56,8 +61,13 @@ func DefaultConfig() *Config {
 
 		DataDir: "/data",
 
-		WireGuardStateFile: "/data/wireguard/state.yaml",
-		WireGuardOnly:      false,
+		WireGuardStateFile:       "/data/wireguard/state.yaml",
+		WireGuardOnly:            false,
+		TokenSmithURL:            "",
+		TokenSmithBootstrapToken: "",
+		TokenSmithTargetService:  "smd",
+		TokenSmithScopes:         "",
+		TokenSmithRefreshSkewSec: 300,
 
 		Debug: false,
 	}
@@ -185,7 +195,11 @@ func runServer(cmd *cobra.Command, args []string) error {
 	r.Get("/openapi.json", ServeOpenAPISpec)
 	r.Get("/docs", ServeSwaggerUI)
 
-	registerCustomServerIntegrations(r)
+	serverCtx, stopServerCtx := context.WithCancel(context.Background())
+	defer stopServerCtx()
+	if err := registerCustomServerIntegrations(serverCtx, r); err != nil {
+		return err
+	}
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
@@ -213,6 +227,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Server shutting down...")
+	stopServerCtx()
 
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

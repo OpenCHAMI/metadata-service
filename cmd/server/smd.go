@@ -5,27 +5,95 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/OpenCHAMI/metadata-service/pkg/smdclient"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 // initSMDClient initializes the SMD client based on configuration
-func initSMDClient() smdclient.SMDClient {
+func initSMDClient(ctx context.Context) (smdclient.SMDClient, error) {
 	// Check if SMD URL is configured
-	smdURL := os.Getenv("SMD_URL")
+	smdURL := firstConfiguredValue("smd_url", "SMD_URL")
 	if smdURL == "" {
 		log.Warn().Msg("SMD_URL not configured, using mock SMD client for development")
-		return createMockSMDClient()
+		return createMockSMDClient(), nil
 	}
 
-	jwt := os.Getenv("SMD_JWT")
+	jwt := firstConfiguredValue("smd_jwt", "SMD_JWT")
 	if jwt == "" {
-		jwt = os.Getenv("SMD_TOKEN")
+		jwt = firstConfiguredValue("smd_token", "SMD_TOKEN")
 	}
-	log.Info().Msg("SMD_URL configured, using real SMD HTTP client")
-	return smdclient.NewHTTPClient(smdURL, jwt)
+
+	tokensmithURL := firstConfiguredValue("tokensmith_url", "TOKENSMITH_URL")
+	if tokensmithURL == "" {
+		log.Info().Msg("SMD_URL configured, using real SMD HTTP client with static auth mode")
+		return smdclient.NewHTTPClient(smdURL, jwt), nil
+	}
+
+	bootstrapToken := firstConfiguredValue("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN")
+	if bootstrapToken == "" {
+		return nil, fmt.Errorf("TokenSmith dynamic auth requires bootstrap token: set tokensmith_bootstrap_token or TOKENSMITH_BOOTSTRAP_TOKEN")
+	}
+
+	managerConfig := smdclient.DefaultTokenExchangeConfig()
+	managerConfig.TokenSmithURL = tokensmithURL
+	managerConfig.BootstrapToken = bootstrapToken
+	managerConfig.TargetService = firstConfiguredValue("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE")
+	if managerConfig.TargetService == "" {
+		managerConfig.TargetService = "smd"
+	}
+
+	if skewSeconds := viper.GetInt("tokensmith_refresh_skew_sec"); skewSeconds > 0 {
+		managerConfig.RefreshBefore = time.Duration(skewSeconds) * time.Second
+	}
+	managerConfig.Scopes = parseScopes(viper.GetString("tokensmith_scopes"))
+
+	manager := smdclient.NewServiceTokenManager(managerConfig)
+	if err := manager.Initialize(ctx); err != nil {
+		return nil, err
+	}
+	go manager.StartAutoRefresh(ctx)
+
+	stats := manager.Stats()
+	log.Info().
+		Str("tokensmith_url", tokensmithURL).
+		Str("token_endpoint", stats.TokenEndpoint).
+		Str("target_service", stats.TargetService).
+		Strs("scopes", stats.Scopes).
+		Dur("refresh_before", managerConfig.RefreshBefore).
+		Msg("SMD_URL configured, using real SMD HTTP client with TokenSmith dynamic auth mode")
+
+	client := smdclient.NewHTTPClient(smdURL, jwt).WithServiceTokenManager(manager)
+	return client, nil
+}
+
+func firstConfiguredValue(viperKey, envVar string) string {
+	if value := strings.TrimSpace(viper.GetString(viperKey)); value != "" {
+		return value
+	}
+	return strings.TrimSpace(os.Getenv(envVar))
+}
+
+func parseScopes(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	pieces := strings.Split(raw, ",")
+	out := make([]string, 0, len(pieces))
+	for _, piece := range pieces {
+		scope := strings.TrimSpace(piece)
+		if scope == "" {
+			continue
+		}
+		out = append(out, scope)
+	}
+	return out
 }
 
 // createMockSMDClient creates a mock SMD client with sample data for development

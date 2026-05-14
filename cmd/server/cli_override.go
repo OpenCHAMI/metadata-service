@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -19,6 +20,13 @@ func init() {
 	serveCmd.Short = "Start the ochami-metadata-server server"
 	serveCmd.Long = "Start the ochami-metadata-server HTTP server with the configured options"
 	serveCmd.Flags().String("wireguard-server", "", "Enable WireGuard userspace controller (CIDR, e.g. 100.97.0.1/16)")
+	serveCmd.Flags().String("tokensmith-url", "", "Enable TokenSmith dynamic SMD authentication via this base URL")
+	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "TokenSmith bootstrap token for initial service-token exchange")
+	serveCmd.Flags().String("tokensmith-target-service", "smd", "Target downstream service name used for TokenSmith exchange diagnostics")
+	serveCmd.Flags().String("tokensmith-scopes", "", "Comma-separated TokenSmith scope metadata for diagnostics")
+	serveCmd.Flags().Int("tokensmith-refresh-skew-sec", 300, "Refresh service token when remaining lifetime is below this many seconds")
+
+	bindServerEnvVars()
 }
 
 func registerDashAliases(flagSets ...*pflag.FlagSet) {
@@ -33,4 +41,22 @@ func registerDashAliases(flagSets ...*pflag.FlagSet) {
 			}
 		})
 	}
+}
+
+func bindServerEnvVars() {
+	mustBindEnv := func(key string, envVars ...string) {
+		args := append([]string{key}, envVars...)
+		if err := viper.BindEnv(args...); err != nil {
+			panic(fmt.Sprintf("failed to bind env for %s: %v", key, err))
+		}
+	}
+
+	mustBindEnv("smd_url", "SMD_URL")
+	mustBindEnv("smd_jwt", "SMD_JWT")
+	mustBindEnv("smd_token", "SMD_TOKEN")
+	mustBindEnv("tokensmith_url", "TOKENSMITH_URL")
+	mustBindEnv("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN")
+	mustBindEnv("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE")
+	mustBindEnv("tokensmith_scopes", "TOKENSMITH_SCOPES")
+	mustBindEnv("tokensmith_refresh_skew_sec", "TOKENSMITH_REFRESH_SKEW_SEC")
 }

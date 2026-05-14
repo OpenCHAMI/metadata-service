@@ -19,12 +19,13 @@ const smdAPIVersionPath = "/apis/smd/hsm/v2"
 
 // HTTPClient is an SMD client backed by the SMD HTTP API.
 type HTTPClient struct {
-	baseURL string
-	client  *http.Client
-	cache   *smdCache
-	jwt     string
-	wgmu    sync.RWMutex
-	wgip    map[string]string
+	baseURL      string
+	client       *http.Client
+	cache        *smdCache
+	jwt          string
+	tokenManager *ServiceTokenManager
+	wgmu         sync.RWMutex
+	wgip         map[string]string
 }
 
 // NewHTTPClient creates an SMD client backed by the SMD HTTP API.
@@ -38,6 +39,12 @@ func NewHTTPClient(baseURL, jwt string) *HTTPClient {
 		jwt:   strings.TrimSpace(jwt),
 		wgip:  make(map[string]string),
 	}
+}
+
+// WithServiceTokenManager enables dynamic TokenSmith-backed auth for outbound SMD requests.
+func (c *HTTPClient) WithServiceTokenManager(manager *ServiceTokenManager) *HTTPClient {
+	c.tokenManager = manager
+	return c
 }
 
 func normalizeBaseURL(baseURL string) string {
@@ -264,7 +271,13 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if c.jwt != "" {
+	if c.tokenManager != nil {
+		token, tokenErr := c.tokenManager.GetToken(req.Context())
+		if tokenErr != nil {
+			return nil, fmt.Errorf("failed to get dynamic SMD auth token: %w", tokenErr)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+	} else if c.jwt != "" {
 		req.Header.Set("Authorization", "Bearer "+c.jwt)
 	}
 	resp, err := c.client.Do(req)

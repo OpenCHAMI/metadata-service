@@ -4,6 +4,7 @@
 package smdclient
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -71,5 +72,71 @@ func TestResolveComponentIDPrefersWireGuardLookup(t *testing.T) {
 	}
 	if id != "x1000c0s0b0n0" {
 		t.Fatalf("expected component ID x1000c0s0b0n0, got %q", id)
+	}
+}
+
+func TestHTTPClientInjectsDynamicAuthorizationFromServiceTokenManager(t *testing.T) {
+	tokensmith := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/oauth/token" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"dynamic-token","token_type":"bearer","expires_in":3600,"refresh_token":"refresh-token","refresh_expires_in":7200,"issued_token_type":"urn:ietf:params:oauth:token-type:access-token"}`))
+	}))
+	defer tokensmith.Close()
+
+	smd := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer dynamic-token" {
+			t.Fatalf("expected dynamic auth header, got %q", got)
+		}
+		if r.URL.Path != "/apis/smd/hsm/v2/Inventory/EthernetInterfaces" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"ID":"eth0","Description":"mgmt","MACAddress":"aa:bb:cc:dd:ee:ff","IPAddresses":[{"IPAddress":"10.252.0.26","Network":"HMN"}],"ComponentID":"x1000c0s0b0n0","Type":"Node"}]`))
+	}))
+	defer smd.Close()
+
+	cfg := DefaultTokenExchangeConfig()
+	cfg.TokenSmithURL = tokensmith.URL
+	cfg.BootstrapToken = "bootstrap-token"
+	manager := NewServiceTokenManager(cfg)
+	if err := manager.Initialize(context.Background()); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	client := NewHTTPClient(smd.URL, "static-token").WithServiceTokenManager(manager)
+	id, err := client.IDfromIP("10.252.0.26")
+	if err != nil {
+		t.Fatalf("IDfromIP returned error: %v", err)
+	}
+	if id != "x1000c0s0b0n0" {
+		t.Fatalf("expected component id x1000c0s0b0n0, got %q", id)
+	}
+}
+
+func TestHTTPClientUsesStaticAuthorizationWhenServiceTokenManagerAbsent(t *testing.T) {
+	smd := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer static-token" {
+			t.Fatalf("expected static auth header, got %q", got)
+		}
+		if r.URL.Path != "/apis/smd/hsm/v2/Inventory/EthernetInterfaces" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"ID":"eth0","Description":"mgmt","MACAddress":"aa:bb:cc:dd:ee:ff","IPAddresses":[{"IPAddress":"10.252.0.26","Network":"HMN"}],"ComponentID":"x1000c0s0b0n0","Type":"Node"}]`))
+	}))
+	defer smd.Close()
+
+	client := NewHTTPClient(smd.URL, "static-token")
+	id, err := client.IDfromIP("10.252.0.26")
+	if err != nil {
+		t.Fatalf("IDfromIP returned error: %v", err)
+	}
+	if id != "x1000c0s0b0n0" {
+		t.Fatalf("expected component id x1000c0s0b0n0, got %q", id)
 	}
 }
