@@ -185,7 +185,17 @@ func runServer(cmd *cobra.Command, args []string) error {
 	r.Get("/openapi.json", ServeOpenAPISpec)
 	r.Get("/docs", ServeSwaggerUI)
 
-	registerCustomServerIntegrations(r)
+	wgController := registerCustomServerIntegrations(r)
+
+	reconcileRuntime, err := newReconciliationRuntimeFn(wgController)
+	if err != nil {
+		return fmt.Errorf("failed to initialize reconciliation runtime: %w", err)
+	}
+	defer func() {
+		if stopErr := reconcileRuntime.Stop(); stopErr != nil {
+			log.Printf("Failed to stop reconciliation runtime cleanly: %v", stopErr)
+		}
+	}()
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)

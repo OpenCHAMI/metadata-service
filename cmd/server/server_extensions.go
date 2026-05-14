@@ -5,8 +5,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
 	"github.com/go-chi/chi/v5"
@@ -15,10 +17,10 @@ import (
 
 // registerCustomServerIntegrations keeps custom metadata/wireguard wiring out of the generated
 // scaffold flow so main.go remains close to Fabrica defaults.
-func registerCustomServerIntegrations(r chi.Router) {
+func registerCustomServerIntegrations(r chi.Router) *wireguard.Controller {
 	wgController := setupWireGuardController(r)
 
-	if err := registerResourcePrefixes(); err != nil {
+	if err := registerResourcePrefixesSafely(); err != nil {
 		log.Printf("Failed to register resource prefixes: %v", err)
 	}
 
@@ -41,6 +43,22 @@ func registerCustomServerIntegrations(r chi.Router) {
 	}
 
 	RegisterCloudInitRoutes(r, smdClient, storeAdapter)
+	return wgController
+}
+
+func registerResourcePrefixesSafely() (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			msg := fmt.Sprint(recovered)
+			if strings.Contains(msg, "already registered") {
+				err = nil
+				return
+			}
+			err = fmt.Errorf("register resource prefixes panic: %v", recovered)
+		}
+	}()
+
+	return registerResourcePrefixes()
 }
 
 func setupWireGuardController(r chi.Router) *wireguard.Controller {
