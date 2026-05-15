@@ -33,7 +33,10 @@ func registerCustomServerIntegrations(serverCtx context.Context, r chi.Router) e
 	// Register generated API routes.
 	RegisterGeneratedRoutes(r)
 
-	smdRuntime := initSMDRuntime()
+	smdRuntime, err := initSMDRuntime()
+	if err != nil {
+		return err
+	}
 	smdClient := smdRuntime.client
 	storeAdapter := NewStorageAdapter()
 

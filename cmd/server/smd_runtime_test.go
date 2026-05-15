@@ -7,6 +7,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/openchami/tokensmith/pkg/tokenservice"
@@ -15,6 +16,9 @@ import (
 
 func resetSMDEnv(t *testing.T) {
 	t.Helper()
+	originalMockSMD := mockSMD
+	mockSMD = false
+	t.Cleanup(func() { mockSMD = originalMockSMD })
 	t.Setenv("SMD_URL", "")
 	t.Setenv("SMD_JWT", "")
 	t.Setenv("SMD_TOKEN", "")
@@ -25,6 +29,21 @@ func resetSMDEnv(t *testing.T) {
 	t.Setenv("TOKENSMITH_SCOPE_HINT", "")
 	viper.Reset()
 	t.Cleanup(viper.Reset)
+}
+
+func TestInitSMDRuntimeRequiresURLUnlessMockFlag(t *testing.T) {
+	resetSMDEnv(t)
+
+	runtime, err := initSMDRuntime()
+	if err == nil {
+		t.Fatal("expected initSMDRuntime to fail when SMD_URL is unset and --mock-smd is not enabled")
+	}
+	if runtime.client != nil {
+		t.Fatal("expected nil runtime client when initSMDRuntime fails")
+	}
+	if got := err.Error(); !strings.Contains(got, "SMD_URL is required unless --mock-smd is set") {
+		t.Fatalf("unexpected error: %q", got)
+	}
 }
 
 func TestInitSMDRuntimeTokenSmithBootstrapInjectsBearer(t *testing.T) {
@@ -72,7 +91,10 @@ func TestInitSMDRuntimeTokenSmithBootstrapInjectsBearer(t *testing.T) {
 	t.Setenv("TOKENSMITH_URL", tokensmith.URL)
 	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "bootstrap-token")
 
-	runtime := initSMDRuntime()
+	runtime, err := initSMDRuntime()
+	if err != nil {
+		t.Fatalf("initSMDRuntime returned error: %v", err)
+	}
 	if runtime.client == nil {
 		t.Fatal("expected initialized runtime client")
 	}
@@ -107,7 +129,10 @@ func TestInitSMDRuntimeStaticTokenFallbackWhenTokenSmithUnset(t *testing.T) {
 	t.Setenv("SMD_URL", smd.URL)
 	t.Setenv("SMD_JWT", staticToken)
 
-	runtime := initSMDRuntime()
+	runtime, err := initSMDRuntime()
+	if err != nil {
+		t.Fatalf("initSMDRuntime returned error: %v", err)
+	}
 	if runtime.client == nil {
 		t.Fatal("expected initialized runtime client")
 	}
@@ -145,7 +170,10 @@ func TestInitSMDRuntimeTokenSmithBootstrapFailureDoesNotAbort(t *testing.T) {
 	t.Setenv("TOKENSMITH_URL", tokensmith.URL)
 	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "bootstrap-token")
 
-	runtime := initSMDRuntime()
+	runtime, err := initSMDRuntime()
+	if err != nil {
+		t.Fatalf("initSMDRuntime returned error: %v", err)
+	}
 	if runtime.client == nil {
 		t.Fatal("expected initialized runtime client")
 	}

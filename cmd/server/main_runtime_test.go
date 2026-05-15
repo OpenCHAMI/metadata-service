@@ -116,12 +116,12 @@ func TestHealthHandlerReturnsUnhealthyBeforeInitialSMDRefresh(t *testing.T) {
 	}
 }
 
-func TestDefaultConfigUsesOneMinuteSMDSyncInterval(t *testing.T) {
-	if got := DefaultConfig().SMDSyncInterval; got != 1 {
-		t.Fatalf("expected default SMD sync interval 1 minute, got %d", got)
+func TestDefaultConfigUsesSixtySecondSMDSyncInterval(t *testing.T) {
+	if got := DefaultConfig().SMDSyncInterval; got != 60 {
+		t.Fatalf("expected default SMD sync interval 60 seconds, got %d", got)
 	}
-	if got := serveCmd.Flags().Lookup("smd-sync-interval").DefValue; got != "1" {
-		t.Fatalf("expected smd-sync-interval flag default 1, got %q", got)
+	if got := serveCmd.Flags().Lookup("smd-sync-interval").DefValue; got != "60" {
+		t.Fatalf("expected smd-sync-interval flag default 60, got %q", got)
 	}
 }
 

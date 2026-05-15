@@ -112,8 +112,8 @@ Generated storage helpers persist resources by kind/UID under that backend.
 # SMD Runtime Initialization
 
 SMD runtime behavior:
- 1. If SMD_URL is unset, use mock SMD client
- 2. If SMD_URL is set, initialize live HTTP SMD client
+ 1. If --mock-smd is set, use the built-in mock SMD client
+ 2. Otherwise require SMD_URL and initialize a live HTTP SMD client
  3. If TokenSmith settings are valid, enable dynamic service-token mode
  4. Otherwise continue with static SMD auth mode
  5. Wrap with integration service and optionally start sync/token workers

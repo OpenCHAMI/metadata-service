@@ -10,10 +10,10 @@ This service implements a NoCloud-style metadata server for cloud-init. It resol
 
 ## Quick Start
 
-1. Start the server with mock SMD enabled automatically:
+1. Start the server with mock SMD enabled explicitly:
 
    ```bash
-   go run ./cmd/server/main.go serve --port 8888
+  go run ./cmd/server/main.go serve --port 8888 --mock-smd
    ```
 
 2. Query the built-in mock nodes by HMN address through `X-Forwarded-For`:

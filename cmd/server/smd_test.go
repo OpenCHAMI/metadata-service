@@ -16,6 +16,58 @@ import (
 	"github.com/spf13/viper"
 )
 
+func TestInitSMDClientRequiresURLUnlessMockFlag(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	originalMockSMD := mockSMD
+	mockSMD = false
+	t.Cleanup(func() { mockSMD = originalMockSMD })
+
+	t.Setenv("SMD_URL", "")
+	t.Setenv("SMD_JWT", "")
+	t.Setenv("SMD_TOKEN", "")
+	t.Setenv("TOKENSMITH_URL", "")
+	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "")
+
+	client, err := initSMDClient(context.Background())
+	if err == nil {
+		t.Fatal("expected initSMDClient to fail when SMD_URL is unset and --mock-smd is not enabled")
+	}
+	if client != nil {
+		t.Fatal("expected nil client when SMD_URL is unset and --mock-smd is not enabled")
+	}
+	if !strings.Contains(err.Error(), "SMD_URL is required unless --mock-smd is set") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestInitSMDClientAllowsExplicitMockFlag(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	originalMockSMD := mockSMD
+	mockSMD = true
+	t.Cleanup(func() { mockSMD = originalMockSMD })
+
+	t.Setenv("SMD_URL", "")
+	t.Setenv("SMD_JWT", "")
+	t.Setenv("SMD_TOKEN", "")
+	t.Setenv("TOKENSMITH_URL", "")
+	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "")
+
+	client, err := initSMDClient(context.Background())
+	if err != nil {
+		t.Fatalf("initSMDClient returned error: %v", err)
+	}
+
+	id, err := client.IDfromIP("10.252.0.26")
+	if err != nil {
+		t.Fatalf("IDfromIP returned error: %v", err)
+	}
+	if id != "x1000c0s0b0n0" {
+		t.Fatalf("expected x1000c0s0b0n0, got %q", id)
+	}
+}
+
 func TestInitSMDClientStaticModeWithoutTokenSmith(t *testing.T) {
 	viper.Reset()
 	t.Cleanup(viper.Reset)

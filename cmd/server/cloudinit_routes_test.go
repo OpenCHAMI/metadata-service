@@ -161,6 +161,9 @@ func TestStorageAdapterGetGroupDataMatchesByNameAndPrefersLatest(t *testing.T) {
 
 func TestRegisterCustomServerIntegrationsAllowsGeneratedCreateRoutes(t *testing.T) {
 	initTestStorageBackend(t)
+	originalMockSMD := mockSMD
+	mockSMD = true
+	t.Cleanup(func() { mockSMD = originalMockSMD })
 	t.Setenv("SMD_URL", "")
 	t.Setenv("SMD_JWT", "")
 	t.Setenv("SMD_TOKEN", "")

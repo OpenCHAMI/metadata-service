@@ -75,7 +75,7 @@ func DefaultConfig() *Config {
 		TokenSmithScopeHint:      "",
 
 		SMDSyncEnabled:  true,
-		SMDSyncInterval: 1,
+		SMDSyncInterval: 60,
 
 		Debug: false,
 	}
@@ -84,6 +84,7 @@ func DefaultConfig() *Config {
 var (
 	cfgFile string
 	config  *Config
+	mockSMD bool
 )
 
 var notifyShutdownSignals = func(ch chan<- os.Signal) {
@@ -122,6 +123,7 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ochami-metadata.yaml)")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
+	rootCmd.PersistentFlags().BoolVar(&mockSMD, "mock-smd", false, "Use built-in mock SMD data instead of requiring SMD_URL")
 
 	// Server flags
 	serveCmd.Flags().IntP("port", "p", 8080, "Port to listen on")
@@ -138,7 +140,7 @@ func init() {
 
 	// SMD sync flags
 	serveCmd.Flags().Bool("smd-sync-enabled", true, "Enable background SMD cache sync worker")
-	serveCmd.Flags().Int("smd-sync-interval", 1, "SMD cache sync interval in minutes")
+	serveCmd.Flags().Int("smd-sync-interval", 60, "SMD cache sync interval in seconds")
 
 	// Bind flags to viper
 	viper.BindPFlags(serveCmd.Flags())

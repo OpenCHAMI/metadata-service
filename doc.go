@@ -97,19 +97,19 @@ Template syntax and rendered YAML validity are validated at Group create/update 
 
 # Development and Testing
 
-When SMD_URL is unset, the service runs with a mock SMD client.
+The service only uses the built-in mock SMD client when --mock-smd is set.
 
 Example workflow:
 
-	# Start server with mock SMD
-	go run ./cmd/server serve --port 8888
+	  # Start server with mock SMD
+	  go run ./cmd/server serve --port 8888 --mock-smd
 
-	# Request metadata for a mock node IP
-	curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/meta-data
+		# Request metadata for a mock node IP
+		curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/meta-data
 
-	# Create a group using generated client
-	go run ./cmd/client/main.go --server http://localhost:8888 group create \
-	  --spec '{"metadata":{"name":"compute"},"spec":{"template":"#cloud-config"}}'
+		# Create a group using generated client
+		go run ./cmd/client/main.go --server http://localhost:8888 group create \
+		  --spec '{"metadata":{"name":"compute"},"spec":{"template":"#cloud-config"}}'
 
 # Code Generation
 
@@ -151,7 +151,7 @@ Legacy service:
 Current service:
   - generated REST API + custom cloud-init routes
   - resource-level validation hooks
-  - mock SMD fallback when SMD_URL is unset
+  - explicit mock SMD mode when --mock-smd is set
   - default port 8080 (8888 commonly used for local development)
 
 See LEGACY_COMPATIBILITY.md for compatibility and migration notes.

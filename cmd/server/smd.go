@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-const defaultSMDSyncIntervalMinutes = 1
+const defaultSMDSyncIntervalSeconds = 60
 
 type smdRuntime struct {
 	client       smdclient.SMDClient
@@ -30,10 +30,25 @@ type smdHealthReporter interface {
 
 var currentSMDHealth smdHealthReporter
 
-func initSMDClient(ctx context.Context) (smdclient.SMDClient, error) {
+func requireSMDURLUnlessMock() (string, error) {
+	if mockSMD {
+		return "", nil
+	}
+
 	smdURL := firstConfiguredValue("smd_url", "SMD_URL")
 	if smdURL == "" {
-		log.Warn().Msg("SMD_URL not configured, using mock SMD client for development")
+		return "", fmt.Errorf("SMD_URL is required unless --mock-smd is set")
+	}
+	return smdURL, nil
+}
+
+func initSMDClient(ctx context.Context) (smdclient.SMDClient, error) {
+	_, err := requireSMDURLUnlessMock()
+	if err != nil {
+		return nil, err
+	}
+	if mockSMD {
+		log.Warn().Msg("Using mock SMD client because --mock-smd was set")
 		return createMockSMDClient(), nil
 	}
 
@@ -42,10 +57,14 @@ func initSMDClient(ctx context.Context) (smdclient.SMDClient, error) {
 }
 
 // initSMDRuntime initializes SMD integration and background sync behavior.
-func initSMDRuntime() smdRuntime {
-	smdURL := firstConfiguredValue("smd_url", "SMD_URL")
-	if smdURL == "" {
-		log.Warn().Msg("SMD_URL not configured, using mock SMD client for development")
+func initSMDRuntime() (smdRuntime, error) {
+	smdURL, err := requireSMDURLUnlessMock()
+	if err != nil {
+		currentSMDHealth = nil
+		return smdRuntime{}, err
+	}
+	if mockSMD {
+		log.Warn().Msg("Using mock SMD client because --mock-smd was set")
 		mock := createMockSMDClient()
 		service := smdclient.NewSMDIntegrationService(mock, smdSyncOptions())
 		currentSMDHealth = service
@@ -54,7 +73,7 @@ func initSMDRuntime() smdRuntime {
 			startWorkers: func(ctx context.Context) {
 				service.StartSyncWorker(ctx)
 			},
-		}
+		}, nil
 	}
 
 	client, startTokenWorkers, err := initLiveSMDClient(context.Background(), true)
@@ -77,7 +96,7 @@ func initSMDRuntime() smdRuntime {
 			}
 			service.StartSyncWorker(ctx)
 		},
-	}
+	}, nil
 }
 
 func initLiveSMDClient(ctx context.Context, degradeOnTokenSmithFailure bool) (smdclient.SMDClient, func(context.Context), error) {
@@ -196,13 +215,13 @@ func configBoolOrDefault(key string, defaultValue bool, envKeys ...string) bool 
 
 func smdSyncOptions() smdclient.IntegrationOptions {
 	enabled := configBoolOrDefault("smd_sync_enabled", true, "SMD_SYNC_ENABLED")
-	intervalMinutes := configIntOrDefault("smd_sync_interval", defaultSMDSyncIntervalMinutes, "SMD_SYNC_INTERVAL")
-	if intervalMinutes <= 0 {
-		intervalMinutes = defaultSMDSyncIntervalMinutes
+	intervalSeconds := configIntOrDefault("smd_sync_interval", defaultSMDSyncIntervalSeconds, "SMD_SYNC_INTERVAL")
+	if intervalSeconds <= 0 {
+		intervalSeconds = defaultSMDSyncIntervalSeconds
 	}
 	return smdclient.IntegrationOptions{
 		SyncEnabled:  enabled,
-		SyncInterval: time.Duration(intervalMinutes) * time.Minute,
+		SyncInterval: time.Duration(intervalSeconds) * time.Second,
 	}
 }
 

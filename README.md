@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 
 # OpenCHAMI Metadata Service
 
-The OpenCHAMI metadata service provides NoCloud-compatible cloud-init endpoints for HPC nodes and a generated resource API for the data those endpoints render. It is built on Fabrica, stores resources on disk, integrates with SMD for node identity and group membership, and falls back to a mock SMD client for local development when `SMD_URL` is unset.
+The OpenCHAMI metadata service provides NoCloud-compatible cloud-init endpoints for HPC nodes and a generated resource API for the data those endpoints render. It is built on Fabrica, stores resources on disk, integrates with SMD for node identity and group membership, and can use a built-in mock SMD client for local development when `--mock-smd` is set.
 
 Key capabilities
 - NoCloud-style endpoints: `/meta-data`, `/user-data`, `/vendor-data`, `/network-config`, and `/{group}.yaml`
@@ -22,7 +22,7 @@ The server defaults to port `8080`. The examples below use `8888` explicitly.
 1. Start the server with the built-in mock SMD data:
 
 	 ```bash
-	 go run ./cmd/server/main.go serve --port 8888
+	 go run ./cmd/server/main.go serve --port 8888 --mock-smd
 	 ```
 
 2. Verify the service endpoints that work without any stored resources:
@@ -173,7 +173,7 @@ Request identity resolution prefers a WireGuard reverse lookup when available, t
 
 Optional SMD sync controls:
 - `--smd-sync-enabled` (default `true`)
-- `--smd-sync-interval` in minutes (default `5`)
+- `--smd-sync-interval` in seconds (default `60`)
 
 Optional TokenSmith exchange (uses static `SMD_JWT`/`SMD_TOKEN` as fallback when TokenSmith is unset or unavailable):
 - `--tokensmith-url`
