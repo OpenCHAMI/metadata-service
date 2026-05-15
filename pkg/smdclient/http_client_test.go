@@ -76,6 +76,19 @@ func TestResolveComponentIDPrefersWireGuardLookup(t *testing.T) {
 	}
 }
 
+func TestResolveComponentIDFallsBackToNaturalIPLookup(t *testing.T) {
+	mock := NewMockSMDClient()
+	mock.AddComponent(&Component{ID: "x1000c0s0b0n0", IP: "10.0.0.100"})
+
+	id, err := ResolveComponentID(mock, "10.0.0.100")
+	if err != nil {
+		t.Fatalf("ResolveComponentID returned error: %v", err)
+	}
+	if id != "x1000c0s0b0n0" {
+		t.Fatalf("expected component ID x1000c0s0b0n0, got %q", id)
+	}
+}
+
 func TestHTTPClientUsesDynamicTokenProvider(t *testing.T) {
 	const expectedToken = "dynamic-token"
 
