@@ -85,6 +85,16 @@ var (
 	config  *Config
 )
 
+var notifyShutdownSignals = func(ch chan<- os.Signal) {
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+}
+
+var stopShutdownSignalNotify = func(ch chan<- os.Signal) {
+	signal.Stop(ch)
+}
+
+var registerServerIntegrations = registerCustomServerIntegrations
+
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
@@ -204,7 +214,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	r.Get("/openapi.json", ServeOpenAPISpec)
 	r.Get("/docs", ServeSwaggerUI)
 
-	if err := registerCustomServerIntegrations(appCtx, r); err != nil {
+	if err := registerServerIntegrations(appCtx, r); err != nil {
 		return err
 	}
 
@@ -230,7 +240,8 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	// Wait for interrupt signal for graceful shutdown
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	notifyShutdownSignals(quit)
+	defer stopShutdownSignalNotify(quit)
 	<-quit
 	log.Println("Server shutting down...")
 	appCancel()

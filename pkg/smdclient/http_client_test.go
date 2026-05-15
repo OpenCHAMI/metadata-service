@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -217,5 +218,160 @@ func TestHTTPClientUsesStaticAuthorizationWhenServiceTokenManagerAbsent(t *testi
 	}
 	if id != "x1000c0s0b0n0" {
 		t.Fatalf("expected component id x1000c0s0b0n0, got %q", id)
+	}
+}
+
+func TestHTTPClientGroupMembershipSupportsBothResponseShapes(t *testing.T) {
+	t.Run("groupLabels", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/apis/smd/hsm/v2/memberships/x1000c0s0b0n0" {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"groupLabels":["compute","green"]}`))
+		}))
+		defer server.Close()
+
+		client := NewHTTPClient(server.URL, "")
+		groups, err := client.GroupMembership("x1000c0s0b0n0")
+		if err != nil {
+			t.Fatalf("GroupMembership returned error: %v", err)
+		}
+		if len(groups) != 2 || groups[0] != "compute" || groups[1] != "green" {
+			t.Fatalf("unexpected groupLabels response: %+v", groups)
+		}
+	})
+
+	t.Run("legacy groups", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/apis/smd/hsm/v2/memberships/x1000c0s0b0n0" {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"Groups":["compute"]}`))
+		}))
+		defer server.Close()
+
+		client := NewHTTPClient(server.URL, "")
+		groups, err := client.GroupMembership("x1000c0s0b0n0")
+		if err != nil {
+			t.Fatalf("GroupMembership returned error: %v", err)
+		}
+		if len(groups) != 1 || groups[0] != "compute" {
+			t.Fatalf("unexpected Groups response: %+v", groups)
+		}
+	})
+}
+
+func TestHTTPClientWGIPfromID(t *testing.T) {
+	client := NewHTTPClient("http://example.invalid", "")
+	if err := client.AddWGIP("x1000c0s0b0n0", "10.100.1.25"); err != nil {
+		t.Fatalf("AddWGIP returned error: %v", err)
+	}
+
+	wgip, err := client.WGIPfromID("x1000c0s0b0n0")
+	if err != nil {
+		t.Fatalf("WGIPfromID returned error: %v", err)
+	}
+	if wgip != "10.100.1.25" {
+		t.Fatalf("expected stored WG IP 10.100.1.25, got %q", wgip)
+	}
+
+	if _, err := client.WGIPfromID("missing"); err == nil {
+		t.Fatal("expected missing WGIP lookup to error")
+	}
+}
+
+func TestHTTPClientEthernetNICInfoParsesAndCaches(t *testing.T) {
+	var endpointCalls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/apis/smd/hsm/v2/Inventory/ComponentEndpoints/x1000c0s0b0n0" {
+			http.NotFound(w, r)
+			return
+		}
+		atomic.AddInt32(&endpointCalls, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"RedfishSystemInfo":{
+				"EthNICInfo":[
+					{"RedfishId":"1","Description":"Management","MACAddress":"aa:bb:cc:dd:ee:ff","PermanentMACAddress":"aa:bb:cc:dd:ee:ff","InterfaceEnabled":true},
+					{"RedfishId":"2","Description":"HSN","MACAddress":"aa:bb:cc:dd:ee:00","PermanentMACAddress":"aa:bb:cc:dd:ee:00"}
+				]
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewHTTPClient(server.URL, "")
+	nics, err := client.EthernetNICInfo("x1000c0s0b0n0")
+	if err != nil {
+		t.Fatalf("EthernetNICInfo returned error: %v", err)
+	}
+	if len(nics) != 2 {
+		t.Fatalf("expected 2 nics, got %d", len(nics))
+	}
+	if !nics[0].InterfaceEnabled {
+		t.Fatalf("expected nic 0 enabled")
+	}
+	if nics[1].InterfaceEnabled {
+		t.Fatalf("expected nic 1 disabled default when missing InterfaceEnabled")
+	}
+
+	cached, err := client.EthernetNICInfo("x1000c0s0b0n0")
+	if err != nil {
+		t.Fatalf("EthernetNICInfo cache read returned error: %v", err)
+	}
+	if len(cached) != 2 {
+		t.Fatalf("expected 2 cached nics, got %d", len(cached))
+	}
+	if got := atomic.LoadInt32(&endpointCalls); got != 1 {
+		t.Fatalf("expected single endpoint call due to cache, got %d", got)
+	}
+}
+
+func TestHTTPClientListComponentsPrimesIDCache(t *testing.T) {
+	var listCalls int32
+	var ifaceLookupCalls int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/apis/smd/hsm/v2/State/Components":
+			atomic.AddInt32(&listCalls, 1)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"Components":[{"ID":"x1000c0s0b0n0","NID":1000,"Role":"compute","IPAddress":"10.252.0.26"}]}`))
+		case "/apis/smd/hsm/v2/Inventory/EthernetInterfaces":
+			atomic.AddInt32(&ifaceLookupCalls, 1)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[]`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewHTTPClient(server.URL, "")
+	components, err := client.ListComponents()
+	if err != nil {
+		t.Fatalf("ListComponents returned error: %v", err)
+	}
+	if len(components) != 1 || components[0].ID != "x1000c0s0b0n0" {
+		t.Fatalf("unexpected ListComponents result: %+v", components)
+	}
+
+	id, err := client.IDfromIP("10.252.0.26")
+	if err != nil {
+		t.Fatalf("IDfromIP returned error after ListComponents: %v", err)
+	}
+	if id != "x1000c0s0b0n0" {
+		t.Fatalf("expected cached ID x1000c0s0b0n0, got %q", id)
+	}
+
+	if got := atomic.LoadInt32(&listCalls); got != 1 {
+		t.Fatalf("expected one /State/Components request, got %d", got)
+	}
+	if got := atomic.LoadInt32(&ifaceLookupCalls); got != 0 {
+		t.Fatalf("expected no EthernetInterfaces lookup due to ID cache, got %d", got)
 	}
 }
