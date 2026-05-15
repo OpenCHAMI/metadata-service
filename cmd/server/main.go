@@ -40,6 +40,16 @@ type Config struct {
 	WireGuardStateFile string `mapstructure:"wireguard_state_file"`
 	WireGuardOnly      bool   `mapstructure:"wireguard_only"`
 
+	// SMD Integration Configuration
+	SMDSyncEnabled  bool `mapstructure:"smd_sync_enabled"`
+	SMDSyncInterval int  `mapstructure:"smd_sync_interval"`
+
+	TokenSmithRefreshSkewSec int    `mapstructure:"tokensmith_refresh_skew_sec"`
+	TokenSmithTargetService  string `mapstructure:"tokensmith_target_service"`
+	TokenSmithURL            string `mapstructure:"tokensmith_url"`
+	TokenSmithBootstrapToken string `mapstructure:"tokensmith_bootstrap_token"`
+	TokenSmithScopeHint      string `mapstructure:"tokensmith_scope_hint"`
+
 	// Feature Flags
 
 	Debug bool `mapstructure:"debug"`
@@ -58,6 +68,15 @@ func DefaultConfig() *Config {
 
 		WireGuardStateFile: "/data/wireguard/state.yaml",
 		WireGuardOnly:      false,
+
+		SMDSyncEnabled:  true,
+		SMDSyncInterval: 5,
+
+		TokenSmithRefreshSkewSec: 60,
+		TokenSmithTargetService:  "hsm",
+		TokenSmithURL:            "",
+		TokenSmithBootstrapToken: "",
+		TokenSmithScopeHint:      "",
 
 		Debug: false,
 	}
@@ -107,6 +126,17 @@ func init() {
 	// WireGuard flags
 	serveCmd.Flags().String("wireguard-state-file", "/data/wireguard/state.yaml", "Path to WireGuard state file for persistence")
 	serveCmd.Flags().Bool("wireguard-only", false, "Restrict access to WireGuard network only")
+
+	// SMD sync flags
+	serveCmd.Flags().Bool("smd-sync-enabled", true, "Enable background SMD cache sync worker")
+	serveCmd.Flags().Int("smd-sync-interval", 5, "SMD cache sync interval in minutes")
+
+	// TokenSmith flags
+	serveCmd.Flags().String("tokensmith-url", "", "TokenSmith token exchange endpoint URL")
+	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "Bootstrap token used to exchange for SMD service token")
+	serveCmd.Flags().String("tokensmith-target-service", "hsm", "TokenSmith target service for token exchange")
+	serveCmd.Flags().Int("tokensmith-refresh-skew-sec", 60, "Refresh token this many seconds before expiry")
+	serveCmd.Flags().String("tokensmith-scope-hint", "", "Optional TokenSmith scope hint for diagnostics")
 
 	// Bind flags to viper
 	viper.BindPFlags(serveCmd.Flags())
@@ -160,6 +190,9 @@ func initConfig() {
 func runServer(cmd *cobra.Command, args []string) error {
 	log.Printf("Starting github.com/OpenCHAMI/metadata-service server...")
 
+	appCtx, appCancel := context.WithCancel(context.Background())
+	defer appCancel()
+
 	// Initialize storage backend
 
 	if err := storage.InitFileBackend(config.DataDir); err != nil {
@@ -185,7 +218,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	r.Get("/openapi.json", ServeOpenAPISpec)
 	r.Get("/docs", ServeSwaggerUI)
 
-	registerCustomServerIntegrations(r)
+	registerCustomServerIntegrations(appCtx, r)
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
@@ -213,6 +246,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Server shutting down...")
+	appCancel()
 
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

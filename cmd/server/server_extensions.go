@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 
@@ -15,7 +16,7 @@ import (
 
 // registerCustomServerIntegrations keeps custom metadata/wireguard wiring out of the generated
 // scaffold flow so main.go remains close to Fabrica defaults.
-func registerCustomServerIntegrations(r chi.Router) {
+func registerCustomServerIntegrations(ctx context.Context, r chi.Router) {
 	wgController := setupWireGuardController(r)
 
 	if err := registerResourcePrefixes(); err != nil {
@@ -32,7 +33,8 @@ func registerCustomServerIntegrations(r chi.Router) {
 	// Register generated API routes.
 	RegisterGeneratedRoutes(r)
 
-	smdClient := initSMDClient()
+	smdRuntime := initSMDRuntime()
+	smdClient := smdRuntime.client
 	storeAdapter := NewStorageAdapter()
 
 	// Re-register WireGuard routes with SMD client once available.
@@ -41,6 +43,9 @@ func registerCustomServerIntegrations(r chi.Router) {
 	}
 
 	RegisterCloudInitRoutes(r, smdClient, storeAdapter)
+	if smdRuntime.startWorkers != nil {
+		smdRuntime.startWorkers(ctx)
+	}
 }
 
 func setupWireGuardController(r chi.Router) *wireguard.Controller {

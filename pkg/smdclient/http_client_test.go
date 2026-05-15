@@ -73,3 +73,30 @@ func TestResolveComponentIDPrefersWireGuardLookup(t *testing.T) {
 		t.Fatalf("expected component ID x1000c0s0b0n0, got %q", id)
 	}
 }
+
+func TestHTTPClientUsesDynamicTokenProvider(t *testing.T) {
+	const expectedToken = "dynamic-token"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer "+expectedToken {
+			t.Fatalf("expected Authorization header %q, got %q", "Bearer "+expectedToken, got)
+		}
+		switch r.URL.Path {
+		case "/apis/smd/hsm/v2/Inventory/EthernetInterfaces":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[]`))
+		case "/apis/smd/hsm/v2/State/Components/x1000c0s0b0n0":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ID":"x1000c0s0b0n0","NID":1000,"Role":"compute","MAC":"aa:bb:cc:dd:ee:ff","IPAddress":"10.252.0.26"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewHTTPClientWithTokenProvider(server.URL, func() string { return expectedToken })
+	_, err := client.ComponentInformation("x1000c0s0b0n0")
+	if err != nil {
+		t.Fatalf("ComponentInformation returned error: %v", err)
+	}
+}

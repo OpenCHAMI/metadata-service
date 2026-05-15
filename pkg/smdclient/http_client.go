@@ -23,20 +23,29 @@ type HTTPClient struct {
 	client  *http.Client
 	cache   *smdCache
 	jwt     string
+	tokenFn func() string
 	wgmu    sync.RWMutex
 	wgip    map[string]string
 }
 
 // NewHTTPClient creates an SMD client backed by the SMD HTTP API.
 func NewHTTPClient(baseURL, jwt string) *HTTPClient {
+	return NewHTTPClientWithTokenProvider(baseURL, func() string {
+		return strings.TrimSpace(jwt)
+	})
+}
+
+// NewHTTPClientWithTokenProvider creates an SMD HTTP client using a dynamic
+// token provider callback.
+func NewHTTPClientWithTokenProvider(baseURL string, tokenFn func() string) *HTTPClient {
 	return &HTTPClient{
 		baseURL: normalizeBaseURL(baseURL),
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		cache: newSMDCache(time.Minute),
-		jwt:   strings.TrimSpace(jwt),
-		wgip:  make(map[string]string),
+		cache:   newSMDCache(time.Minute),
+		tokenFn: tokenFn,
+		wgip:    make(map[string]string),
 	}
 }
 
@@ -264,8 +273,12 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if c.jwt != "" {
-		req.Header.Set("Authorization", "Bearer "+c.jwt)
+	token := c.jwt
+	if c.tokenFn != nil {
+		token = strings.TrimSpace(c.tokenFn())
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -283,6 +296,35 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 		return nil, fmt.Errorf("smd request failed: %s", strings.TrimSpace(string(body)))
 	}
 	return body, nil
+}
+
+// ListComponents returns all components from SMD.
+func (c *HTTPClient) ListComponents() ([]*Component, error) {
+	var resp componentListResponse
+	if err := c.doGet("/State/Components", nil, &resp); err != nil {
+		return nil, err
+	}
+
+	result := make([]*Component, 0, len(resp.Components))
+	for _, item := range resp.Components {
+		ip := item.IP
+		if ip == "" {
+			ip = item.IPAddress
+		}
+		component := &Component{
+			ID:   item.ID,
+			NID:  item.NID,
+			Role: item.Role,
+			MAC:  item.MAC,
+			IP:   ip,
+		}
+		result = append(result, component)
+		c.cache.setComponent(component.ID, component)
+		if component.IP != "" {
+			c.cache.setIDfromIP(component.IP, component.ID)
+		}
+	}
+	return result, nil
 }
 
 type componentResponse struct {

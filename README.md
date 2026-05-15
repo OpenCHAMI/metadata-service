@@ -145,6 +145,17 @@ go run ./cmd/server/main.go serve --port 8888
 
 Request identity resolution prefers a WireGuard reverse lookup when available, then falls back to direct IP lookup through SMD.
 
+Optional SMD sync controls:
+- `--smd-sync-enabled` (default `true`)
+- `--smd-sync-interval` in minutes (default `5`)
+
+Optional TokenSmith exchange (uses static `SMD_JWT`/`SMD_TOKEN` as fallback when TokenSmith is unset or unavailable):
+- `--tokensmith-url`
+- `--tokensmith-bootstrap-token`
+- `--tokensmith-target-service` (default `hsm`)
+- `--tokensmith-refresh-skew-sec` (default `60`)
+- `--tokensmith-scope-hint`
+
 ## Optional WireGuard Support
 
 Enable the userspace WireGuard controller by passing a CIDR whose host address is the server address inside the VPN network.
