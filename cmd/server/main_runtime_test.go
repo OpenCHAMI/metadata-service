@@ -19,6 +19,15 @@ import (
 	"github.com/spf13/viper"
 )
 
+type stubSMDHealthReporter struct {
+	healthy bool
+	reason  string
+}
+
+func (s stubSMDHealthReporter) InitialSyncStatus() (bool, string) {
+	return s.healthy, s.reason
+}
+
 func TestInitConfigLoadsConfigFileAndEnvOverrides(t *testing.T) {
 	viper.Reset()
 	t.Cleanup(viper.Reset)
@@ -54,6 +63,12 @@ func TestInitConfigLoadsConfigFileAndEnvOverrides(t *testing.T) {
 }
 
 func TestHealthHandlerReturnsExpectedPayload(t *testing.T) {
+	previous := currentSMDHealth
+	currentSMDHealth = nil
+	t.Cleanup(func() {
+		currentSMDHealth = previous
+	})
+
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 
@@ -71,6 +86,42 @@ func TestHealthHandlerReturnsExpectedPayload(t *testing.T) {
 	}
 	if payload["status"] != "healthy" {
 		t.Fatalf("expected status healthy, got %q", payload["status"])
+	}
+}
+
+func TestHealthHandlerReturnsUnhealthyBeforeInitialSMDRefresh(t *testing.T) {
+	previous := currentSMDHealth
+	currentSMDHealth = stubSMDHealthReporter{healthy: false, reason: "smd initial refresh pending"}
+	t.Cleanup(func() {
+		currentSMDHealth = previous
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	w := httptest.NewRecorder()
+
+	healthHandler(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", w.Code)
+	}
+	var payload map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload["status"] != "unhealthy" {
+		t.Fatalf("expected status unhealthy, got %q", payload["status"])
+	}
+	if payload["reason"] != "smd initial refresh pending" {
+		t.Fatalf("expected reason %q, got %q", "smd initial refresh pending", payload["reason"])
+	}
+}
+
+func TestDefaultConfigUsesOneMinuteSMDSyncInterval(t *testing.T) {
+	if got := DefaultConfig().SMDSyncInterval; got != 1 {
+		t.Fatalf("expected default SMD sync interval 1 minute, got %d", got)
+	}
+	if got := serveCmd.Flags().Lookup("smd-sync-interval").DefValue; got != "1" {
+		t.Fatalf("expected smd-sync-interval flag default 1, got %q", got)
 	}
 }
 

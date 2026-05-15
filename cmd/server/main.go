@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -74,7 +75,7 @@ func DefaultConfig() *Config {
 		TokenSmithScopeHint:      "",
 
 		SMDSyncEnabled:  true,
-		SMDSyncInterval: 5,
+		SMDSyncInterval: 1,
 
 		Debug: false,
 	}
@@ -137,7 +138,7 @@ func init() {
 
 	// SMD sync flags
 	serveCmd.Flags().Bool("smd-sync-enabled", true, "Enable background SMD cache sync worker")
-	serveCmd.Flags().Int("smd-sync-interval", 5, "SMD cache sync interval in minutes")
+	serveCmd.Flags().Int("smd-sync-interval", 1, "SMD cache sync interval in minutes")
 
 	// Bind flags to viper
 	viper.BindPFlags(serveCmd.Flags())
@@ -261,6 +262,22 @@ func runServer(cmd *cobra.Command, args []string) error {
 // Health check handler
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"status":"healthy","service":"github.com/OpenCHAMI/metadata-service"}`))
+	payload := map[string]string{
+		"status":  "healthy",
+		"service": "github.com/OpenCHAMI/metadata-service",
+	}
+	statusCode := http.StatusOK
+
+	if currentSMDHealth != nil {
+		if healthy, reason := currentSMDHealth.InitialSyncStatus(); !healthy {
+			statusCode = http.StatusServiceUnavailable
+			payload["status"] = "unhealthy"
+			if reason != "" {
+				payload["reason"] = reason
+			}
+		}
+	}
+
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(payload)
 }

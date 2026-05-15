@@ -17,12 +17,18 @@ import (
 	"github.com/spf13/viper"
 )
 
-const defaultSMDSyncIntervalMinutes = 5
+const defaultSMDSyncIntervalMinutes = 1
 
 type smdRuntime struct {
 	client       smdclient.SMDClient
 	startWorkers func(context.Context)
 }
+
+type smdHealthReporter interface {
+	InitialSyncStatus() (bool, string)
+}
+
+var currentSMDHealth smdHealthReporter
 
 func initSMDClient(ctx context.Context) (smdclient.SMDClient, error) {
 	smdURL := firstConfiguredValue("smd_url", "SMD_URL")
@@ -42,6 +48,7 @@ func initSMDRuntime() smdRuntime {
 		log.Warn().Msg("SMD_URL not configured, using mock SMD client for development")
 		mock := createMockSMDClient()
 		service := smdclient.NewSMDIntegrationService(mock, smdSyncOptions())
+		currentSMDHealth = service
 		return smdRuntime{
 			client: service,
 			startWorkers: func(ctx context.Context) {
@@ -61,6 +68,7 @@ func initSMDRuntime() smdRuntime {
 	}
 
 	service := smdclient.NewSMDIntegrationService(client, smdSyncOptions())
+	currentSMDHealth = service
 	return smdRuntime{
 		client: service,
 		startWorkers: func(ctx context.Context) {

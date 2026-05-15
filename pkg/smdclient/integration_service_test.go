@@ -132,6 +132,24 @@ func TestSMDIntegrationServiceResolvePrecedenceWireGuardFirst(t *testing.T) {
 	}
 }
 
+func TestSMDIntegrationServiceInitialSyncStatus(t *testing.T) {
+	backend := NewMockSMDClient()
+	backend.AddComponent(&Component{ID: "x1000c0s0b0n0", NID: 1000, Role: "compute", IP: "10.0.0.100"})
+
+	service := NewSMDIntegrationService(backend, IntegrationOptions{SyncEnabled: true, SyncInterval: time.Minute})
+	if healthy, reason := service.InitialSyncStatus(); healthy || reason != "smd initial refresh pending" {
+		t.Fatalf("expected pending initial sync status, got healthy=%v reason=%q", healthy, reason)
+	}
+
+	if err := service.syncOnce(context.Background()); err != nil {
+		t.Fatalf("syncOnce failed: %v", err)
+	}
+
+	if healthy, reason := service.InitialSyncStatus(); !healthy || reason != "" {
+		t.Fatalf("expected healthy status after initial sync, got healthy=%v reason=%q", healthy, reason)
+	}
+}
+
 type countingBackend struct {
 	*MockSMDClient
 

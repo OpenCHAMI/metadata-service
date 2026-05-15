@@ -48,6 +48,24 @@ type SMDIntegrationService struct {
 	lastRun time.Time
 }
 
+// InitialSyncStatus reports whether the initial background sync requirement has
+// been satisfied for health checks.
+func (s *SMDIntegrationService) InitialSyncStatus() (bool, string) {
+	if !s.syncEnabled {
+		return true, ""
+	}
+
+	s.mu.RLock()
+	lastRun := s.lastRun
+	s.mu.RUnlock()
+
+	if lastRun.IsZero() {
+		return false, "smd initial refresh pending"
+	}
+
+	return true, ""
+}
+
 // NewSMDIntegrationService constructs a cache-backed SMD integration service.
 func NewSMDIntegrationService(backend SMDClient, opts IntegrationOptions) *SMDIntegrationService {
 	interval := opts.SyncInterval
