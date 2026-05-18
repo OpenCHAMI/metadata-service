@@ -81,7 +81,7 @@ func TestInitSMDRuntimeTokenSmithBootstrapInjectsBearer(t *testing.T) {
 			t.Fatalf("expected exchanged bearer token, got %q", got)
 		}
 		switch r.URL.Path {
-		case "/apis/smd/hsm/v2/State/Components/x1000c0s0b0n0":
+		case "/hsm/v2/State/Components/x1000c0s0b0n0":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ID":"x1000c0s0b0n0","NID":1000,"Role":"compute","IPAddress":"10.252.0.26"}`))
 		default:
@@ -120,7 +120,7 @@ func TestInitSMDRuntimeStaticTokenFallbackWhenTokenSmithUnset(t *testing.T) {
 			t.Fatalf("expected static bearer token, got %q", got)
 		}
 		switch r.URL.Path {
-		case "/apis/smd/hsm/v2/State/Components/x1000c0s0b0n0":
+		case "/hsm/v2/State/Components/x1000c0s0b0n0":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ID":"x1000c0s0b0n0","NID":1000,"Role":"compute","IPAddress":"10.252.0.26"}`))
 		default:

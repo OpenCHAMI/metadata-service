@@ -84,7 +84,7 @@ func TestInitSMDClientStaticModeWithoutTokenSmith(t *testing.T) {
 		if got := r.Header.Get("Authorization"); got != "Bearer static-jwt" {
 			t.Fatalf("expected static bearer token, got %q", got)
 		}
-		if r.URL.Path != "/apis/smd/hsm/v2/Inventory/EthernetInterfaces" {
+		if r.URL.Path != "/hsm/v2/Inventory/EthernetInterfaces" {
 			http.NotFound(w, r)
 			return
 		}
@@ -145,7 +145,7 @@ func TestInitSMDClientDynamicModeWithTokenSmith(t *testing.T) {
 		if got := r.Header.Get("Authorization"); got != "Bearer dynamic-jwt" {
 			t.Fatalf("expected dynamic bearer token, got %q", got)
 		}
-		if r.URL.Path != "/apis/smd/hsm/v2/Inventory/EthernetInterfaces" {
+		if r.URL.Path != "/hsm/v2/Inventory/EthernetInterfaces" {
 			http.NotFound(w, r)
 			return
 		}

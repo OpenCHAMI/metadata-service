@@ -136,6 +136,9 @@ The server validates templates at create and update time. A template must render
 ## Running With Real SMD
 
 Set `SMD_URL` to use a real SMD instance.
+Supported URL shapes:
+- Bare SMD service URL: `http://smd.example.com:27779` (normalized to `.../hsm/v2`)
+- Gateway-mounted URL: `https://gateway.example.com/apis/smd` or `https://gateway.example.com/apis/smd/hsm/v2`
 
 Static auth mode (default when `tokensmith_url` is unset):
 - Uses `SMD_JWT` (or `SMD_TOKEN`) as the outbound `Authorization: Bearer` token.

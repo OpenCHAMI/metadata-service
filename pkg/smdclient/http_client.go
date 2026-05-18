@@ -15,7 +15,10 @@ import (
 	"time"
 )
 
-const smdAPIVersionPath = "/apis/smd/hsm/v2"
+const (
+	smdGatewayPathPrefix = "/apis/smd"
+	smdAPIVersionPath    = "/hsm/v2"
+)
 
 // HTTPClient is an SMD client backed by the SMD HTTP API.
 type HTTPClient struct {
@@ -58,8 +61,11 @@ func (c *HTTPClient) WithServiceTokenManager(manager *ServiceTokenManager) *HTTP
 
 func normalizeBaseURL(baseURL string) string {
 	trimmed := strings.TrimRight(baseURL, "/")
-	if strings.Contains(trimmed, "/apis/smd/hsm/") {
+	if strings.Contains(trimmed, smdAPIVersionPath) {
 		return trimmed
+	}
+	if strings.Contains(trimmed, smdGatewayPathPrefix) {
+		return trimmed + smdAPIVersionPath
 	}
 	return trimmed + smdAPIVersionPath
 }

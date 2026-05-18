@@ -12,13 +12,82 @@ import (
 	"testing"
 )
 
+func TestNormalizeBaseURL(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "bare smd host defaults to api version path",
+			in:   "http://smd:27779",
+			want: "http://smd:27779/hsm/v2",
+		},
+		{
+			name: "bare smd host with trailing slash defaults to api version path",
+			in:   "http://smd:27779/",
+			want: "http://smd:27779/hsm/v2",
+		},
+		{
+			name: "gateway mount gets api version path appended",
+			in:   "http://gw/apis/smd",
+			want: "http://gw/apis/smd/hsm/v2",
+		},
+		{
+			name: "gateway mount with trailing slash gets api version path appended",
+			in:   "http://gw/apis/smd/",
+			want: "http://gw/apis/smd/hsm/v2",
+		},
+		{
+			name: "already versioned gateway url is unchanged",
+			in:   "http://gw/apis/smd/hsm/v2",
+			want: "http://gw/apis/smd/hsm/v2",
+		},
+		{
+			name: "already versioned gateway url with trailing slash is normalized",
+			in:   "http://gw/apis/smd/hsm/v2/",
+			want: "http://gw/apis/smd/hsm/v2",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := normalizeBaseURL(tc.in)
+			if got != tc.want {
+				t.Fatalf("normalizeBaseURL(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestHTTPClientHostOnlyBaseURLUsesBareSMDPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/hsm/v2/State/Components/x1000c0s0b0n0" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ID":"x1000c0s0b0n0","NID":1000,"Role":"compute","IPAddress":"10.252.0.26"}`))
+	}))
+	defer server.Close()
+
+	client := NewHTTPClient(server.URL, "")
+	component, err := client.ComponentInformation("x1000c0s0b0n0")
+	if err != nil {
+		t.Fatalf("ComponentInformation returned error: %v", err)
+	}
+	if component == nil || component.ID != "x1000c0s0b0n0" {
+		t.Fatalf("unexpected component response: %+v", component)
+	}
+}
+
 func TestHTTPClientUsesComponentFallbackForIPAndMAC(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/apis/smd/hsm/v2/Inventory/EthernetInterfaces":
+		case "/hsm/v2/Inventory/EthernetInterfaces":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`[]`))
-		case "/apis/smd/hsm/v2/State/Components/x1000c0s0b0n0":
+		case "/hsm/v2/State/Components/x1000c0s0b0n0":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ID":"x1000c0s0b0n0","NID":1000,"Role":"compute","MAC":"aa:bb:cc:dd:ee:ff","IPAddress":"10.252.0.26"}`))
 		default:
@@ -98,10 +167,10 @@ func TestHTTPClientUsesDynamicTokenProvider(t *testing.T) {
 			t.Fatalf("expected Authorization header %q, got %q", "Bearer "+expectedToken, got)
 		}
 		switch r.URL.Path {
-		case "/apis/smd/hsm/v2/Inventory/EthernetInterfaces":
+		case "/hsm/v2/Inventory/EthernetInterfaces":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`[]`))
-		case "/apis/smd/hsm/v2/State/Components/x1000c0s0b0n0":
+		case "/hsm/v2/State/Components/x1000c0s0b0n0":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ID":"x1000c0s0b0n0","NID":1000,"Role":"compute","MAC":"aa:bb:cc:dd:ee:ff","IPAddress":"10.252.0.26"}`))
 		default:
@@ -131,7 +200,7 @@ func TestHTTPClientIDfromIPTreatsEmptyLookupResponsesAsNotFound(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "/apis/smd/hsm/v2/Inventory/EthernetInterfaces" {
+				if r.URL.Path != "/hsm/v2/Inventory/EthernetInterfaces" {
 					http.NotFound(w, r)
 					return
 				}
@@ -170,7 +239,7 @@ func TestHTTPClientInjectsDynamicAuthorizationFromServiceTokenManager(t *testing
 		if got := r.Header.Get("Authorization"); got != "Bearer dynamic-token" {
 			t.Fatalf("expected dynamic auth header, got %q", got)
 		}
-		if r.URL.Path != "/apis/smd/hsm/v2/Inventory/EthernetInterfaces" {
+		if r.URL.Path != "/hsm/v2/Inventory/EthernetInterfaces" {
 			http.NotFound(w, r)
 			return
 		}
@@ -202,7 +271,7 @@ func TestHTTPClientUsesStaticAuthorizationWhenServiceTokenManagerAbsent(t *testi
 		if got := r.Header.Get("Authorization"); got != "Bearer static-token" {
 			t.Fatalf("expected static auth header, got %q", got)
 		}
-		if r.URL.Path != "/apis/smd/hsm/v2/Inventory/EthernetInterfaces" {
+		if r.URL.Path != "/hsm/v2/Inventory/EthernetInterfaces" {
 			http.NotFound(w, r)
 			return
 		}
@@ -224,7 +293,7 @@ func TestHTTPClientUsesStaticAuthorizationWhenServiceTokenManagerAbsent(t *testi
 func TestHTTPClientGroupMembershipSupportsBothResponseShapes(t *testing.T) {
 	t.Run("groupLabels", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/apis/smd/hsm/v2/memberships/x1000c0s0b0n0" {
+			if r.URL.Path != "/hsm/v2/memberships/x1000c0s0b0n0" {
 				http.NotFound(w, r)
 				return
 			}
@@ -245,7 +314,7 @@ func TestHTTPClientGroupMembershipSupportsBothResponseShapes(t *testing.T) {
 
 	t.Run("legacy groups", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/apis/smd/hsm/v2/memberships/x1000c0s0b0n0" {
+			if r.URL.Path != "/hsm/v2/memberships/x1000c0s0b0n0" {
 				http.NotFound(w, r)
 				return
 			}
@@ -287,7 +356,7 @@ func TestHTTPClientWGIPfromID(t *testing.T) {
 func TestHTTPClientEthernetNICInfoParsesAndCaches(t *testing.T) {
 	var endpointCalls int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/apis/smd/hsm/v2/Inventory/ComponentEndpoints/x1000c0s0b0n0" {
+		if r.URL.Path != "/hsm/v2/Inventory/ComponentEndpoints/x1000c0s0b0n0" {
 			http.NotFound(w, r)
 			return
 		}
@@ -337,11 +406,11 @@ func TestHTTPClientListComponentsPrimesIDCache(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/apis/smd/hsm/v2/State/Components":
+		case "/hsm/v2/State/Components":
 			atomic.AddInt32(&listCalls, 1)
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"Components":[{"ID":"x1000c0s0b0n0","NID":1000,"Role":"compute","IPAddress":"10.252.0.26"}]}`))
-		case "/apis/smd/hsm/v2/Inventory/EthernetInterfaces":
+		case "/hsm/v2/Inventory/EthernetInterfaces":
 			atomic.AddInt32(&ifaceLookupCalls, 1)
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`[]`))
