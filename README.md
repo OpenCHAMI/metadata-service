@@ -147,10 +147,26 @@ go run ./cmd/server/main.go serve --port 8888
 ```
 
 TokenSmith dynamic auth mode (enabled when `tokensmith_url` is set):
-- Exchanges `tokensmith_bootstrap_token` for a service token through `POST /oauth/token`.
-- Refreshes tokens in the background and uses the dynamic token for all outbound SMD requests.
-- Requires a bootstrap token from `tokensmith_bootstrap_token` (or `TOKENSMITH_BOOTSTRAP_TOKEN` fallback).
-- If dynamic token retrieval/refresh fails, SMD requests fail closed (no silent fallback).
+- Primary path: mTLS service identity session exchange through `POST /service-identity/session`.
+- Compatibility fallback path: bootstrap token exchange through `POST /oauth/token` when service identity cert/key are missing or unreadable.
+- Dynamic auth initializes with bounded retries and refreshes in the background with bounded retries.
+- If retries are exhausted, runtime health becomes unhealthy and SMD calls fail closed.
+- When `tokensmith_url` is set, the server does not silently degrade to static `SMD_JWT`/`SMD_TOKEN`.
+
+mTLS-first example:
+
+```bash
+SMD_URL=https://smd.example.com \
+TOKENSMITH_URL=https://tokensmith.example.com \
+TOKENSMITH_SERVICE_IDENTITY_CERT=/run/secrets/metadata-service/tokensmith-client.crt \
+TOKENSMITH_SERVICE_IDENTITY_KEY=/run/secrets/metadata-service/tokensmith-client.key \
+TOKENSMITH_SERVICE_IDENTITY_CA=/run/secrets/metadata-service/tokensmith-ca.crt \
+go run ./cmd/server/main.go serve --port 8888 \
+  --tokensmith-target-service smd \
+  --tokensmith-refresh-skew-sec 300
+```
+
+Bootstrap fallback example (legacy compatibility):
 
 ```bash
 SMD_URL=https://smd.example.com \
@@ -165,6 +181,9 @@ go run ./cmd/server/main.go serve --port 8888 \
 TokenSmith server options:
 - `tokensmith_url` / `TOKENSMITH_URL`
 - `tokensmith_bootstrap_token` / `TOKENSMITH_BOOTSTRAP_TOKEN`
+- `tokensmith_service_identity_cert` / `TOKENSMITH_SERVICE_IDENTITY_CERT`
+- `tokensmith_service_identity_key` / `TOKENSMITH_SERVICE_IDENTITY_KEY`
+- `tokensmith_service_identity_ca` / `TOKENSMITH_SERVICE_IDENTITY_CA` (optional)
 - `tokensmith_target_service` / `TOKENSMITH_TARGET_SERVICE` (default: `smd`)
 - `tokensmith_scopes` / `TOKENSMITH_SCOPES` (diagnostics metadata only)
 - `tokensmith_refresh_skew_sec` / `TOKENSMITH_REFRESH_SKEW_SEC` (default: `300`)
@@ -175,12 +194,55 @@ Optional SMD sync controls:
 - `--smd-sync-enabled` (default `true`)
 - `--smd-sync-interval` in seconds (default `60`)
 
-Optional TokenSmith exchange (uses static `SMD_JWT`/`SMD_TOKEN` as fallback when TokenSmith is unset or unavailable):
-- `--tokensmith-url`
-- `--tokensmith-bootstrap-token`
-- `--tokensmith-target-service` (default `hsm`)
-- `--tokensmith-refresh-skew-sec` (default `60`)
-- `--tokensmith-scope-hint`
+Deployment examples (path-based cert/key injection):
+- Kubernetes:
+```yaml
+env:
+  - name: TOKENSMITH_URL
+    value: https://tokensmith.example.com
+  - name: TOKENSMITH_SERVICE_IDENTITY_CERT
+    value: /var/run/tokensmith/client.crt
+  - name: TOKENSMITH_SERVICE_IDENTITY_KEY
+    value: /var/run/tokensmith/client.key
+  - name: TOKENSMITH_SERVICE_IDENTITY_CA
+    value: /var/run/tokensmith/ca.crt
+volumeMounts:
+  - name: tokensmith-identity
+    mountPath: /var/run/tokensmith
+    readOnly: true
+```
+
+- `systemd`:
+```ini
+[Service]
+Environment=TOKENSMITH_URL=https://tokensmith.example.com
+Environment=TOKENSMITH_SERVICE_IDENTITY_CERT=/etc/metadata-service/tokensmith/client.crt
+Environment=TOKENSMITH_SERVICE_IDENTITY_KEY=/etc/metadata-service/tokensmith/client.key
+Environment=TOKENSMITH_SERVICE_IDENTITY_CA=/etc/metadata-service/tokensmith/ca.crt
+```
+
+- Quadlet/Podman:
+```ini
+[Container]
+Environment=TOKENSMITH_URL=https://tokensmith.example.com
+Environment=TOKENSMITH_SERVICE_IDENTITY_CERT=/run/secrets/tokensmith/client.crt
+Environment=TOKENSMITH_SERVICE_IDENTITY_KEY=/run/secrets/tokensmith/client.key
+Environment=TOKENSMITH_SERVICE_IDENTITY_CA=/run/secrets/tokensmith/ca.crt
+Volume=/host/secrets/tokensmith:/run/secrets/tokensmith:ro
+```
+
+- Docker Compose:
+```yaml
+services:
+  metadata-service:
+    environment:
+      TOKENSMITH_URL: https://tokensmith.example.com
+      TOKENSMITH_SERVICE_IDENTITY_CERT: /run/secrets/tokensmith/client.crt
+      TOKENSMITH_SERVICE_IDENTITY_KEY: /run/secrets/tokensmith/client.key
+      TOKENSMITH_SERVICE_IDENTITY_CA: /run/secrets/tokensmith/ca.crt
+    volumes:
+      - ./secrets/tokensmith:/run/secrets/tokensmith:ro
+```
 
 ## Optional WireGuard Support
 

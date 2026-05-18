@@ -28,6 +28,23 @@ type smdHealthReporter interface {
 	InitialSyncStatus() (bool, string)
 }
 
+type dynamicSMDHealthReporter struct {
+	service      smdHealthReporter
+	tokenManager *smdclient.ServiceTokenManager
+}
+
+func (r dynamicSMDHealthReporter) InitialSyncStatus() (bool, string) {
+	if r.tokenManager != nil {
+		if healthy, reason := r.tokenManager.HealthStatus(); !healthy {
+			return false, reason
+		}
+	}
+	if r.service == nil {
+		return true, ""
+	}
+	return r.service.InitialSyncStatus()
+}
+
 var currentSMDHealth smdHealthReporter
 
 func requireSMDURLUnlessMock() (string, error) {
@@ -52,13 +69,13 @@ func initSMDClient(ctx context.Context) (smdclient.SMDClient, error) {
 		return createMockSMDClient(), nil
 	}
 
-	client, _, err := initLiveSMDClient(ctx, false)
+	client, _, _, err := initLiveSMDClient(ctx)
 	return client, err
 }
 
 // initSMDRuntime initializes SMD integration and background sync behavior.
 func initSMDRuntime() (smdRuntime, error) {
-	smdURL, err := requireSMDURLUnlessMock()
+	_, err := requireSMDURLUnlessMock()
 	if err != nil {
 		currentSMDHealth = nil
 		return smdRuntime{}, err
@@ -67,7 +84,7 @@ func initSMDRuntime() (smdRuntime, error) {
 		log.Warn().Msg("Using mock SMD client because --mock-smd was set")
 		mock := createMockSMDClient()
 		service := smdclient.NewSMDIntegrationService(mock, smdSyncOptions())
-		currentSMDHealth = service
+		currentSMDHealth = dynamicSMDHealthReporter{service: service}
 		return smdRuntime{
 			client: service,
 			startWorkers: func(ctx context.Context) {
@@ -76,18 +93,17 @@ func initSMDRuntime() (smdRuntime, error) {
 		}, nil
 	}
 
-	client, startTokenWorkers, err := initLiveSMDClient(context.Background(), true)
+	client, manager, startTokenWorkers, err := initLiveSMDClient(context.Background())
 	if err != nil {
-		jwt := firstConfiguredValue("smd_jwt", "SMD_JWT")
-		if jwt == "" {
-			jwt = firstConfiguredValue("smd_token", "SMD_TOKEN")
-		}
-		log.Warn().Err(err).Msg("Falling back to static SMD HTTP client")
-		client = smdclient.NewHTTPClient(smdURL, jwt)
+		currentSMDHealth = nil
+		return smdRuntime{}, err
 	}
 
 	service := smdclient.NewSMDIntegrationService(client, smdSyncOptions())
-	currentSMDHealth = service
+	currentSMDHealth = dynamicSMDHealthReporter{
+		service:      service,
+		tokenManager: manager,
+	}
 	return smdRuntime{
 		client: service,
 		startWorkers: func(ctx context.Context) {
@@ -99,7 +115,7 @@ func initSMDRuntime() (smdRuntime, error) {
 	}, nil
 }
 
-func initLiveSMDClient(ctx context.Context, degradeOnTokenSmithFailure bool) (smdclient.SMDClient, func(context.Context), error) {
+func initLiveSMDClient(ctx context.Context) (smdclient.SMDClient, *smdclient.ServiceTokenManager, func(context.Context), error) {
 	smdURL := firstConfiguredValue("smd_url", "SMD_URL")
 	jwt := firstConfiguredValue("smd_jwt", "SMD_JWT")
 	if jwt == "" {
@@ -109,15 +125,11 @@ func initLiveSMDClient(ctx context.Context, degradeOnTokenSmithFailure bool) (sm
 	client := smdclient.NewHTTPClient(smdURL, jwt)
 	managerConfig, dynamicEnabled, err := loadTokenExchangeConfig()
 	if err != nil {
-		if degradeOnTokenSmithFailure {
-			log.Warn().Err(err).Msg("TokenSmith configuration invalid; continuing with static SMD auth")
-			return client, nil, nil
-		}
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if !dynamicEnabled {
 		log.Info().Msg("SMD_URL configured, using real SMD HTTP client with static auth mode")
-		return client, nil, nil
+		return client, nil, nil, nil
 	}
 
 	bootstrapCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -125,23 +137,21 @@ func initLiveSMDClient(ctx context.Context, degradeOnTokenSmithFailure bool) (sm
 
 	manager := smdclient.NewServiceTokenManager(managerConfig)
 	if err := manager.Initialize(bootstrapCtx); err != nil {
-		if degradeOnTokenSmithFailure {
-			log.Warn().Err(err).Msg("TokenSmith bootstrap exchange failed; continuing with static SMD auth")
-			return client, nil, nil
-		}
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	stats := manager.Stats()
 	log.Info().
 		Str("tokensmith_url", managerConfig.TokenSmithURL).
+		Str("auth_method", stats.AuthMethod).
+		Str("session_endpoint", stats.SessionEndpoint).
 		Str("token_endpoint", stats.TokenEndpoint).
 		Str("target_service", stats.TargetService).
 		Strs("scopes", stats.Scopes).
 		Dur("refresh_before", managerConfig.RefreshBefore).
 		Msg("SMD_URL configured, using real SMD HTTP client with TokenSmith dynamic auth mode")
 
-	return client.WithServiceTokenManager(manager), func(workerCtx context.Context) {
+	return client.WithServiceTokenManager(manager), manager, func(workerCtx context.Context) {
 		manager.StartAutoRefresh(workerCtx)
 	}, nil
 }
@@ -152,14 +162,12 @@ func loadTokenExchangeConfig() (smdclient.TokenExchangeConfig, bool, error) {
 		return smdclient.TokenExchangeConfig{}, false, nil
 	}
 
-	bootstrapToken := firstConfiguredValue("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN")
-	if bootstrapToken == "" {
-		return smdclient.TokenExchangeConfig{}, true, fmt.Errorf("TokenSmith dynamic auth requires bootstrap token: set tokensmith_bootstrap_token or TOKENSMITH_BOOTSTRAP_TOKEN")
-	}
-
 	config := smdclient.DefaultTokenExchangeConfig()
 	config.TokenSmithURL = url
-	config.BootstrapToken = bootstrapToken
+	bootstrapToken := firstConfiguredValue("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN")
+	serviceIdentityCert := firstConfiguredValue("tokensmith_service_identity_cert", "TOKENSMITH_SERVICE_IDENTITY_CERT")
+	serviceIdentityKey := firstConfiguredValue("tokensmith_service_identity_key", "TOKENSMITH_SERVICE_IDENTITY_KEY")
+	serviceIdentityCA := firstConfiguredValue("tokensmith_service_identity_ca", "TOKENSMITH_SERVICE_IDENTITY_CA")
 	if targetService := firstConfiguredValue("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE"); targetService != "" {
 		config.TargetService = targetService
 	}
@@ -170,7 +178,68 @@ func loadTokenExchangeConfig() (smdclient.TokenExchangeConfig, bool, error) {
 		config.RefreshBefore = time.Duration(skewSeconds) * time.Second
 	}
 
+	config.ServiceIdentityCert = serviceIdentityCert
+	config.ServiceIdentityKey = serviceIdentityKey
+	config.ServiceIdentityCA = serviceIdentityCA
+
+	if serviceIdentityCert != "" || serviceIdentityKey != "" {
+		if serviceIdentityCert == "" || serviceIdentityKey == "" {
+			if bootstrapToken != "" {
+				log.Warn().
+					Str("tokensmith_service_identity_cert", serviceIdentityCert).
+					Str("tokensmith_service_identity_key", serviceIdentityKey).
+					Msg("TokenSmith mTLS service identity cert/key pair incomplete; using bootstrap token auth")
+				config.AuthMethod = smdclient.TokenAuthMethodBootstrapToken
+				config.BootstrapToken = bootstrapToken
+				return config, true, nil
+			}
+			return smdclient.TokenExchangeConfig{}, true, fmt.Errorf("TokenSmith dynamic auth misconfigured: set both tokensmith_service_identity_cert and tokensmith_service_identity_key, or configure tokensmith_bootstrap_token")
+		}
+
+		if certErr := assertReadableFile(serviceIdentityCert); certErr == nil {
+			if keyErr := assertReadableFile(serviceIdentityKey); keyErr == nil {
+				config.AuthMethod = smdclient.TokenAuthMethodMTLSIdentity
+				return config, true, nil
+			} else if bootstrapToken != "" {
+				log.Warn().Err(keyErr).Str("path", serviceIdentityKey).Msg("TokenSmith mTLS service identity key unreadable; using bootstrap token auth")
+				config.AuthMethod = smdclient.TokenAuthMethodBootstrapToken
+				config.BootstrapToken = bootstrapToken
+				return config, true, nil
+			} else {
+				return smdclient.TokenExchangeConfig{}, true, fmt.Errorf("TokenSmith mTLS service identity key unreadable at %s: %w", serviceIdentityKey, keyErr)
+			}
+		} else if bootstrapToken != "" {
+			log.Warn().Err(certErr).Str("path", serviceIdentityCert).Msg("TokenSmith mTLS service identity cert unreadable; using bootstrap token auth")
+			config.AuthMethod = smdclient.TokenAuthMethodBootstrapToken
+			config.BootstrapToken = bootstrapToken
+			return config, true, nil
+		} else {
+			return smdclient.TokenExchangeConfig{}, true, fmt.Errorf("TokenSmith mTLS service identity cert unreadable at %s: %w", serviceIdentityCert, certErr)
+		}
+	}
+
+	if bootstrapToken == "" {
+		return smdclient.TokenExchangeConfig{}, true, fmt.Errorf("TokenSmith dynamic auth requires one of: (tokensmith_service_identity_cert + tokensmith_service_identity_key) or tokensmith_bootstrap_token")
+	}
+	config.AuthMethod = smdclient.TokenAuthMethodBootstrapToken
+	config.BootstrapToken = bootstrapToken
+
 	return config, true, nil
+}
+
+func assertReadableFile(path string) error {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if stat.IsDir() {
+		return fmt.Errorf("path is a directory")
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	return file.Close()
 }
 
 func firstConfiguredValue(viperKey string, envVars ...string) string {

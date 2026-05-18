@@ -37,14 +37,17 @@ type Config struct {
 	DataDir string `mapstructure:"data_dir"`
 
 	// WireGuard Configuration
-	WireGuardStateFile       string `mapstructure:"wireguard_state_file"`
-	WireGuardOnly            bool   `mapstructure:"wireguard_only"`
-	TokenSmithURL            string `mapstructure:"tokensmith_url"`
-	TokenSmithBootstrapToken string `mapstructure:"tokensmith_bootstrap_token"`
-	TokenSmithTargetService  string `mapstructure:"tokensmith_target_service"`
-	TokenSmithScopes         string `mapstructure:"tokensmith_scopes"`
-	TokenSmithRefreshSkewSec int    `mapstructure:"tokensmith_refresh_skew_sec"`
-	TokenSmithScopeHint      string `mapstructure:"tokensmith_scope_hint"`
+	WireGuardStateFile            string `mapstructure:"wireguard_state_file"`
+	WireGuardOnly                 bool   `mapstructure:"wireguard_only"`
+	TokenSmithURL                 string `mapstructure:"tokensmith_url"`
+	TokenSmithBootstrapToken      string `mapstructure:"tokensmith_bootstrap_token"`
+	TokenSmithServiceIdentityCert string `mapstructure:"tokensmith_service_identity_cert"`
+	TokenSmithServiceIdentityKey  string `mapstructure:"tokensmith_service_identity_key"`
+	TokenSmithServiceIdentityCA   string `mapstructure:"tokensmith_service_identity_ca"`
+	TokenSmithTargetService       string `mapstructure:"tokensmith_target_service"`
+	TokenSmithScopes              string `mapstructure:"tokensmith_scopes"`
+	TokenSmithRefreshSkewSec      int    `mapstructure:"tokensmith_refresh_skew_sec"`
+	TokenSmithScopeHint           string `mapstructure:"tokensmith_scope_hint"`
 
 	// SMD Integration Configuration
 	SMDSyncEnabled  bool `mapstructure:"smd_sync_enabled"`
@@ -65,14 +68,17 @@ func DefaultConfig() *Config {
 
 		DataDir: "/data",
 
-		WireGuardStateFile:       "/data/wireguard/state.yaml",
-		WireGuardOnly:            false,
-		TokenSmithURL:            "",
-		TokenSmithBootstrapToken: "",
-		TokenSmithTargetService:  "smd",
-		TokenSmithScopes:         "",
-		TokenSmithRefreshSkewSec: 300,
-		TokenSmithScopeHint:      "",
+		WireGuardStateFile:            "/data/wireguard/state.yaml",
+		WireGuardOnly:                 false,
+		TokenSmithURL:                 "",
+		TokenSmithBootstrapToken:      "",
+		TokenSmithServiceIdentityCert: "",
+		TokenSmithServiceIdentityKey:  "",
+		TokenSmithServiceIdentityCA:   "",
+		TokenSmithTargetService:       "smd",
+		TokenSmithScopes:              "",
+		TokenSmithRefreshSkewSec:      300,
+		TokenSmithScopeHint:           "",
 
 		SMDSyncEnabled:  true,
 		SMDSyncInterval: 60,

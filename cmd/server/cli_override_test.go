@@ -19,6 +19,9 @@ func TestRegisterDashAliases(t *testing.T) {
 	flagSet.String("data-dir", "/data", "")
 	flagSet.String("wireguard-state-file", "/data/wireguard/state.yaml", "")
 	flagSet.Bool("wireguard-only", false, "")
+	flagSet.String("tokensmith-service-identity-cert", "", "")
+	flagSet.String("tokensmith-service-identity-key", "", "")
+	flagSet.String("tokensmith-service-identity-ca", "", "")
 	flagSet.String("tokensmith-target-service", "smd", "")
 	flagSet.Int("tokensmith-refresh-skew-sec", 300, "")
 
@@ -31,6 +34,9 @@ func TestRegisterDashAliases(t *testing.T) {
 	viper.Set("data-dir", "/tmp/test-data")
 	viper.Set("wireguard-state-file", "/tmp/test-wireguard.yaml")
 	viper.Set("wireguard-only", true)
+	viper.Set("tokensmith-service-identity-cert", "/certs/client.crt")
+	viper.Set("tokensmith-service-identity-key", "/certs/client.key")
+	viper.Set("tokensmith-service-identity-ca", "/certs/ca.crt")
 	viper.Set("tokensmith-target-service", "hsm")
 	viper.Set("tokensmith-refresh-skew-sec", 42)
 
@@ -47,6 +53,15 @@ func TestRegisterDashAliases(t *testing.T) {
 	}
 	if !config.WireGuardOnly {
 		t.Fatalf("expected WireGuardOnly to be true")
+	}
+	if config.TokenSmithServiceIdentityCert != "/certs/client.crt" {
+		t.Fatalf("expected TokenSmithServiceIdentityCert to be /certs/client.crt, got %q", config.TokenSmithServiceIdentityCert)
+	}
+	if config.TokenSmithServiceIdentityKey != "/certs/client.key" {
+		t.Fatalf("expected TokenSmithServiceIdentityKey to be /certs/client.key, got %q", config.TokenSmithServiceIdentityKey)
+	}
+	if config.TokenSmithServiceIdentityCA != "/certs/ca.crt" {
+		t.Fatalf("expected TokenSmithServiceIdentityCA to be /certs/ca.crt, got %q", config.TokenSmithServiceIdentityCA)
 	}
 	if config.TokenSmithTargetService != "hsm" {
 		t.Fatalf("expected TokenSmithTargetService to be hsm, got %q", config.TokenSmithTargetService)
@@ -68,6 +83,15 @@ func TestDefaultConfigUsesAbsoluteDataPaths(t *testing.T) {
 	if config.TokenSmithTargetService != "smd" {
 		t.Fatalf("expected default TokenSmithTargetService to be smd, got %q", config.TokenSmithTargetService)
 	}
+	if config.TokenSmithServiceIdentityCert != "" {
+		t.Fatalf("expected default TokenSmithServiceIdentityCert to be empty, got %q", config.TokenSmithServiceIdentityCert)
+	}
+	if config.TokenSmithServiceIdentityKey != "" {
+		t.Fatalf("expected default TokenSmithServiceIdentityKey to be empty, got %q", config.TokenSmithServiceIdentityKey)
+	}
+	if config.TokenSmithServiceIdentityCA != "" {
+		t.Fatalf("expected default TokenSmithServiceIdentityCA to be empty, got %q", config.TokenSmithServiceIdentityCA)
+	}
 	if config.TokenSmithRefreshSkewSec != 300 {
 		t.Fatalf("expected default TokenSmithRefreshSkewSec to be 300, got %d", config.TokenSmithRefreshSkewSec)
 	}
@@ -79,6 +103,9 @@ func TestBindServerEnvVarsForTokenSmith(t *testing.T) {
 
 	t.Setenv("TOKENSMITH_URL", "https://tokensmith.example.com")
 	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "bootstrap-value")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CERT", "/etc/tokensmith/client.crt")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_KEY", "/etc/tokensmith/client.key")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CA", "/etc/tokensmith/ca.crt")
 	t.Setenv("TOKENSMITH_TARGET_SERVICE", "smd")
 	t.Setenv("TOKENSMITH_SCOPES", "scope:a,scope:b")
 	t.Setenv("TOKENSMITH_REFRESH_SKEW_SEC", "75")
@@ -95,6 +122,15 @@ func TestBindServerEnvVarsForTokenSmith(t *testing.T) {
 	}
 	if config.TokenSmithBootstrapToken != "bootstrap-value" {
 		t.Fatalf("expected TokenSmithBootstrapToken env override, got %q", config.TokenSmithBootstrapToken)
+	}
+	if config.TokenSmithServiceIdentityCert != "/etc/tokensmith/client.crt" {
+		t.Fatalf("expected TokenSmithServiceIdentityCert env override, got %q", config.TokenSmithServiceIdentityCert)
+	}
+	if config.TokenSmithServiceIdentityKey != "/etc/tokensmith/client.key" {
+		t.Fatalf("expected TokenSmithServiceIdentityKey env override, got %q", config.TokenSmithServiceIdentityKey)
+	}
+	if config.TokenSmithServiceIdentityCA != "/etc/tokensmith/ca.crt" {
+		t.Fatalf("expected TokenSmithServiceIdentityCA env override, got %q", config.TokenSmithServiceIdentityCA)
 	}
 	if config.TokenSmithTargetService != "smd" {
 		t.Fatalf("expected TokenSmithTargetService env override, got %q", config.TokenSmithTargetService)
