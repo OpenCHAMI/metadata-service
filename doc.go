@@ -4,124 +4,122 @@
 /*
 Package cloud-init provides a cloud-init metadata service built on the OpenCHAMI Fabrica framework.
 
-It serves as a modern replacement for the legacy OpenCHAMI/cloud-init service, offering a more robust
-and maintainable implementation with automatic REST API generation, comprehensive validation, and
-seamless integration with the State Management Database (SMD).
+It serves as a modern replacement for the legacy OpenCHAMI/cloud-init service, with generated REST APIs,
+resource validation, and integration with the State Management Database (SMD).
 
 # Overview
 
-The metadata service implements the cloud-init nocloud-net datasource specification, providing
-essential cloud-init endpoints for HPC node provisioning:
-  - /meta-data: Instance metadata with hostname, instance ID, and cluster information
-  - /user-data: User-provided configuration (no-op by default)
-  - /vendor-data: Include-file directives pointing to group-specific configurations
-  - /{group}.yaml: Group-specific configurations with Jinja2 template support
+The service implements a NoCloud-style metadata datasource for HPC node provisioning:
+  - /meta-data: Instance metadata (YAML)
+  - /user-data: User data (#cloud-config no-op by default)
+  - /vendor-data: Include-file directives for group config
+  - /network-config: Generated network-config from SMD NIC/interface data
+  - /{group}.yaml: Group-specific rendered cloud-config template
+
+When WireGuard userspace mode is enabled, additional endpoints are exposed:
+  - /wg-init: Registers a peer and allocates VPN IP
+  - /phone-home/{id}: Peer teardown/phone-home flow
 
 # Architecture
 
-The service is organized into several key packages:
+The service is organized into key packages:
 
-  - cmd/server: HTTP server implementation with cloud-init endpoints
-  - pkg/handlers: Cloud-init endpoint handlers (metadata, user-data, vendor-data)
-  - apis/cloud-init.openchami.io/v1: Authoritative resource definitions and validation logic
-  - pkg/resources: Generated registration glue for resource wiring
-  - pkg/smdclient: Interface for SMD integration with mock implementation for development
-  - pkg/client: Generated REST API client for resource management
+  - cmd/server: HTTP server bootstrap, route registration, SMD runtime integration
+  - pkg/handlers: Cloud-init endpoint handlers
+  - apis/cloud-init.openchami.io/v1: Resource schema + validation hooks
+  - pkg/resources: Generated registration glue
+  - pkg/smdclient: SMD integrations (live and mock)
+  - pkg/client: Generated REST client
+  - pkg/wireguard: Userspace WireGuard controller
 
-Key Technologies
+Key technologies:
 
-  - Fabrica Framework: Automatically generates REST API, storage, and client implementations from
-    resource definitions. This eliminates boilerplate and ensures consistency across the service.
-
-  - Pongo2 Templates: Jinja2-compatible template engine for rendering cloud-init configurations.
-    Templates support variable substitution from cluster defaults and SMD component data.
-
-  - Chi Router: Lightweight HTTP router for cloud-init endpoint handling with support for
-    custom middleware and request transformations.
-
-  - File-Based Storage: JSON-based persistent storage in /data/{resource-type}/ directory.
-    Suitable for development and small deployments; can be extended for other backends.
+  - Fabrica framework: Generates REST API handlers/routes/models and storage glue
+  - Pongo2 templates: Jinja2-compatible template rendering
+  - Chi router: Routing and middleware composition
+  - File backend storage: JSON persistence rooted at --data-dir (default /data)
 
 # Resource Model
 
-The service manages three core resource types:
+The service manages four resource types:
 
-  - Group: Template-based node group configurations. Each group contains a Jinja2 template that
-    produces valid YAML output. Templates are validated on creation/update to ensure they render
-    correctly with sample metadata and produce valid YAML.
-
-  - ClusterDefaults: Cluster-wide configuration including base URLs, cloud provider information,
-    SSH public keys, and naming conventions. These variables are injected into group templates
-    at runtime.
-
-  - InstanceInfo: Per-node instance-specific overrides. Allows customization of hostname, SSH keys,
-    and cloud-init URLs on a per-instance basis.
+  - Group: Template-based group configurations with metadata overlays
+  - ClusterDefaults: Cluster-wide defaults injected into metadata/template context
+  - InstanceInfo: Per-node overrides (instance IDs, hostnames, base URL, keys)
+  - WireGuardPeer: Declarative userspace WireGuard peer records
 
 # Template Variables
 
-Group templates have access to the following runtime variables:
+Group templates are rendered with merged runtime context including:
 
-	From ClusterDefaults:
-	  - cluster_name: Name of the cluster
-	  - base_url: Base URL for cloud-init endpoints
-	  - cloud_provider: Cloud provider identifier (e.g., "aws", "gcp")
-	  - region: Cloud region
-	  - availability_zone: Availability zone
-	  - short_name: Short cluster name (typically 2 characters)
+	From ClusterDefaults / InstanceInfo:
+	- cluster_name
+	- base_url
+	- cloud_provider
+	- region
+	- availability_zone
+	- public_keys
 
-	From SMD Component:
-	  - hostname: Resolved hostname from SMD
-	  - instance_id: Unique instance identifier
-	  - nid: Node ID in the cluster
-	  - role: Node role (e.g., "compute", "login", "storage")
+	From resolved node identity and SMD data:
+	- instance_id
+	- nid
+	- role
+	- mac
+	- ip
+	- interfaces
+	- vendor_data (including group metadata)
+	- meta_data
 
-	Custom Variables:
-	  - User-defined variables from Group.Spec.MetaData
+	Hostname behavior:
+	- hostname and local_hostname are synthesized from cluster naming inputs + component NID
+	- if InstanceInfo specifies hostname/local_hostname, those values override synthesis
+
+	Custom variables:
+	- user-defined keys from Group.Spec.MetaData
 
 # Node Identification
 
-Nodes are identified by their IP address, which is resolved through the X-Forwarded-For HTTP header
-or request source IP. The SMD client performs IP-to-component lookup to retrieve hardware information,
-group membership, and other SMD-managed data.
+Request identity is resolved from X-Forwarded-For when present, then request source address.
+The service resolves requester IP to component ID through the SMD client resolver path.
 
 # Cloud-Init Integration
 
-The service implements a simplified cloud-init datasource that:
+The runtime flow is:
 
-1. Receives requests with node IP addresses via X-Forwarded-For header
-2. Resolves IP to SMD component ID for hardware lookup
-3. Merges cluster defaults, instance-specific data, and group templates
-4. Renders group templates with runtime variable injection
-5. Validates rendered output as valid YAML
-6. Returns properly formatted cloud-init datasource responses
+1. Resolve requester IP to component ID
+2. Load component/group information from SMD
+3. Load cluster defaults + optional instance overrides from storage
+4. Build metadata/template context
+5. Render group templates when requested (/group.yaml)
+6. Return cloud-init-compatible responses
+
+Template syntax and rendered YAML validity are validated at Group create/update time.
 
 # Development and Testing
 
-For development, the service includes a mock SMD client that provides test nodes without requiring
-a running SMD instance. The mock client is automatically enabled when SMD_URL environment variable
-is not set.
+The service only uses the built-in mock SMD client when --mock-smd is set.
 
-Example test workflow:
+Example workflow:
 
-	# Start server with mock SMD
-	go run ./cmd/server serve --port 8888
+	  # Start server with mock SMD
+	  go run ./cmd/server serve --port 8888 --mock-smd
 
-	# Request metadata for mock node
-	curl -H "X-Forwarded-For: 10.0.0.100" http://localhost:8888/meta-data
+		# Request metadata for a mock node IP
+		curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/meta-data
 
-	# Use the generated client for resource management
-	go run ./cmd/client/main.go --server http://localhost:8888 group create \
-	  --spec '{"name": "compute", "template": "..."}'
+		# Create a group using generated client
+		go run ./cmd/client/main.go --server http://localhost:8888 group create \
+		  --spec '{"metadata":{"name":"compute"},"spec":{"template":"#cloud-config"}}'
 
 # Code Generation
 
 The Fabrica framework generates several files that should NOT be manually edited:
-  - cmd/server/*_handlers_generated.go: REST API handlers
-  - cmd/server/models_generated.go: Request/response models
-  - cmd/server/routes_generated.go: HTTP route definitions
-  - internal/storage/storage_generated.go: Storage operations
-  - internal/middleware/*_generated.go: Middleware implementations
-  - pkg/client/client_generated.go: REST API client
+  - cmd/server/*_handlers_generated.go
+  - cmd/server/models_generated.go
+  - cmd/server/routes_generated.go
+  - internal/storage/storage_generated.go
+  - internal/middleware/*_generated.go
+  - pkg/client/client_generated.go
 
 To regenerate after modifying resource definitions:
 
@@ -129,84 +127,61 @@ To regenerate after modifying resource definitions:
 
 # Custom Validation
 
-Resource validation is customized in apis/cloud-init.openchami.io/v1/*_types.go. The validation process:
-1. Parses resource definitions
-2. Extracts template variables using regex
-3. Renders templates with sample data
-4. Validates rendered output as valid YAML
-5. Tracks template versions with SHA256 hashing
-
-Example Group validation process:
-  - Extracts all {{ variable }} references from template
-  - Merges sample cluster defaults and SMD data
-  - Attempts template rendering
-  - Validates result is valid YAML
-  - Updates Status.TemplateHistory with version info
+Resource validation hooks live under apis/cloud-init.openchami.io/v1/*.go.
+Notably, Group validation:
+1. Extracts referenced template variables
+2. Merges sample and group metadata
+3. Renders template
+4. Validates rendered YAML
+5. Tracks template version history
 
 # Storage
 
-Resources are persisted as JSON files in /data/{resource-type}/:
-  - /data/Group/*.json: Group configurations
-  - /data/ClusterDefaults/*.json: Cluster-wide defaults
-  - /data/InstanceInfo/*.json: Instance-specific overrides
-
-Status fields are automatically updated during validation and persist to storage. The storage
-implementation supports file-based persistence with minimal overhead for development.
+Resources are persisted via Fabrica's configured backend (file backend by default under --data-dir).
 
 # Migration from Legacy Service
 
-This service replaces the original OpenCHAMI/cloud-init implementation. Key differences:
+This service replaces the original OpenCHAMI/cloud-init implementation.
 
-Legacy Service:
-  - Direct HTTP handlers with custom routing
-  - Server-side config merging
-  - Group data as JSON with Jinja templates in payloads
-  - Base64-encoded content in POST requests
-  - Manual SMD simulator mode
-  - Runs on port 27777 by default
+Legacy service:
+  - custom/manual routing and handlers
+  - manual simulator behavior
+  - default port 27777
 
-New Service:
-  - Auto-generated REST API from resource definitions
-  - Client-side config merging capabilities
-  - Resources with built-in validation
-  - Plain-text templates validated on creation
-  - Mock SMD client for development
-  - Runs on port 8080/8888 by default
+Current service:
+  - generated REST API + custom cloud-init routes
+  - resource-level validation hooks
+  - explicit mock SMD mode when --mock-smd is set
+  - default port 8080 (8888 commonly used for local development)
 
-Most cloud-init endpoints are compatible, but see FABRICA_MIGRATION.md for detailed
-compatibility information and migration patterns.
+See LEGACY_COMPATIBILITY.md for compatibility and migration notes.
 
 # Configuration
 
 The service is configured via:
-  - Command-line flags: go run ./cmd/server serve --help
-  - Environment variables: Prefixed with OPENCHAM_CLOUD_INIT_
-  - Configuration file: Specified with --config flag
+  - command-line flags: go run ./cmd/server serve --help
+  - environment variables: OCHAMI_METADATA_* plus explicitly bound keys like SMD_URL,
+    SMD_JWT/SMD_TOKEN, and TOKENSMITH_*
+  - configuration file: --config
 
-Common configuration options:
+Common options:
 
-		--port: HTTP server port (default: 8080)
-		--host: Bind address (default: 0.0.0.0)
-	  --data-dir: Data storage directory (default: /data)
-		--debug: Enable debug logging (default: false)
-
-For SMD integration:
-
-	SMD_URL: Set to SMD HTTP endpoint (e.g., http://localhost:27779)
-	         Unset for mock SMD client in development
+	--port: HTTP server port (default: 8080)
+	--host: Bind address (default: 0.0.0.0)
+	--data-dir: Data storage directory (default: /data)
+	--debug: Enable debug logging (default: false)
 
 # Production Considerations
 
 For production deployment:
 
-1. Set SMD_URL to real SMD instance for hardware lookup
-2. Configure --data-dir for persistent storage location
-3. Use external logging and monitoring
-4. Implement access controls and TLS if needed
-5. Template validation runs on every create/update; design templates for performance
-6. Group membership authorization enforced via SMD
+1. Set SMD_URL to a real SMD instance
+2. Configure --data-dir on persistent storage
+3. Add external observability/logging
+4. Add TLS/access controls at ingress or service layer
+5. Review template size/complexity for render performance
+6. Validate WireGuard and token-exchange settings if enabled
 
-See README.md for additional deployment and usage information, and CLOUDINIT.md for
-detailed cloud-init endpoint specifications.
+See README.md and CLOUDINIT.md for endpoint details and deployment usage.
 */
 package main

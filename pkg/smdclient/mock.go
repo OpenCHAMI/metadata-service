@@ -43,6 +43,22 @@ func (m *MockSMDClient) AddComponent(component *Component) {
 	}
 }
 
+// ListComponents returns all components known by the mock.
+func (m *MockSMDClient) ListComponents() ([]*Component, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make([]*Component, 0, len(m.components))
+	for _, component := range m.components {
+		if component == nil {
+			continue
+		}
+		copy := *component
+		result = append(result, &copy)
+	}
+	return result, nil
+}
+
 // AddGroupMembership adds a component to a group
 func (m *MockSMDClient) AddGroupMembership(componentID string, groups []string) {
 	m.mu.Lock()

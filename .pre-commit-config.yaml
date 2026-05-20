@@ -16,36 +16,16 @@ repos:
   hooks:
     - id: reuse-lint-file
 
--   repo: https://github.com/tekwizely/pre-commit-golang
-    # See 'pre-commit help autoupdate'
-    rev: v1.0.0-rc.2
-    hooks:
-
-    # Disabled go-mod-tidy in favor of custom hook below that properly excludes examples
-    # -   id: go-mod-tidy
-    #     exclude: '^(test/integration|examples)/'
-    # Disabled go-test-mod in favor of custom hook below that excludes examples
-    # -   id: go-test-mod
-    #     exclude: '^(test/integration|examples)/'
-    # Disabled go-vet-mod in favor of custom hook below that excludes examples
-    # -   id: go-vet-mod
-    #     exclude: '^(test/integration|examples)/'
-
-    #
-    # Formatters
-    #
-    -   id: go-fmt
-    -   id: go-fmt-repo
-
-    #
-    # Style Checkers
-    # Disabled golangci-lint-mod in favor of custom hook below that excludes examples
-    # -   id: golangci-lint-mod
-    #     exclude: '^(test/integration|examples)/'
-
 # Custom local hooks
 -   repo: local
     hooks:
+    -   id: go-fmt-write
+        name: gofmt (write)
+        entry: gofmt -w
+        language: system
+        types: [go]
+        exclude: '^(examples/|test/integration/)'
+
     -   id: go-mod-tidy-exclude-examples
         name: go mod tidy (excluding examples)
         # Temporarily rename examples to hide it from go mod tidy, then restore it
@@ -67,7 +47,7 @@ repos:
     -   id: golangci-lint-mod-exclude-examples
         name: golangci-lint (excluding examples)
         # Temporarily rename examples to hide it from golangci-lint, then restore it
-        entry: bash -c 'if [ -d examples ]; then mv examples .examples.tmp && trap "rm -rf examples; mv .examples.tmp examples" EXIT; golangci-lint run --fix=false; else golangci-lint run --fix=false; fi'
+        entry: bash -c 'if [ -d examples ]; then mv examples .examples.tmp && trap "rm -rf examples; mv .examples.tmp examples" EXIT; golangci-lint run --fix; else golangci-lint run --fix; fi'
         language: system
         pass_filenames: false
         types: [go]

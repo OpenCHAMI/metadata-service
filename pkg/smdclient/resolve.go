@@ -13,6 +13,12 @@ func ResolveComponentID(client SMDClient, ip string) (string, error) {
 		return "", fmt.Errorf("nil SMD client")
 	}
 
+	if resolver, ok := client.(ComponentResolver); ok {
+		if id, err := resolver.ResolveComponentID(ip); err == nil && id != "" {
+			return id, nil
+		}
+	}
+
 	if id, err := client.IDfromWGIP(ip); err == nil && id != "" {
 		return id, nil
 	}

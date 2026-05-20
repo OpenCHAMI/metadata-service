@@ -161,12 +161,17 @@ func TestStorageAdapterGetGroupDataMatchesByNameAndPrefersLatest(t *testing.T) {
 
 func TestRegisterCustomServerIntegrationsAllowsGeneratedCreateRoutes(t *testing.T) {
 	initTestStorageBackend(t)
+	originalMockSMD := mockSMD
+	mockSMD = true
+	t.Cleanup(func() { mockSMD = originalMockSMD })
 	t.Setenv("SMD_URL", "")
 	t.Setenv("SMD_JWT", "")
 	t.Setenv("SMD_TOKEN", "")
 
 	r := chi.NewRouter()
-	registerCustomServerIntegrations(r)
+	if err := registerCustomServerIntegrations(context.Background(), r); err != nil {
+		t.Fatalf("registerCustomServerIntegrations returned error: %v", err)
+	}
 
 	server := httptest.NewServer(r)
 	defer server.Close()

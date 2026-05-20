@@ -117,7 +117,10 @@ Example custom implementation:
 
 SMD_URL: SMD base URL for production use
 
-	Example: SMD_URL=http://smd.example.com:27779
+	Supported forms:
+	  - Bare SMD URL: SMD_URL=http://smd.example.com:27779 (normalized to .../hsm/v2)
+	  - Gateway-mounted URL: SMD_URL=https://gateway.example.com/apis/smd
+	    or SMD_URL=https://gateway.example.com/apis/smd/hsm/v2
 	When unset, mock client is automatically used
 
 SMD_TIMEOUT: HTTP client timeout for SMD requests (default: 10s)

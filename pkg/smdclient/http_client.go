@@ -15,35 +15,57 @@ import (
 	"time"
 )
 
-const smdAPIVersionPath = "/apis/smd/hsm/v2"
+const (
+	smdGatewayPathPrefix = "/apis/smd"
+	smdAPIVersionPath    = "/hsm/v2"
+)
 
 // HTTPClient is an SMD client backed by the SMD HTTP API.
 type HTTPClient struct {
-	baseURL string
-	client  *http.Client
-	cache   *smdCache
-	jwt     string
-	wgmu    sync.RWMutex
-	wgip    map[string]string
+	baseURL      string
+	client       *http.Client
+	cache        *smdCache
+	jwt          string
+	tokenFn      func() string
+	tokenManager *ServiceTokenManager
+	wgmu         sync.RWMutex
+	wgip         map[string]string
 }
 
 // NewHTTPClient creates an SMD client backed by the SMD HTTP API.
 func NewHTTPClient(baseURL, jwt string) *HTTPClient {
+	return NewHTTPClientWithTokenProvider(baseURL, func() string {
+		return strings.TrimSpace(jwt)
+	})
+}
+
+// NewHTTPClientWithTokenProvider creates an SMD HTTP client using a dynamic
+// token provider callback.
+func NewHTTPClientWithTokenProvider(baseURL string, tokenFn func() string) *HTTPClient {
 	return &HTTPClient{
 		baseURL: normalizeBaseURL(baseURL),
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		cache: newSMDCache(time.Minute),
-		jwt:   strings.TrimSpace(jwt),
-		wgip:  make(map[string]string),
+		cache:   newSMDCache(time.Minute),
+		tokenFn: tokenFn,
+		wgip:    make(map[string]string),
 	}
+}
+
+// WithServiceTokenManager enables dynamic TokenSmith-backed auth for outbound SMD requests.
+func (c *HTTPClient) WithServiceTokenManager(manager *ServiceTokenManager) *HTTPClient {
+	c.tokenManager = manager
+	return c
 }
 
 func normalizeBaseURL(baseURL string) string {
 	trimmed := strings.TrimRight(baseURL, "/")
-	if strings.Contains(trimmed, "/apis/smd/hsm/") {
+	if strings.Contains(trimmed, smdAPIVersionPath) {
 		return trimmed
+	}
+	if strings.Contains(trimmed, smdGatewayPathPrefix) {
+		return trimmed + smdAPIVersionPath
 	}
 	return trimmed + smdAPIVersionPath
 }
@@ -56,8 +78,16 @@ func (c *HTTPClient) IDfromIP(ip string) (string, error) {
 
 	params := url.Values{}
 	params.Set("ipaddr", ip)
+	body, err := c.getRaw("/Inventory/EthernetInterfaces", params)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(string(body)) == "" {
+		return "", fmt.Errorf("no component found for IP %s", ip)
+	}
+
 	var resp []compEthInterfaceV2
-	if err := c.doGet("/Inventory/EthernetInterfaces", params, &resp); err != nil {
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return "", err
 	}
 	if len(resp) == 0 || resp[0].ComponentID == "" {
@@ -264,8 +294,20 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if c.jwt != "" {
-		req.Header.Set("Authorization", "Bearer "+c.jwt)
+	if c.tokenManager != nil {
+		token, tokenErr := c.tokenManager.GetToken(req.Context())
+		if tokenErr != nil {
+			return nil, fmt.Errorf("failed to get dynamic SMD auth token: %w", tokenErr)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+	} else {
+		token := c.jwt
+		if c.tokenFn != nil {
+			token = strings.TrimSpace(c.tokenFn())
+		}
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 	}
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -283,6 +325,35 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 		return nil, fmt.Errorf("smd request failed: %s", strings.TrimSpace(string(body)))
 	}
 	return body, nil
+}
+
+// ListComponents returns all components from SMD.
+func (c *HTTPClient) ListComponents() ([]*Component, error) {
+	var resp componentListResponse
+	if err := c.doGet("/State/Components", nil, &resp); err != nil {
+		return nil, err
+	}
+
+	result := make([]*Component, 0, len(resp.Components))
+	for _, item := range resp.Components {
+		ip := item.IP
+		if ip == "" {
+			ip = item.IPAddress
+		}
+		component := &Component{
+			ID:   item.ID,
+			NID:  item.NID,
+			Role: item.Role,
+			MAC:  item.MAC,
+			IP:   ip,
+		}
+		result = append(result, component)
+		c.cache.setComponent(component.ID, component)
+		if component.IP != "" {
+			c.cache.setIDfromIP(component.IP, component.ID)
+		}
+	}
+	return result, nil
 }
 
 type componentResponse struct {

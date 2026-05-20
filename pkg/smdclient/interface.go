@@ -71,3 +71,16 @@ type SMDClient interface {
 	// with IP address and network mappings
 	EthernetInterfaces(id string) ([]EthernetInterface, error)
 }
+
+// ComponentLister is implemented by SMD clients that can list all components.
+// It is used by the integration sync worker to pre-populate cache state.
+type ComponentLister interface {
+	// ListComponents returns all known SMD components.
+	ListComponents() ([]*Component, error)
+}
+
+// ComponentResolver is an optional interface for clients that provide an
+// optimized ResolveComponentID implementation.
+type ComponentResolver interface {
+	ResolveComponentID(ip string) (string, error)
+}
