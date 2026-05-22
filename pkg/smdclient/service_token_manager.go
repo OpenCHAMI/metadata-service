@@ -363,8 +363,15 @@ func (m *ServiceTokenManager) RefreshTokenIfNeeded(ctx context.Context) error {
 	}
 }
 
-// StartAutoRefresh runs periodic refresh checks until context cancellation.
+// StartAutoRefresh launches the periodic token refresh worker in a background goroutine.
+// The worker runs until the context is cancelled or the manager becomes unhealthy.
+// This method returns immediately without blocking.
 func (m *ServiceTokenManager) StartAutoRefresh(ctx context.Context) {
+	go m.runAutoRefresh(ctx)
+}
+
+// runAutoRefresh runs periodic refresh checks until context cancellation.
+func (m *ServiceTokenManager) runAutoRefresh(ctx context.Context) {
 	interval := m.config.AutoRefreshInterval
 	if interval <= 0 {
 		interval = time.Minute

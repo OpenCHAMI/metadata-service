@@ -171,9 +171,11 @@ func TestOpenAPISpecCompleteness(t *testing.T) {
 		pathItem := spec.Paths.Find(endpoint)
 		if pathItem == nil {
 			t.Fatalf("endpoint %s not found in spec", endpoint)
+			return
 		}
 		if pathItem.Get == nil {
 			t.Fatalf("endpoint %s has no GET operation", endpoint)
+			return
 		}
 		if len(pathItem.Get.Tags) == 0 {
 			t.Fatalf("endpoint %s has no tags", endpoint)
@@ -184,10 +186,28 @@ func TestOpenAPISpecCompleteness(t *testing.T) {
 	}
 
 	// Verify responses are documented
-	if spec.Paths.Find("/openapi.json").Get.Responses == nil {
+	openAPIPath := spec.Paths.Find("/openapi.json")
+	if openAPIPath == nil {
+		t.Fatal("/openapi.json path should be documented")
+		return
+	}
+	if openAPIPath.Get == nil {
+		t.Fatal("/openapi.json should have GET operation documented")
+		return
+	}
+	if openAPIPath.Get.Responses == nil {
 		t.Fatal("/openapi.json should have responses documented")
 	}
-	if spec.Paths.Find("/docs").Get.Responses == nil {
+	docsPath := spec.Paths.Find("/docs")
+	if docsPath == nil {
+		t.Fatal("/docs path should be documented")
+		return
+	}
+	if docsPath.Get == nil {
+		t.Fatal("/docs should have GET operation documented")
+		return
+	}
+	if docsPath.Get.Responses == nil {
 		t.Fatal("/docs should have responses documented")
 	}
 }
