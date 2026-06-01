@@ -43,7 +43,7 @@ func TestGroupTemplateValidation(t *testing.T) {
 	baseURL := startTestServer()
 	skipIfServerUnavailable(t, baseURL)
 
-	c, _ := client.NewClient(baseURL, &http.Client{Timeout: 5 * time.Second})
+	c, _ := client.NewClient(baseURL, &http.Client{Timeout: 5 * time.Second}, client.DefaultLogger())
 	ctx := context.Background()
 
 	// 1. Create group with missing required variable
