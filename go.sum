@@ -205,8 +205,8 @@ github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 h1:bQx3WeLcUWy+RletI
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
 github.com/openchami/chi-middleware/log v0.0.0-20240812224658-b16b83c70700 h1:Gzt5f6RK39CHvY3SJudzBb/RK4tVh/S3CpJ0eQlbNdg=
 github.com/openchami/chi-middleware/log v0.0.0-20240812224658-b16b83c70700/go.mod h1:UuXvr2loD4MtvZeKr57W0WpBs+gm0KM1kdtcXrE8M6s=
-github.com/openchami/fabrica v0.4.5 h1:ZokuHjWGXYHz3jq3mNStIopIBAhLp+NQdUxjUHwxKYM=
-github.com/openchami/fabrica v0.4.5/go.mod h1:h/0CX1tDwqdmBxk4lm8EtxcMgI6ebaxbz65ic4uozfg=
+github.com/openchami/fabrica v0.4.7 h1:H63fRqSfiUud/jlPo3NS7tXEtSyXBlgWZ7MDhJuTRnM=
+github.com/openchami/fabrica v0.4.7/go.mod h1:h/0CX1tDwqdmBxk4lm8EtxcMgI6ebaxbz65ic4uozfg=
 github.com/openchami/tokensmith v0.4.1 h1:+IOmMywod4uzMFLVK/R92pfwoIBtcpq62MQ7HaDpW28=
 github.com/openchami/tokensmith v0.4.1/go.mod h1:L4ZCMX/vPGwXUUn9otw+UdfFTbarv+ZVO/FjhZmoOAE=
 github.com/pelletier/go-toml/v2 v2.0.8 h1:0ctb6s9mE31h0/lhu+J6OPmVeDxJn+kYnJc2jZR9tGQ=
