@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/OpenCHAMI/metadata-service/internal/storage"
+	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
 )
 
 // Config holds all configuration for the service
@@ -33,15 +35,26 @@ type Config struct {
 	IdleTimeout  int    `mapstructure:"idle_timeout"`
 
 	// Storage Configuration
-
 	DataDir string `mapstructure:"data_dir"`
 
 	// WireGuard Configuration
-	WireGuardStateFile string `mapstructure:"wireguard_state_file"`
-	WireGuardOnly      bool   `mapstructure:"wireguard_only"`
+	WireGuardStateFile            string `mapstructure:"wireguard_state_file"`
+	WireGuardOnly                 bool   `mapstructure:"wireguard_only"`
+	TokenSmithURL                 string `mapstructure:"tokensmith_url"`
+	TokenSmithBootstrapToken      string `mapstructure:"tokensmith_bootstrap_token"`
+	TokenSmithServiceIdentityCert string `mapstructure:"tokensmith_service_identity_cert"`
+	TokenSmithServiceIdentityKey  string `mapstructure:"tokensmith_service_identity_key"`
+	TokenSmithServiceIdentityCA   string `mapstructure:"tokensmith_service_identity_ca"`
+	TokenSmithTargetService       string `mapstructure:"tokensmith_target_service"`
+	TokenSmithScopes              string `mapstructure:"tokensmith_scopes"`
+	TokenSmithRefreshSkewSec      int    `mapstructure:"tokensmith_refresh_skew_sec"`
+	TokenSmithScopeHint           string `mapstructure:"tokensmith_scope_hint"`
+
+	// SMD Integration Configuration
+	SMDSyncEnabled  bool `mapstructure:"smd_sync_enabled"`
+	SMDSyncInterval int  `mapstructure:"smd_sync_interval"`
 
 	// Feature Flags
-
 	Debug bool `mapstructure:"debug"`
 }
 
@@ -56,8 +69,20 @@ func DefaultConfig() *Config {
 
 		DataDir: "/data",
 
-		WireGuardStateFile: "/data/wireguard/state.yaml",
-		WireGuardOnly:      false,
+		WireGuardStateFile:            "/data/wireguard/state.yaml",
+		WireGuardOnly:                 false,
+		TokenSmithURL:                 "",
+		TokenSmithBootstrapToken:      "",
+		TokenSmithServiceIdentityCert: "",
+		TokenSmithServiceIdentityKey:  "",
+		TokenSmithServiceIdentityCA:   "",
+		TokenSmithTargetService:       "smd",
+		TokenSmithScopes:              "",
+		TokenSmithRefreshSkewSec:      300,
+		TokenSmithScopeHint:           "",
+
+		SMDSyncEnabled:  true,
+		SMDSyncInterval: 60,
 
 		Debug: false,
 	}
@@ -66,7 +91,20 @@ func DefaultConfig() *Config {
 var (
 	cfgFile string
 	config  *Config
+	mockSMD bool
 )
+
+var notifyShutdownSignals = func(ch chan<- os.Signal) {
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+}
+
+var stopShutdownSignalNotify = func(ch chan<- os.Signal) {
+	signal.Stop(ch)
+}
+
+var registerServerIntegrations = registerCustomServerIntegrations
+
+var currentWGController *wireguard.Controller
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
@@ -94,6 +132,7 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ochami-metadata.yaml)")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
+	rootCmd.PersistentFlags().BoolVar(&mockSMD, "mock-smd", false, "Use built-in mock SMD data instead of requiring SMD_URL")
 
 	// Server flags
 	serveCmd.Flags().IntP("port", "p", 8080, "Port to listen on")
@@ -108,6 +147,10 @@ func init() {
 	serveCmd.Flags().String("wireguard-state-file", "/data/wireguard/state.yaml", "Path to WireGuard state file for persistence")
 	serveCmd.Flags().Bool("wireguard-only", false, "Restrict access to WireGuard network only")
 
+	// SMD sync flags
+	serveCmd.Flags().Bool("smd-sync-enabled", true, "Enable background SMD cache sync worker")
+	serveCmd.Flags().Int("smd-sync-interval", 60, "SMD cache sync interval in seconds")
+
 	// Bind flags to viper
 	viper.BindPFlags(serveCmd.Flags())
 	viper.BindPFlags(rootCmd.PersistentFlags())
@@ -115,9 +158,6 @@ func init() {
 
 	// Add subcommands
 	rootCmd.AddCommand(serveCmd)
-
-	rootCmd.AddCommand(versionCmd)
-
 }
 
 func initConfig() {
@@ -160,7 +200,8 @@ func initConfig() {
 func runServer(cmd *cobra.Command, args []string) error {
 	log.Printf("Starting github.com/OpenCHAMI/metadata-service server...")
 
-	// Initialize storage backend
+	appCtx, appCancel := context.WithCancel(context.Background())
+	defer appCancel()
 
 	if err := storage.InitFileBackend(config.DataDir); err != nil {
 		return fmt.Errorf("failed to initialize file storage: %w", err)
@@ -185,13 +226,16 @@ func runServer(cmd *cobra.Command, args []string) error {
 	r.Get("/openapi.json", ServeOpenAPISpec)
 	r.Get("/docs", ServeSwaggerUI)
 
-	wgController := registerCustomServerIntegrations(r)
+	if err := registerServerIntegrations(appCtx, r); err != nil {
+		return err
+	}
 
-	reconcileRuntime, err := newReconciliationRuntimeFn(wgController)
+	reconcileRuntime, err := newReconciliationRuntimeFn(currentWGController)
 	if err != nil {
 		return fmt.Errorf("failed to initialize reconciliation runtime: %w", err)
 	}
-	defer func() {
+	go func() {
+		<-appCtx.Done()
 		if stopErr := reconcileRuntime.Stop(); stopErr != nil {
 			log.Printf("Failed to stop reconciliation runtime cleanly: %v", stopErr)
 		}
@@ -210,7 +254,6 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Start server in goroutine
 	go func() {
 		log.Printf("Server starting on %s", addr)
-
 		log.Printf("Storage: file backend in %s", config.DataDir)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -220,9 +263,11 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	// Wait for interrupt signal for graceful shutdown
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	notifyShutdownSignals(quit)
+	defer stopShutdownSignalNotify(quit)
 	<-quit
 	log.Println("Server shutting down...")
+	appCancel()
 
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -239,15 +284,22 @@ func runServer(cmd *cobra.Command, args []string) error {
 // Health check handler
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"healthy","service":"github.com/OpenCHAMI/metadata-service"}`))
-}
+	payload := map[string]string{
+		"status":  "healthy",
+		"service": "github.com/OpenCHAMI/metadata-service",
+	}
+	statusCode := http.StatusOK
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version number",
-	Long:  `Print the version number of github.com/OpenCHAMI/metadata-service`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("github.com/OpenCHAMI/metadata-service v1.0.0")
-	},
+	if currentSMDHealth != nil {
+		if healthy, reason := currentSMDHealth.InitialSyncStatus(); !healthy {
+			statusCode = http.StatusServiceUnavailable
+			payload["status"] = "unhealthy"
+			if reason != "" {
+				payload["reason"] = reason
+			}
+		}
+	}
+
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(payload)
 }

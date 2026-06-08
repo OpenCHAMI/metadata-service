@@ -104,8 +104,8 @@ fabrica generate  # Regenerate handlers, storage, client from resource definitio
 
 ### Local Development
 ```bash
-# Start server (uses mock SMD by default)
-go run ./cmd/server serve --port 8888
+# Start server with mock SMD enabled explicitly
+go run ./cmd/server serve --port 8888 --mock-smd
 
 # Run comprehensive demo
 cd examples && ./demo.sh
@@ -186,7 +186,7 @@ go run ./cmd/client/main.go --server http://localhost:8888 group create \
 
 ### Development Mode Differences
 - **Legacy**: Set `CLOUD_INIT_SMD_SIMULATOR=true` + use impersonation routes
-- **New**: Mock SMD client auto-enabled when `SMD_URL` not set, test with `X-Forwarded-For` header
+- **New**: Mock SMD client is only used when `--mock-smd` is set; otherwise configure `SMD_URL` and test with `X-Forwarded-For` header
 
 ### Breaking Changes
 - No `/cloud-init/admin/` prefix on management endpoints

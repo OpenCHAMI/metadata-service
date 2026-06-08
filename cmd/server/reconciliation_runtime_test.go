@@ -13,6 +13,7 @@ import (
 	v1 "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
 	"github.com/OpenCHAMI/metadata-service/internal/storage"
 	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
+	"github.com/go-chi/chi/v5"
 	"github.com/openchami/fabrica/pkg/events"
 	"github.com/openchami/fabrica/pkg/fabrica"
 )
@@ -83,12 +84,15 @@ func TestReconciliationRuntimeReconcilesExistingWireGuardPeersWithoutController(
 }
 
 func TestRunServerFailsWhenReconciliationRuntimeInitFails(t *testing.T) {
-	original := newReconciliationRuntimeFn
+	origReconcileFn := newReconciliationRuntimeFn
+	origRegisterFn := registerServerIntegrations
 	newReconciliationRuntimeFn = func(_ *wireguard.Controller) (*reconciliationRuntime, error) {
 		return nil, errors.New("forced runtime failure")
 	}
+	registerServerIntegrations = func(_ context.Context, _ chi.Router) error { return nil }
 	defer func() {
-		newReconciliationRuntimeFn = original
+		newReconciliationRuntimeFn = origReconcileFn
+		registerServerIntegrations = origRegisterFn
 		events.SetGlobalEventBus(nil)
 	}()
 

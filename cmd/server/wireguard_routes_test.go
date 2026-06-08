@@ -248,29 +248,54 @@ func saveWireGuardPeerFixture(t *testing.T, uid, name, publicKey, allowedIP stri
 }
 
 type fakeWireGuardDevice struct {
-	privateKey string
-	publicKey  string
-	listenPort int
+	publicKey   string
+	listenPort  int
+	addedPeers  map[string]string
+	removedKeys []string
 }
 
-func (d *fakeWireGuardDevice) SetPrivateKey(privateKey string) error {
-	d.privateKey = privateKey
+func (d *fakeWireGuardDevice) SetPrivateKey(string) error       { return nil }
+func (d *fakeWireGuardDevice) Close() error                     { return nil }
+func (d *fakeWireGuardDevice) PublicKeyValue() string           { return d.publicKey }
+func (d *fakeWireGuardDevice) SetPublicKeyValue(pub string)     { d.publicKey = pub }
+func (d *fakeWireGuardDevice) ListenPortValue() int             { return d.listenPort }
+func (d *fakeWireGuardDevice) PrivateKeyValue() (string, error) { return "", nil }
+func (d *fakeWireGuardDevice) AddPeer(pub, allowed string) error {
+	d.addedPeers[pub] = allowed
+	return nil
+}
+func (d *fakeWireGuardDevice) RemovePeer(publicKey string) error {
+	d.removedKeys = append(d.removedKeys, publicKey)
 	return nil
 }
 
-func (d *fakeWireGuardDevice) AddPeer(_, _ string) error { return nil }
-
-func (d *fakeWireGuardDevice) RemovePeer(_ string) error { return nil }
-
-func (d *fakeWireGuardDevice) Close() error { return nil }
-
-func (d *fakeWireGuardDevice) PublicKeyValue() string { return d.publicKey }
-
-func (d *fakeWireGuardDevice) SetPublicKeyValue(pub string) { d.publicKey = pub }
-
-func (d *fakeWireGuardDevice) ListenPortValue() int { return d.listenPort }
-
-func (d *fakeWireGuardDevice) PrivateKeyValue() (string, error) { return d.privateKey, nil }
+func newTestController(t *testing.T) *wireguard.Controller {
+	t.Helper()
+	_, network, err := net.ParseCIDR("100.97.0.0/16")
+	if err != nil {
+		t.Fatalf("ParseCIDR failed: %v", err)
+	}
+	allocator, err := wireguard.NewIPAllocator(network.String())
+	if err != nil {
+		t.Fatalf("NewIPAllocator failed: %v", err)
+	}
+	serverIP := net.ParseIP("100.97.0.1")
+	if err := allocator.Reserve(net.IPAddr{IP: serverIP}); err != nil {
+		t.Fatalf("reserve server IP failed: %v", err)
+	}
+	device := &fakeWireGuardDevice{
+		publicKey:  "server-public-key",
+		listenPort: 51820,
+		addedPeers: make(map[string]string),
+	}
+	return &wireguard.Controller{
+		Device:      device,
+		Network:     *network,
+		ServerIP:    serverIP,
+		Peers:       make(map[string]wireguard.PeerState),
+		IPAllocator: allocator,
+	}
+}
 
 func newTestWireGuardController(t *testing.T) *wireguard.Controller {
 	t.Helper()
@@ -293,10 +318,89 @@ func newTestWireGuardController(t *testing.T) *wireguard.Controller {
 		Device: &fakeWireGuardDevice{
 			publicKey:  "server-pubkey",
 			listenPort: 51820,
+			addedPeers: make(map[string]string),
 		},
 		Network:     *network,
 		ServerIP:    serverIP,
 		Peers:       map[string]wireguard.PeerState{},
 		IPAllocator: allocator,
 	}
+}
+
+func TestWireGuardRoutesHappyPathWithSMDIntegration(t *testing.T) {
+	controller := newTestController(t)
+	mockSMD := smdclient.NewMockSMDClient()
+	mockSMD.AddComponent(&smdclient.Component{
+		ID:  "x1000c0s0b0n0",
+		IP:  "10.0.0.7",
+		NID: 1000,
+	})
+
+	router := chi.NewRouter()
+	registerWireGuardRoutes(router, controller, mockSMD)
+
+	req := httptest.NewRequest(http.MethodPost, "/wg-init", bytes.NewBufferString(`{"public_key":"`+testPublicKeyA+`"}`))
+	req.Header.Set("X-Forwarded-For", "10.0.0.7")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp wgInitResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode wg-init response: %v", err)
+	}
+	if resp.ClientVPNIP == "" {
+		t.Fatal("expected allocated VPN IP in response")
+	}
+	if resp.ServerPubKey != "server-public-key" {
+		t.Fatalf("expected server public key in response, got %q", resp.ServerPubKey)
+	}
+	if resp.PeerUID == "" {
+		t.Fatal("expected peer UID in response")
+	}
+
+	storedWGIP, err := mockSMD.WGIPfromID("x1000c0s0b0n0")
+	if err != nil {
+		t.Fatalf("expected AddWGIP side effect, got error: %v", err)
+	}
+	if storedWGIP != resp.ClientVPNIP {
+		t.Fatalf("expected WG IP %q in SMD store, got %q", resp.ClientVPNIP, storedWGIP)
+	}
+
+	phoneHome := httptest.NewRequest(http.MethodPost, "/phone-home/x1000c0s0b0n0", nil)
+	phoneHome.Header.Set("X-Forwarded-For", "10.0.0.7")
+	phoneHomeResp := httptest.NewRecorder()
+	router.ServeHTTP(phoneHomeResp, phoneHome)
+	if phoneHomeResp.Code != http.StatusOK {
+		t.Fatalf("expected 200 from phone-home, got %d", phoneHomeResp.Code)
+	}
+}
+
+func TestGetClientIPFromRequestParsesForwardingHeaders(t *testing.T) {
+	t.Run("xff first", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/wg-init", nil)
+		req.Header.Set("X-Forwarded-For", "10.9.8.7")
+		if got := getClientIPFromRequest(req); got != "10.9.8.7" {
+			t.Fatalf("expected X-Forwarded-For IP, got %q", got)
+		}
+	})
+
+	t.Run("forwarded fallback", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/wg-init", nil)
+		req.Header.Set("Forwarded", `for="192.0.2.44";proto=https`)
+		if got := getClientIPFromRequest(req); got != "192.0.2.44" {
+			t.Fatalf("expected Forwarded IP, got %q", got)
+		}
+	})
+
+	t.Run("remote addr fallback", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/wg-init", nil)
+		req.RemoteAddr = "203.0.113.9:12345"
+		if got := getClientIPFromRequest(req); got != "203.0.113.9" {
+			t.Fatalf("expected remote addr IP, got %q", got)
+		}
+	})
 }
