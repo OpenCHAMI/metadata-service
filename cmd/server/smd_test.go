@@ -8,13 +8,73 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
 
+	"github.com/OpenCHAMI/metadata-service/pkg/smdclient"
 	"github.com/openchami/tokensmith/pkg/tokenservice"
 	"github.com/spf13/viper"
 )
+
+func TestInitSMDClientRequiresURLUnlessMockFlag(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	originalMockSMD := mockSMD
+	mockSMD = false
+	t.Cleanup(func() { mockSMD = originalMockSMD })
+
+	t.Setenv("SMD_URL", "")
+	t.Setenv("SMD_JWT", "")
+	t.Setenv("SMD_TOKEN", "")
+	t.Setenv("TOKENSMITH_URL", "")
+	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CERT", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_KEY", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CA", "")
+
+	client, err := initSMDClient(context.Background())
+	if err == nil {
+		t.Fatal("expected initSMDClient to fail when SMD_URL is unset and --mock-smd is not enabled")
+	}
+	if client != nil {
+		t.Fatal("expected nil client when SMD_URL is unset and --mock-smd is not enabled")
+	}
+	if !strings.Contains(err.Error(), "SMD_URL is required unless --mock-smd is set") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestInitSMDClientAllowsExplicitMockFlag(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	originalMockSMD := mockSMD
+	mockSMD = true
+	t.Cleanup(func() { mockSMD = originalMockSMD })
+
+	t.Setenv("SMD_URL", "")
+	t.Setenv("SMD_JWT", "")
+	t.Setenv("SMD_TOKEN", "")
+	t.Setenv("TOKENSMITH_URL", "")
+	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CERT", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_KEY", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CA", "")
+
+	client, err := initSMDClient(context.Background())
+	if err != nil {
+		t.Fatalf("initSMDClient returned error: %v", err)
+	}
+
+	id, err := client.IDfromIP("10.252.0.26")
+	if err != nil {
+		t.Fatalf("IDfromIP returned error: %v", err)
+	}
+	if id != "x1000c0s0b0n0" {
+		t.Fatalf("expected x1000c0s0b0n0, got %q", id)
+	}
+}
 
 func TestInitSMDClientStaticModeWithoutTokenSmith(t *testing.T) {
 	viper.Reset()
@@ -24,7 +84,7 @@ func TestInitSMDClientStaticModeWithoutTokenSmith(t *testing.T) {
 		if got := r.Header.Get("Authorization"); got != "Bearer static-jwt" {
 			t.Fatalf("expected static bearer token, got %q", got)
 		}
-		if r.URL.Path != "/apis/smd/hsm/v2/Inventory/EthernetInterfaces" {
+		if r.URL.Path != "/hsm/v2/Inventory/EthernetInterfaces" {
 			http.NotFound(w, r)
 			return
 		}
@@ -38,6 +98,9 @@ func TestInitSMDClientStaticModeWithoutTokenSmith(t *testing.T) {
 	t.Setenv("SMD_TOKEN", "")
 	t.Setenv("TOKENSMITH_URL", "")
 	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CERT", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_KEY", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CA", "")
 
 	client, err := initSMDClient(context.Background())
 	if err != nil {
@@ -82,7 +145,7 @@ func TestInitSMDClientDynamicModeWithTokenSmith(t *testing.T) {
 		if got := r.Header.Get("Authorization"); got != "Bearer dynamic-jwt" {
 			t.Fatalf("expected dynamic bearer token, got %q", got)
 		}
-		if r.URL.Path != "/apis/smd/hsm/v2/Inventory/EthernetInterfaces" {
+		if r.URL.Path != "/hsm/v2/Inventory/EthernetInterfaces" {
 			http.NotFound(w, r)
 			return
 		}
@@ -94,6 +157,9 @@ func TestInitSMDClientDynamicModeWithTokenSmith(t *testing.T) {
 	t.Setenv("SMD_URL", smd.URL)
 	t.Setenv("SMD_JWT", "static-jwt")
 	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CERT", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_KEY", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CA", "")
 	viper.Set("tokensmith_url", tokensmith.URL)
 	viper.Set("tokensmith_bootstrap_token", "bootstrap-token")
 	viper.Set("tokensmith_target_service", "smd")
@@ -120,12 +186,15 @@ func TestInitSMDClientDynamicModeWithTokenSmith(t *testing.T) {
 	}
 }
 
-func TestInitSMDClientDynamicModeFailsWithoutBootstrapToken(t *testing.T) {
+func TestInitSMDClientDynamicModeFailsWithoutCredentials(t *testing.T) {
 	viper.Reset()
 	t.Cleanup(viper.Reset)
 
 	t.Setenv("SMD_URL", "http://smd.example.com")
 	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CERT", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_KEY", "")
+	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CA", "")
 	viper.Set("tokensmith_url", "http://tokensmith.example.com")
 	viper.Set("tokensmith_bootstrap_token", "")
 
@@ -136,7 +205,67 @@ func TestInitSMDClientDynamicModeFailsWithoutBootstrapToken(t *testing.T) {
 	if client != nil {
 		t.Fatal("expected nil client on bootstrap-token misconfiguration")
 	}
-	if !strings.Contains(err.Error(), "bootstrap token") {
-		t.Fatalf("expected bootstrap-token error, got %q", err)
+	if !strings.Contains(err.Error(), "requires one of") {
+		t.Fatalf("expected missing dynamic credential error, got %q", err)
+	}
+}
+
+func TestLoadTokenExchangeConfigFallsBackToBootstrapWhenIdentityFilesUnreadable(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	viper.Set("tokensmith_url", "https://tokensmith.example.com")
+	viper.Set("tokensmith_bootstrap_token", "bootstrap-token")
+	viper.Set("tokensmith_service_identity_cert", "/path/does/not/exist/cert.pem")
+	viper.Set("tokensmith_service_identity_key", "/path/does/not/exist/key.pem")
+
+	config, enabled, err := loadTokenExchangeConfig()
+	if err != nil {
+		t.Fatalf("loadTokenExchangeConfig returned error: %v", err)
+	}
+	if !enabled {
+		t.Fatal("expected dynamic mode enabled when tokensmith_url is set")
+	}
+	if config.AuthMethod != smdclient.TokenAuthMethodBootstrapToken {
+		t.Fatalf("expected bootstrap fallback auth method, got %q", config.AuthMethod)
+	}
+	if config.BootstrapToken != "bootstrap-token" {
+		t.Fatalf("expected bootstrap token to be preserved, got %q", config.BootstrapToken)
+	}
+}
+
+func TestLoadTokenExchangeConfigUsesMTLSWhenIdentityFilesReadable(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	tempCert, err := os.CreateTemp(t.TempDir(), "cert-*.pem")
+	if err != nil {
+		t.Fatalf("CreateTemp cert failed: %v", err)
+	}
+	if err := tempCert.Close(); err != nil {
+		t.Fatalf("Close cert failed: %v", err)
+	}
+	tempKey, err := os.CreateTemp(t.TempDir(), "key-*.pem")
+	if err != nil {
+		t.Fatalf("CreateTemp key failed: %v", err)
+	}
+	if err := tempKey.Close(); err != nil {
+		t.Fatalf("Close key failed: %v", err)
+	}
+
+	viper.Set("tokensmith_url", "https://tokensmith.example.com")
+	viper.Set("tokensmith_service_identity_cert", tempCert.Name())
+	viper.Set("tokensmith_service_identity_key", tempKey.Name())
+	viper.Set("tokensmith_bootstrap_token", "bootstrap-token")
+
+	config, enabled, err := loadTokenExchangeConfig()
+	if err != nil {
+		t.Fatalf("loadTokenExchangeConfig returned error: %v", err)
+	}
+	if !enabled {
+		t.Fatal("expected dynamic mode enabled when tokensmith_url is set")
+	}
+	if config.AuthMethod != smdclient.TokenAuthMethodMTLSIdentity {
+		t.Fatalf("expected mTLS identity auth method, got %q", config.AuthMethod)
 	}
 }

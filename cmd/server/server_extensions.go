@@ -6,7 +6,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 
@@ -34,10 +33,11 @@ func registerCustomServerIntegrations(serverCtx context.Context, r chi.Router) e
 	// Register generated API routes.
 	RegisterGeneratedRoutes(r)
 
-	smdClient, err := initSMDClient(serverCtx)
+	smdRuntime, err := initSMDRuntime()
 	if err != nil {
-		return fmt.Errorf("failed to initialize SMD client: %w", err)
+		return err
 	}
+	smdClient := smdRuntime.client
 	storeAdapter := NewStorageAdapter()
 
 	// Re-register WireGuard routes with SMD client once available.
@@ -46,6 +46,9 @@ func registerCustomServerIntegrations(serverCtx context.Context, r chi.Router) e
 	}
 
 	RegisterCloudInitRoutes(r, smdClient, storeAdapter)
+	if smdRuntime.startWorkers != nil {
+		smdRuntime.startWorkers(serverCtx)
+	}
 	return nil
 }
 

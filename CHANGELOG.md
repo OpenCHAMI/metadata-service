@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-02
+
+### Added
+
+- Added `--log-level`/`-l` flag and debug messages for client containing HTTP request/response details
+- Added client unit tests
+- Added SMD integration service with caching and dynamic token support
+
+### Changed
+
+- Regenerated server and client using Fabrica v0.4.7
+
 ## [0.1.0] - 2026-05-12
 
 Initial release.
