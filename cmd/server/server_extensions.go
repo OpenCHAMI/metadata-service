@@ -19,13 +19,13 @@ import (
 // registerCustomServerIntegrations keeps custom metadata/wireguard wiring out of the generated
 // scaffold flow so main.go remains close to Fabrica defaults.
 func registerCustomServerIntegrations(serverCtx context.Context, r chi.Router) error {
-	wgController := setupWireGuardController(r)
-	currentWGController = wgController
-
 	if err := registerResourcePrefixesSafely(); err != nil {
 		log.Printf("Failed to register resource prefixes: %v", err)
 	}
 
+	wgController := setupWireGuardController()
+
+	currentWGController = wgController
 	if wgController != nil {
 		r.Use(wireGuardControllerMiddleware(wgController))
 		if viper.GetBool("wireguard_only") {
@@ -43,7 +43,7 @@ func registerCustomServerIntegrations(serverCtx context.Context, r chi.Router) e
 	smdClient := smdRuntime.client
 	storeAdapter := NewStorageAdapter()
 
-	// Re-register WireGuard routes with SMD client once available.
+	// WireGuard routes need the SMD client — register them after generated routes.
 	if wgController != nil {
 		registerWireGuardRoutes(r, wgController, smdClient)
 	}
@@ -70,7 +70,7 @@ func registerResourcePrefixesSafely() (err error) {
 	return registerResourcePrefixes()
 }
 
-func setupWireGuardController(r chi.Router) *wireguard.Controller {
+func setupWireGuardController() *wireguard.Controller {
 	wgCIDR := viper.GetString("wireguard_server")
 	if wgCIDR == "" {
 		return nil
@@ -89,7 +89,6 @@ func setupWireGuardController(r chi.Router) *wireguard.Controller {
 		return nil
 	}
 
-	registerWireGuardRoutes(r, controller, nil)
 	log.Printf("WireGuard userspace controller enabled on %s", wgCIDR)
 	if stateFile != "" {
 		log.Printf("WireGuard state persistence enabled at %s", stateFile)

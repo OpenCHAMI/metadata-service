@@ -221,14 +221,14 @@ func runServer(cmd *cobra.Command, args []string) error {
 		r.Mount("/debug", middleware.Profiler())
 	}
 
-	// Public service endpoints.
-	r.Get("/health", healthHandler)
-	r.Get("/openapi.json", ServeOpenAPISpec)
-	r.Get("/docs", ServeSwaggerUI)
-
 	if err := registerServerIntegrations(appCtx, r); err != nil {
 		return err
 	}
+
+	// Public service endpoints (outside WG middleware).
+	r.Get("/health", healthHandler)
+	r.Get("/openapi.json", ServeOpenAPISpec)
+	r.Get("/docs", ServeSwaggerUI)
 
 	reconcileRuntime, err := newReconciliationRuntimeFn(currentWGController)
 	if err != nil {
