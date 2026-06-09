@@ -944,16 +944,22 @@ export data_dir=/data
 
 ### Issue 3: Docker default data path fragile with read-only root
 
-**Problem:** Default `./data` path fails with read-only root filesystem policies
+**Problem:** Data directory not writable with restricted security policies
 
 **Workaround:**
 ```bash
-# Use absolute path
-./server serve --data-dir=/data
+# Default is now /data (absolute path)
+# Ensure volume is mounted
+docker run -v metadata-data:/data ...
 
-# Or mount writable volume at /app/data
-docker run -v metadata-data:/app/data ...
+# Kubernetes - use PVC
+volumes:
+- name: data
+  persistentVolumeClaim:
+    claimName: metadata-service-data
 ```
+
+**Note:** The default was changed from `./data` (relative) to `/data` (absolute) to address this issue.
 
 **Tracking:** See [bugs.md](../bugs.md#2-docker-default-data-is-fragile-with-restricted-psp)
 

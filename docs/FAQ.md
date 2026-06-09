@@ -142,7 +142,9 @@ See [TokenSmith Integration](./tokensmith-integration.md) for details.
 
 ### Where is data stored?
 
-By default: `./data` (relative to working directory)
+By default: `/data` (absolute path)
+
+**Note:** The default changed from relative `./data` to absolute `/data` to avoid issues with read-only root filesystems in containers.
 
 **Change with:**
 ```bash

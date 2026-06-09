@@ -72,7 +72,7 @@ docker build -t metadata-service:local .
 
 ### Image Details
 
-**Base Image:** `cgr.dev/chainguard/static:latest` (distroless)
+**Base Image:** `gcr.io/distroless/static-debian12:nonroot`
 
 **User:** `nonroot` (UID 65532)
 
@@ -80,7 +80,7 @@ docker build -t metadata-service:local .
 
 **Default Port:** `8080`
 
-**Default Data Dir:** `./data` (relative to workdir)
+**Default Data Dir:** `/data` (absolute path)
 
 ---
 
@@ -569,6 +569,7 @@ sudo systemctl start metadata-service
 | `TOKENSMITH_TARGET_SERVICE` | Target service name | `smd` | No |
 | `TOKENSMITH_SCOPES` | OAuth scopes | - | No |
 | `TOKENSMITH_REFRESH_SKEW_SEC` | Refresh skew (seconds) | `300` | No |
+| `TOKENSMITH_SCOPE_HINT` | Scope hint for diagnostics | - | No |
 | `LOG_LEVEL` | Log level (debug/info/warn/error) | `info` | No |
 | `WIREGUARD_SERVER` | WireGuard server CIDR | - | No |
 | `WIREGUARD_STATE_FILE` | WireGuard state file path | - | No |
@@ -580,7 +581,7 @@ metadata-service serve [flags]
 
 Flags:
   --port int                      HTTP port (default 8080)
-  --data-dir string               Data directory (default "./data")
+  --data-dir string               Data directory (default "/data")
   --smd-url string                SMD service URL
   --smd-jwt string                SMD JWT token
   --mock-smd                      Use mock SMD client
