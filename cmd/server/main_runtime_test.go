@@ -176,3 +176,45 @@ func TestRunServerStartsAndShutsDownGracefully(t *testing.T) {
 		t.Fatal("timed out waiting for runServer shutdown")
 	}
 }
+
+func TestInitSMDRuntimeReturnsFastWithMockSMD(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	originalMockSMD := mockSMD
+	mockSMD = true
+	t.Cleanup(func() { mockSMD = originalMockSMD })
+
+	t.Setenv("SMD_URL", "")
+	t.Setenv("SMD_JWT", "")
+	t.Setenv("SMD_TOKEN", "")
+	t.Setenv("TOKENSMITH_URL", "")
+	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "")
+
+	// Measure time for initSMDRuntime - should be very fast (< 100ms)
+	start := time.Now()
+	smdRuntime, err := initSMDRuntime()
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("initSMDRuntime returned error: %v", err)
+	}
+	if smdRuntime.client == nil {
+		t.Fatal("expected non-nil client")
+	}
+
+	if elapsed > 100*time.Millisecond {
+		t.Fatalf("initSMDRuntime took %v, expected < 100ms (non-blocking)", elapsed)
+	}
+
+	// Verify startWorkers also returns quickly without blocking
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	start = time.Now()
+	smdRuntime.startWorkers(ctx)
+	elapsed = time.Since(start)
+
+	if elapsed > 50*time.Millisecond {
+		t.Fatalf("startWorkers took %v, expected < 50ms (non-blocking)", elapsed)
+	}
+}

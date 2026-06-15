@@ -109,6 +109,7 @@ func TestStorageAdapterGetClusterDefaultsReturnsLatestUpdated(t *testing.T) {
 	}
 	if got == nil {
 		t.Fatal("expected cluster defaults, got nil")
+		return
 	}
 	if got.BaseURL != "http://new.example" {
 		t.Fatalf("expected latest cluster defaults base URL, got %q", got.BaseURL)
@@ -128,6 +129,7 @@ func TestStorageAdapterGetInstanceInfoMatchesByNameOrSpecAndPrefersLatest(t *tes
 	}
 	if got == nil {
 		t.Fatal("expected instance info, got nil")
+		return
 	}
 	if got.Hostname != "latest-host" {
 		t.Fatalf("expected latest hostname, got %q", got.Hostname)
@@ -150,6 +152,7 @@ func TestStorageAdapterGetGroupDataMatchesByNameAndPrefersLatest(t *testing.T) {
 	}
 	if got == nil {
 		t.Fatal("expected group data, got nil")
+		return
 	}
 	if got.Spec.Description != "new description" {
 		t.Fatalf("expected latest group description, got %q", got.Spec.Description)

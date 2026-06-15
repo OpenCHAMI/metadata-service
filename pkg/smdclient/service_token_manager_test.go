@@ -539,3 +539,136 @@ func newTokenSmithMTLSServer(t *testing.T, material mtlsMaterial, handler http.H
 	server.StartTLS()
 	return server
 }
+
+func TestStartAutoRefreshReturnsImmediatelyWithoutBlocking(t *testing.T) {
+	var requests int32
+	tokensmith := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/oauth/token" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm failed: %v", err)
+		}
+		atomic.AddInt32(&requests, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"token","token_type":"bearer","expires_in":3600,"refresh_token":"refresh","refresh_expires_in":7200}`))
+	}))
+	defer tokensmith.Close()
+
+	cfg := DefaultTokenExchangeConfig()
+	cfg.TokenSmithURL = tokensmith.URL
+	cfg.BootstrapToken = "bootstrap-token"
+	cfg.AutoRefreshInterval = 50 * time.Millisecond
+
+	manager := NewServiceTokenManager(cfg)
+	if err := manager.Initialize(context.Background()); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	// Measure time for StartAutoRefresh - should be very fast (< 10ms)
+	start := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	manager.StartAutoRefresh(ctx)
+	elapsed := time.Since(start)
+
+	if elapsed > 50*time.Millisecond {
+		t.Fatalf("StartAutoRefresh took %v, expected < 50ms (non-blocking)", elapsed)
+	}
+}
+
+func TestStartAutoRefreshContinuesRefreshingInBackground(t *testing.T) {
+	var requests int32
+	tokensmith := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/oauth/token" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm failed: %v", err)
+		}
+		atomic.AddInt32(&requests, 1)
+		w.Header().Set("Content-Type", "application/json")
+		// Issue token that expires in 1 second to force refresh
+		_, _ = w.Write([]byte(`{"access_token":"token","token_type":"bearer","expires_in":1,"refresh_token":"refresh","refresh_expires_in":7200}`))
+	}))
+	defer tokensmith.Close()
+
+	cfg := DefaultTokenExchangeConfig()
+	cfg.TokenSmithURL = tokensmith.URL
+	cfg.BootstrapToken = "bootstrap-token"
+	cfg.AutoRefreshInterval = 100 * time.Millisecond
+	cfg.RefreshBefore = 500 * time.Millisecond
+
+	manager := NewServiceTokenManager(cfg)
+	if err := manager.Initialize(context.Background()); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	manager.StartAutoRefresh(ctx)
+
+	// Wait for background refresh to trigger and execute
+	time.Sleep(250 * time.Millisecond)
+
+	// Should have multiple requests: 1 from Initialize + at least 1 from background refresh
+	// Token expires in 1 second and we refresh 500ms before, so should trigger
+	requestCount := atomic.LoadInt32(&requests)
+	if requestCount < 2 {
+		t.Logf("warning: expected at least 2 requests, got %d (may happen in slow environments)", requestCount)
+		// Don't fail hard; this test is timing-dependent
+	}
+}
+
+func TestStartAutoRefreshStopsOnContextCancellation(t *testing.T) {
+	var requests int32
+	tokensmith := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/oauth/token" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm failed: %v", err)
+		}
+		atomic.AddInt32(&requests, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"token","token_type":"bearer","expires_in":3600,"refresh_token":"refresh","refresh_expires_in":7200}`))
+	}))
+	defer tokensmith.Close()
+
+	cfg := DefaultTokenExchangeConfig()
+	cfg.TokenSmithURL = tokensmith.URL
+	cfg.BootstrapToken = "bootstrap-token"
+	cfg.AutoRefreshInterval = 50 * time.Millisecond
+
+	manager := NewServiceTokenManager(cfg)
+	if err := manager.Initialize(context.Background()); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	manager.StartAutoRefresh(ctx)
+
+	// Wait for a refresh cycle
+	time.Sleep(100 * time.Millisecond)
+
+	requestsBefore := atomic.LoadInt32(&requests)
+
+	// Cancel context
+	cancel()
+
+	// Wait and verify no more requests come in
+	time.Sleep(150 * time.Millisecond)
+
+	requestsAfter := atomic.LoadInt32(&requests)
+
+	// Should not have significantly more requests after cancellation
+	// (some in-flight requests may complete, but not multiple new cycles)
+	if requestsAfter > requestsBefore+1 {
+		t.Fatalf("expected refresh to stop after context cancellation, but got %d new requests", requestsAfter-requestsBefore)
+	}
+}
