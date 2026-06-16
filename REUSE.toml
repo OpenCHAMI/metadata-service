@@ -4,6 +4,12 @@ SPDX-PackageSupplier = "OpenCHAMI <info@openchami.org>"
 SPDX-PackageDownloadLocation = "https://github.com/openchami/openchami/metadata-service"
 
 [[annotations]]
+path = ".github/renovate.json"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 OpenCHAMI Contributors"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = "docs/_posts/**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2025 OpenCHAMI Contributors"
