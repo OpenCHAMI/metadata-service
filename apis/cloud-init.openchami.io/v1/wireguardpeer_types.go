@@ -12,26 +12,26 @@ import (
 
 // WireGuardPeer defines a userspace WireGuard peer managed via Fabrica (hub/storage version).
 type WireGuardPeer struct {
-	APIVersion string              `json:"apiVersion"`
-	Kind       string              `json:"kind"`
-	Metadata   fabrica.Metadata    `json:"metadata"`
-	Spec       WireGuardPeerSpec   `json:"spec"`
-	Status     WireGuardPeerStatus `json:"status,omitempty"`
+	APIVersion string              `json:"apiVersion" yaml:"apiVersion"`
+	Kind       string              `json:"kind" yaml:"kind"`
+	Metadata   fabrica.Metadata    `json:"metadata" yaml:"metadata"`
+	Spec       WireGuardPeerSpec   `json:"spec" yaml:"spec"`
+	Status     WireGuardPeerStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // WireGuardPeerSpec captures desired peer configuration.
 type WireGuardPeerSpec struct { //nolint: revive
-	Description string `json:"description,omitempty"`
-	PublicKey   string `json:"public_key" validate:"required"`
-	AllowedIP   string `json:"allowed_ip" validate:"required"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+	PublicKey   string `json:"public_key" yaml:"public_key" validate:"required"`
+	AllowedIP   string `json:"allowed_ip" yaml:"allowed_ip" validate:"required"`
 }
 
 // WireGuardPeerStatus reports reconciliation outcome.
 type WireGuardPeerStatus struct { //nolint: revive
-	Phase   string `json:"phase,omitempty"`
-	Message string `json:"message,omitempty"`
-	Ready   bool   `json:"ready,omitempty"`
-	Version string `json:"version,omitempty"`
+	Phase   string `json:"phase,omitempty" yaml:"phase,omitempty"`
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+	Ready   bool   `json:"ready,omitempty" yaml:"ready,omitempty"`
+	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // IsHub marks this as the hub/storage version.

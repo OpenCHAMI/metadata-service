@@ -19,41 +19,41 @@ import (
 
 // Group represents a Group resource (hub/storage version).
 type Group struct {
-	APIVersion string           `json:"apiVersion"`
-	Kind       string           `json:"kind"`
-	Metadata   fabrica.Metadata `json:"metadata"`
-	Spec       GroupSpec        `json:"spec"`
-	Status     GroupStatus      `json:"status,omitempty"`
+	APIVersion string           `json:"apiVersion" yaml:"apiVersion"`
+	Kind       string           `json:"kind" yaml:"kind"`
+	Metadata   fabrica.Metadata `json:"metadata" yaml:"metadata"`
+	Spec       GroupSpec        `json:"spec" yaml:"spec"`
+	Status     GroupStatus      `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // GroupSpec defines the desired state of Group.
 type GroupSpec struct { //nolint: revive
-	Description string            `json:"description,omitempty"`
-	Template    string            `json:"template" validate:"required"`
-	MetaData    map[string]string `json:"metaData,omitempty"`
-	OSVersion   string            `json:"osVersion,omitempty"`
+	Description string            `json:"description,omitempty" yaml:"description,omitempty"`
+	Template    string            `json:"template" yaml:"template" validate:"required"`
+	MetaData    map[string]string `json:"metaData,omitempty" yaml:"metaData,omitempty"`
+	OSVersion   string            `json:"osVersion,omitempty" yaml:"osVersion,omitempty"`
 }
 
 // GroupStatus defines the observed state of Group.
 type GroupStatus struct { //nolint: revive
-	LastApplied            string                `json:"lastApplied,omitempty"`
-	Valid                  bool                  `json:"valid"`
-	ErrorMessage           string                `json:"errorMessage,omitempty"`
-	ErrorDetails           string                `json:"errorDetails,omitempty"`
-	TemplateHash           string                `json:"templateHash,omitempty"`
-	TemplateVersion        string                `json:"templateVersion,omitempty"`
-	CurrentTemplateVersion string                `json:"currentTemplateVersion,omitempty"`
-	Version                string                `json:"version,omitempty"`
-	TemplateHistory        []TemplateVersionInfo `json:"templateHistory,omitempty"`
-	RequiredVariables      []string              `json:"requiredVariables,omitempty"`
+	LastApplied            string                `json:"lastApplied,omitempty" yaml:"lastApplied,omitempty"`
+	Valid                  bool                  `json:"valid" yaml:"valid"`
+	ErrorMessage           string                `json:"errorMessage,omitempty" yaml:"errorMessage,omitempty"`
+	ErrorDetails           string                `json:"errorDetails,omitempty" yaml:"errorDetails,omitempty"`
+	TemplateHash           string                `json:"templateHash,omitempty" yaml:"templateHash,omitempty"`
+	TemplateVersion        string                `json:"templateVersion,omitempty" yaml:"templateVersion,omitempty"`
+	CurrentTemplateVersion string                `json:"currentTemplateVersion,omitempty" yaml:"currentTemplateVersion,omitempty"`
+	Version                string                `json:"version,omitempty" yaml:"version,omitempty"`
+	TemplateHistory        []TemplateVersionInfo `json:"templateHistory,omitempty" yaml:"templateHistory,omitempty"`
+	RequiredVariables      []string              `json:"requiredVariables,omitempty" yaml:"requiredVariables,omitempty"`
 }
 
 // TemplateVersionInfo tracks template history.
 type TemplateVersionInfo struct {
-	Version      string `json:"version"`
-	Timestamp    string `json:"timestamp"`
-	Valid        bool   `json:"valid"`
-	ErrorMessage string `json:"errorMessage,omitempty"`
+	Version      string `json:"version" yaml:"version"`
+	Timestamp    string `json:"timestamp" yaml:"timestamp"`
+	Valid        bool   `json:"valid" yaml:"valid"`
+	ErrorMessage string `json:"errorMessage,omitempty" yaml:"errorMessage,omitempty"`
 }
 
 // IsHub marks this as the hub/storage version.
