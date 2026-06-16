@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1.7-labs
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
+
+## Builder: builds the metadata-service binary inside the container
+ARG GO_VERSION=1.26.3
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
+ARG VERSION=dev
+ARG COMMIT=dirty
+ARG DATE
+ENV CGO_ENABLED=0
+
+WORKDIR /src
+
+RUN apk add --no-cache ca-certificates git build-base
+
+# Cache deps
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+# Copy source
+COPY . .
+
+# Build
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath \
+      -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
+      -o /out/metadata-service ./cmd/server
+
+## Runtime: minimal distroless image
+FROM gcr.io/distroless/static-debian12:nonroot
+
+WORKDIR /app
+COPY --from=builder /out/metadata-service /usr/local/bin/metadata-service
+
+USER nonroot:nonroot
+EXPOSE 8080 9090
+
+ENTRYPOINT ["/usr/local/bin/metadata-service"]
+CMD ["serve"]
