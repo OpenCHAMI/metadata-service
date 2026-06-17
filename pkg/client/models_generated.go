@@ -43,66 +43,66 @@ import (
 
 // CreateClusterDefaultsRequest represents a request to create a ClusterDefaults
 type CreateClusterDefaultsRequest struct {
-	Metadata    fabrica.Metadata       `json:"metadata" validate:"required"`
-	Spec        v1.ClusterDefaultsSpec `json:"spec" validate:"required"`
-	Labels      map[string]string      `json:"labels,omitempty"`
-	Annotations map[string]string      `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata       `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.ClusterDefaultsSpec `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string      `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string      `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // UpdateClusterDefaultsRequest represents a request to update a ClusterDefaults
 type UpdateClusterDefaultsRequest struct {
-	Metadata    fabrica.Metadata       `json:"metadata,omitempty"`
-	Spec        v1.ClusterDefaultsSpec `json:"spec,omitempty" validate:"omitempty"`
-	Labels      map[string]string      `json:"labels,omitempty"`
-	Annotations map[string]string      `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata       `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.ClusterDefaultsSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string      `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string      `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // CreateGroupRequest represents a request to create a Group
 type CreateGroupRequest struct {
-	Metadata    fabrica.Metadata  `json:"metadata" validate:"required"`
-	Spec        v1.GroupSpec      `json:"spec" validate:"required"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata  `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.GroupSpec      `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // UpdateGroupRequest represents a request to update a Group
 type UpdateGroupRequest struct {
-	Metadata    fabrica.Metadata  `json:"metadata,omitempty"`
-	Spec        v1.GroupSpec      `json:"spec,omitempty" validate:"omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata  `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.GroupSpec      `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // CreateInstanceInfoRequest represents a request to create a InstanceInfo
 type CreateInstanceInfoRequest struct {
-	Metadata    fabrica.Metadata    `json:"metadata" validate:"required"`
-	Spec        v1.InstanceInfoSpec `json:"spec" validate:"required"`
-	Labels      map[string]string   `json:"labels,omitempty"`
-	Annotations map[string]string   `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata    `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.InstanceInfoSpec `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string   `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string   `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // UpdateInstanceInfoRequest represents a request to update a InstanceInfo
 type UpdateInstanceInfoRequest struct {
-	Metadata    fabrica.Metadata    `json:"metadata,omitempty"`
-	Spec        v1.InstanceInfoSpec `json:"spec,omitempty" validate:"omitempty"`
-	Labels      map[string]string   `json:"labels,omitempty"`
-	Annotations map[string]string   `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata    `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.InstanceInfoSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string   `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string   `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // CreateWireGuardPeerRequest represents a request to create a WireGuardPeer
 type CreateWireGuardPeerRequest struct {
-	Metadata    fabrica.Metadata     `json:"metadata" validate:"required"`
-	Spec        v1.WireGuardPeerSpec `json:"spec" validate:"required"`
-	Labels      map[string]string    `json:"labels,omitempty"`
-	Annotations map[string]string    `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata     `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.WireGuardPeerSpec `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string    `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // UpdateWireGuardPeerRequest represents a request to update a WireGuardPeer
 type UpdateWireGuardPeerRequest struct {
-	Metadata    fabrica.Metadata     `json:"metadata,omitempty"`
-	Spec        v1.WireGuardPeerSpec `json:"spec,omitempty" validate:"omitempty"`
-	Labels      map[string]string    `json:"labels,omitempty"`
-	Annotations map[string]string    `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata     `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.WireGuardPeerSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string    `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // DeleteResponse represents a successful deletion response

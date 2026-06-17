@@ -47,10 +47,10 @@ type ClusterDefaultsResponse = v1.ClusterDefaults
 
 // CreateClusterDefaultsRequest represents a request to create a ClusterDefaults
 type CreateClusterDefaultsRequest struct {
-	Metadata    fabrica.Metadata       `json:"metadata" validate:"required"`
-	Spec        v1.ClusterDefaultsSpec `json:"spec" validate:"required"`
-	Labels      map[string]string      `json:"labels,omitempty"`
-	Annotations map[string]string      `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata       `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.ClusterDefaultsSpec `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string      `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string      `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // AsSpec converts the request fields to a spec object
@@ -60,10 +60,10 @@ func (r *CreateClusterDefaultsRequest) AsSpec() v1.ClusterDefaultsSpec {
 
 // UpdateClusterDefaultsRequest represents a request to update a ClusterDefaults
 type UpdateClusterDefaultsRequest struct {
-	Metadata    fabrica.Metadata       `json:"metadata,omitempty"`
-	Spec        v1.ClusterDefaultsSpec `json:"spec,omitempty" validate:"omitempty"`
-	Labels      map[string]string      `json:"labels,omitempty"`
-	Annotations map[string]string      `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata       `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.ClusterDefaultsSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string      `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string      `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // AsSpec converts the request fields to a spec object
@@ -76,10 +76,10 @@ type GroupResponse = v1.Group
 
 // CreateGroupRequest represents a request to create a Group
 type CreateGroupRequest struct {
-	Metadata    fabrica.Metadata  `json:"metadata" validate:"required"`
-	Spec        v1.GroupSpec      `json:"spec" validate:"required"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata  `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.GroupSpec      `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // AsSpec converts the request fields to a spec object
@@ -89,10 +89,10 @@ func (r *CreateGroupRequest) AsSpec() v1.GroupSpec {
 
 // UpdateGroupRequest represents a request to update a Group
 type UpdateGroupRequest struct {
-	Metadata    fabrica.Metadata  `json:"metadata,omitempty"`
-	Spec        v1.GroupSpec      `json:"spec,omitempty" validate:"omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata  `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.GroupSpec      `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // AsSpec converts the request fields to a spec object
@@ -105,10 +105,10 @@ type InstanceInfoResponse = v1.InstanceInfo
 
 // CreateInstanceInfoRequest represents a request to create a InstanceInfo
 type CreateInstanceInfoRequest struct {
-	Metadata    fabrica.Metadata    `json:"metadata" validate:"required"`
-	Spec        v1.InstanceInfoSpec `json:"spec" validate:"required"`
-	Labels      map[string]string   `json:"labels,omitempty"`
-	Annotations map[string]string   `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata    `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.InstanceInfoSpec `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string   `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string   `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // AsSpec converts the request fields to a spec object
@@ -118,10 +118,10 @@ func (r *CreateInstanceInfoRequest) AsSpec() v1.InstanceInfoSpec {
 
 // UpdateInstanceInfoRequest represents a request to update a InstanceInfo
 type UpdateInstanceInfoRequest struct {
-	Metadata    fabrica.Metadata    `json:"metadata,omitempty"`
-	Spec        v1.InstanceInfoSpec `json:"spec,omitempty" validate:"omitempty"`
-	Labels      map[string]string   `json:"labels,omitempty"`
-	Annotations map[string]string   `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata    `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.InstanceInfoSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string   `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string   `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // AsSpec converts the request fields to a spec object
@@ -134,10 +134,10 @@ type WireGuardPeerResponse = v1.WireGuardPeer
 
 // CreateWireGuardPeerRequest represents a request to create a WireGuardPeer
 type CreateWireGuardPeerRequest struct {
-	Metadata    fabrica.Metadata     `json:"metadata" validate:"required"`
-	Spec        v1.WireGuardPeerSpec `json:"spec" validate:"required"`
-	Labels      map[string]string    `json:"labels,omitempty"`
-	Annotations map[string]string    `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata     `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.WireGuardPeerSpec `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string    `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // AsSpec converts the request fields to a spec object
@@ -147,10 +147,10 @@ func (r *CreateWireGuardPeerRequest) AsSpec() v1.WireGuardPeerSpec {
 
 // UpdateWireGuardPeerRequest represents a request to update a WireGuardPeer
 type UpdateWireGuardPeerRequest struct {
-	Metadata    fabrica.Metadata     `json:"metadata,omitempty"`
-	Spec        v1.WireGuardPeerSpec `json:"spec,omitempty" validate:"omitempty"`
-	Labels      map[string]string    `json:"labels,omitempty"`
-	Annotations map[string]string    `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata     `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.WireGuardPeerSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string    `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // AsSpec converts the request fields to a spec object
