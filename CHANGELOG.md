@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-06-17
+
+### Added
+
+- Added YAML struct tags to allow marshalling/unmarshalling YAML data for resources
+
+### Changed
+
+- Regenerated server and client using Fabrica v0.4.8
+- Generalized container runtime in Makefile
+
 ## [0.1.1] - 2026-06-02
 
 ### Added
