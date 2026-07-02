@@ -140,7 +140,7 @@ Restart the server with the following.
 bin/ochami-metadata-server serve \
   --data-dir /tmp/metadata-test-wgonly \
   --wireguard-server 100.97.0.1/24 \
-  --wireguard-only 
+  --wireguard-only
 curl -s $METADATA_SERVICE_HOST/wg-init -w "\nHTTP %{http_code}\n"                                    # 403
 curl -s -H "X-Forwarded-For: 100.97.0.5" $METADATA_SERVICE_HOST/wg-init \
   -H "Content-Type: application/json" \
