@@ -258,6 +258,7 @@ func generateMetaData(smd smdclient.SMDClient, component *smdclient.Component, g
 }
 
 func buildTemplateContext(metadata MetaData) map[string]any {
+	// Build core context structure
 	ctx := map[string]any{
 		"instance_id":    metadata.InstanceID,
 		"local_hostname": metadata.LocalHostname,
@@ -301,7 +302,12 @@ func buildTemplateContext(metadata MetaData) map[string]any {
 		}
 	}
 
-	return ctx
+	// Wrap in 'ds' (datasource) key for cloud-init standards compliance
+	// This enables template variables like: {{ ds.meta_data.instance_data.v1.public_keys }}
+	// and matches the validation structure in group_types.go
+	return map[string]any{
+		"ds": ctx,
+	}
 }
 
 // generateHostname creates a hostname from cluster name and component NID
