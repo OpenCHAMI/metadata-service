@@ -43,6 +43,7 @@ func TestSMDIntegrationServiceSyncWorkerInitialAndPeriodic(t *testing.T) {
 	backend.AddGroupMembership("x1000c0s0b0n0", []string{"compute"})
 
 	service := NewSMDIntegrationService(backend, IntegrationOptions{SyncEnabled: true, SyncInterval: 40 * time.Millisecond})
+	service.SignalTokenReady()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -176,6 +177,7 @@ func TestSMDIntegrationServiceSyncWorkerStopsOnCancel(t *testing.T) {
 	backend.AddGroupMembership("x1000c0s0b0n0", []string{"compute"})
 
 	service := NewSMDIntegrationService(backend, IntegrationOptions{SyncEnabled: true, SyncInterval: 30 * time.Millisecond})
+	service.SignalTokenReady()
 	ctx, cancel := context.WithCancel(context.Background())
 	service.StartSyncWorker(ctx)
 
@@ -187,5 +189,74 @@ func TestSMDIntegrationServiceSyncWorkerStopsOnCancel(t *testing.T) {
 	after := backend.Calls()
 	if after > before+1 {
 		t.Fatalf("expected worker to stop on cancel, calls before=%d after=%d", before, after)
+	}
+}
+
+func TestSMDIntegrationServiceSyncWaitsForTokenReady(t *testing.T) {
+	backend := &countingBackend{MockSMDClient: NewMockSMDClient()}
+	backend.AddComponent(&Component{ID: "x1000c0s0b0n0", NID: 1000, Role: "compute", IP: "10.0.0.100"})
+	backend.AddGroupMembership("x1000c0s0b0n0", []string{"compute"})
+
+	service := NewSMDIntegrationService(backend, IntegrationOptions{SyncEnabled: true, SyncInterval: time.Second})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	service.StartSyncWorker(ctx)
+
+	time.Sleep(100 * time.Millisecond)
+	if backend.Calls() > 0 {
+		t.Fatal("sync should not start before token ready signal")
+	}
+
+	service.SignalTokenReady()
+
+	waitFor(t, time.Second, func() bool { return backend.Calls() > 0 }, "sync should start after token ready signal")
+
+	if backend.Calls() == 0 {
+		t.Fatal("sync did not start after token ready signal")
+	}
+}
+
+func TestSMDIntegrationServiceSignalTokenReadyIsIdempotent(t *testing.T) {
+	backend := NewMockSMDClient()
+	backend.AddComponent(&Component{ID: "x1000c0s0b0n0", NID: 1000, Role: "compute", IP: "10.0.0.100"})
+
+	service := NewSMDIntegrationService(backend, IntegrationOptions{SyncEnabled: true, SyncInterval: time.Minute})
+
+	service.SignalTokenReady()
+	service.SignalTokenReady()
+	service.SignalTokenReady()
+
+	select {
+	case <-service.tokenReady:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("tokenReady channel should be closed after SignalTokenReady")
+	}
+}
+
+func TestSMDIntegrationServiceSyncRespondsToContextCancellationWhileWaitingForToken(t *testing.T) {
+	backend := NewMockSMDClient()
+	backend.AddComponent(&Component{ID: "x1000c0s0b0n0", NID: 1000, Role: "compute", IP: "10.0.0.100"})
+
+	service := NewSMDIntegrationService(backend, IntegrationOptions{SyncEnabled: true, SyncInterval: time.Second})
+	ctx, cancel := context.WithCancel(context.Background())
+
+	workerStarted := make(chan struct{})
+	workerExited := make(chan struct{})
+	go func() {
+		close(workerStarted)
+		service.StartSyncWorker(ctx)
+		close(workerExited)
+	}()
+
+	<-workerStarted
+	time.Sleep(50 * time.Millisecond)
+
+	cancel()
+
+	select {
+	case <-workerExited:
+	case <-time.After(time.Second):
+		t.Fatal("sync worker did not exit after context cancellation while waiting for token")
 	}
 }

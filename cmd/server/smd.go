@@ -84,6 +84,8 @@ func initSMDRuntime() (smdRuntime, error) {
 		log.Warn().Msg("Using mock SMD client because --mock-smd was set")
 		mock := createMockSMDClient()
 		service := smdclient.NewSMDIntegrationService(mock, smdSyncOptions())
+		service.SignalTokenReady()
+		log.Debug().Msg("Mock SMD client ready, signaled sync worker immediately")
 		currentSMDHealth = dynamicSMDHealthReporter{service: service}
 		return smdRuntime{
 			client: service,
@@ -100,6 +102,15 @@ func initSMDRuntime() (smdRuntime, error) {
 	}
 
 	service := smdclient.NewSMDIntegrationService(client, smdSyncOptions())
+
+	if manager != nil {
+		service.SignalTokenReady()
+		log.Debug().Msg("Token initialization complete, signaled sync worker")
+	} else {
+		service.SignalTokenReady()
+		log.Debug().Msg("Static auth mode, signaled sync worker immediately")
+	}
+
 	currentSMDHealth = dynamicSMDHealthReporter{
 		service:      service,
 		tokenManager: manager,
