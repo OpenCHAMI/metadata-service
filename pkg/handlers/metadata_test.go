@@ -522,8 +522,8 @@ func TestGroupUserDataHandler(t *testing.T) {
 				Spec: group.GroupSpec{
 					Description: "Compute nodes",
 					Template: `#cloud-config
-hostname: {{ hostname }}
-fqdn: {{ hostname }}.testcluster.local
+hostname: {{ ds.hostname }}
+fqdn: {{ ds.hostname }}.testcluster.local
 `,
 					MetaData: map[string]string{},
 				},
@@ -1027,7 +1027,7 @@ func TestGroupUserDataHandler_WithNetworkConfig(t *testing.T) {
 network:
   version: 1
   config:
-{% for iface in interfaces %}    - type: physical
+{% for iface in ds.interfaces %}    - type: physical
       name: {{ iface.name }}
       mac_address: {{ iface.mac }}
       subnets:
@@ -1215,5 +1215,92 @@ func TestNetworkConfigHandler(t *testing.T) {
 	}
 	if !strings.Contains(rendered, "address:") {
 		t.Error("Expected address in subnets")
+	}
+}
+
+func TestGroupTemplateRenderingWithDatasourcePaths(t *testing.T) {
+	smd := smdclient.NewMockSMDClient()
+	smd.AddComponent(&smdclient.Component{
+		ID:   "x1000c0s0b0n0",
+		NID:  1000,
+		Role: "compute",
+		MAC:  "aa:bb:cc:dd:ee:ff",
+		IP:   "10.0.0.100",
+	})
+	smd.AddGroupMembership("x1000c0s0b0n0", []string{"compute"})
+
+	store := &mockStore{
+		clusterDefaults: &handlers.ClusterDefaults{
+			BaseURL:       "http://test.local",
+			CloudProvider: "OpenCHAMI",
+			Region:        "us-test-1",
+			ClusterName:   "testcluster",
+			ShortName:     "tc",
+			NidLength:     4,
+			PublicKeys:    []string{"ssh-rsa AAAAB3... test@key"},
+		},
+		instanceInfo: map[string]*handlers.InstanceInfo{},
+		groupData: map[string]*group.Group{
+			"compute": {
+				Spec: group.GroupSpec{
+					Description: "Compute nodes with ds.* paths",
+					Template: `#cloud-config
+hostname: {{ ds.hostname }}
+users:
+  - name: root
+    ssh_authorized_keys:{% for key in ds.meta_data.instance_data.v1.public_keys %}
+      - {{ key }}{% endfor %}
+write_files:
+  - path: /etc/node-info
+    content: |
+      NID={{ ds.nid }}
+      ROLE={{ ds.role }}
+      IP={{ ds.ip }}
+`,
+				},
+			},
+		},
+	}
+
+	r := chi.NewRouter()
+	r.Get("/{group}.yaml", handlers.GroupUserDataHandler(smd, store))
+
+	req := httptest.NewRequest("GET", "/compute.yaml", nil)
+	req.RemoteAddr = "10.0.0.100:12345"
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("Expected status 200, got %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	rendered := string(body)
+
+	if !strings.Contains(rendered, "hostname: tc1000") {
+		t.Errorf("Expected rendered hostname, got: %s", rendered)
+	}
+
+	if !strings.Contains(rendered, "ssh-rsa AAAAB3... test@key") {
+		t.Errorf("Expected rendered public_keys from ds.meta_data.instance_data.v1.public_keys, got: %s", rendered)
+	}
+
+	if !strings.Contains(rendered, "NID=1000") {
+		t.Errorf("Expected rendered NID from ds.nid, got: %s", rendered)
+	}
+
+	if !strings.Contains(rendered, "ROLE=compute") {
+		t.Errorf("Expected rendered role from ds.role, got: %s", rendered)
+	}
+
+	if !strings.Contains(rendered, "IP=10.0.0.100") {
+		t.Errorf("Expected rendered IP from ds.ip, got: %s", rendered)
 	}
 }

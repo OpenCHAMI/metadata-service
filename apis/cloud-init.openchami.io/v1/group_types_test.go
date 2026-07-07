@@ -16,9 +16,9 @@ func TestGroupValidateSuccess(t *testing.T) {
 	group := &Group{
 		Spec: GroupSpec{
 			Template: `#cloud-config
-hostname: {{ hostname }}
-role: "{{ role }}"
-syslog: "{{ vendor_data.groups.rack1.syslog_forwarder }}"
+hostname: {{ ds.hostname }}
+role: "{{ ds.role }}"
+syslog: "{{ ds.vendor_data.groups.rack1.syslog_forwarder }}"
 note: "{{ custom_message }}"
 `,
 			MetaData: map[string]string{
@@ -56,7 +56,7 @@ note: "{{ custom_message }}"
 		required[variable] = true
 	}
 
-	for _, expected := range []string{"hostname", "role", "vendor_data", "vendor_data.groups.rack1.syslog_forwarder", "custom_message"} {
+	for _, expected := range []string{"ds", "ds.hostname", "ds.role", "ds.vendor_data.groups.rack1.syslog_forwarder", "custom_message"} {
 		if !required[expected] {
 			t.Fatalf("expected required variables to contain %q, got %v", expected, group.Status.RequiredVariables)
 		}
@@ -105,7 +105,7 @@ func TestGroupValidateRejectsInvalidRenderedYAML(t *testing.T) {
 
 	group := &Group{
 		Spec: GroupSpec{
-			Template: `bad_list: [{{ hostname }}`,
+			Template: `bad_list: [{{ ds.hostname }}`,
 		},
 	}
 
@@ -135,5 +135,49 @@ func TestGroupValidateRejectsInvalidRenderedYAML(t *testing.T) {
 	}
 	if !strings.Contains(group.Status.TemplateHistory[0].ErrorMessage, "yaml") && !strings.Contains(strings.ToLower(group.Status.TemplateHistory[0].ErrorMessage), "yaml") {
 		t.Fatalf("expected YAML error in template history, got %q", group.Status.TemplateHistory[0].ErrorMessage)
+	}
+}
+
+func TestGroupValidateDatasourcePaths(t *testing.T) {
+	t.Parallel()
+
+	group := &Group{
+		Spec: GroupSpec{
+			Template: `#cloud-config
+hostname: {{ ds.hostname }}
+merge_how:
+- name: list
+  settings: [append]
+- name: dict
+  settings: [no_replace, recurse_list]
+users:
+  - name: root
+    ssh_authorized_keys: {{ ds.meta_data.instance_data.v1.public_keys }}
+disable_root: false
+`,
+		},
+	}
+
+	if err := group.Validate(context.Background()); err != nil {
+		t.Fatalf("Validate() returned error for ds.* paths: %v", err)
+	}
+
+	if !group.Status.Valid {
+		t.Fatalf("expected group with ds.* paths to be valid, got status: %+v", group.Status)
+	}
+
+	if group.Status.ErrorMessage != "" {
+		t.Fatalf("expected empty error message, got %q", group.Status.ErrorMessage)
+	}
+
+	required := make(map[string]bool, len(group.Status.RequiredVariables))
+	for _, variable := range group.Status.RequiredVariables {
+		required[variable] = true
+	}
+
+	for _, expected := range []string{"ds", "ds.hostname", "ds.meta_data.instance_data.v1.public_keys"} {
+		if !required[expected] {
+			t.Fatalf("expected required variables to contain %q, got %v", expected, group.Status.RequiredVariables)
+		}
 	}
 }

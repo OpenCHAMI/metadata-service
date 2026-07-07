@@ -321,10 +321,10 @@ make generate
 func registerCustomServerIntegrations(router chi.Router, backend storage.Backend) {
     // Register generated routes first
     RegisterGeneratedRoutes(router, backend)
-    
+
     // Add custom cloud-init routes
     registerCloudInitRoutes(router, backend)
-    
+
     // Add WireGuard routes if enabled
     if wireguardEnabled {
         registerWireGuardRoutes(router, backend, controller)
@@ -351,7 +351,7 @@ type StorageAdapter interface {
     LoadClusterDefaults(ctx context.Context, uid string) (*v1.ClusterDefaults, error)
     LoadAllClusterDefaults(ctx context.Context) ([]*v1.ClusterDefaults, error)
     DeleteClusterDefaults(ctx context.Context, uid string) error
-    
+
     // Custom queries
     GetClusterDefaults(ctx context.Context) (*v1.ClusterDefaults, error)  // latest
     GetGroupData(ctx context.Context, name string) (*v1.Group, error)     // latest by name

@@ -148,8 +148,10 @@ func extractTemplateVariables(tmpl string) []string {
 }
 
 // sampleMetadata returns example metadata for validation.
+// Returns a cloud-init datasource-compliant structure wrapped in 'ds' key.
 func sampleMetadata() map[string]any {
-	return map[string]any{
+	// Build the core data structure that templates will access via ds.*
+	coreData := map[string]any{
 		"cluster_name":      "test-cluster",
 		"base_url":          "http://cloud-init.local",
 		"cloud_provider":    "OpenCHAMI",
@@ -185,6 +187,7 @@ func sampleMetadata() map[string]any {
 			"cluster-name":   "test-cluster",
 			"instance_data": map[string]any{
 				"v1": map[string]any{
+					"public_keys": []string{"ssh-rsa AAAAB3Nza..."},
 					"vendor_data": map[string]any{
 						"groups": map[string]any{
 							"rack1": map[string]any{
@@ -195,6 +198,12 @@ func sampleMetadata() map[string]any {
 				},
 			},
 		},
+	}
+
+	// Wrap in 'ds' (datasource) key for cloud-init compliance
+	// This enables template variables like: {{ ds.meta_data.instance_data.v1.public_keys }}
+	return map[string]any{
+		"ds": coreData,
 	}
 }
 

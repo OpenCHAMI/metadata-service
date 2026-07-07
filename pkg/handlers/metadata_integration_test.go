@@ -257,7 +257,7 @@ func TestIntegrationSyslogRackMetadataIsolation(t *testing.T) {
 			"syslog-ng": {
 				Spec: cloudinitv1.GroupSpec{
 					Description: "Syslog config",
-					Template:    "#cloud-config\nsyslog:\n  forwarder: {% for name, group in vendor_data.groups %}{% if group.syslog_forwarder %}{{ group.syslog_forwarder }}{% endif %}{% endfor %}\n",
+					Template:    "#cloud-config\nsyslog:\n  forwarder: {% for name, group in ds.vendor_data.groups %}{% if group.syslog_forwarder %}{{ group.syslog_forwarder }}{% endif %}{% endfor %}\n",
 					MetaData:    map[string]string{},
 				},
 			},
@@ -364,7 +364,7 @@ func TestIntegrationPerHostArtifactsOverWireGuardIdentity(t *testing.T) {
 			"syslog-ng": {
 				Spec: cloudinitv1.GroupSpec{
 					Description: "Syslog config",
-					Template:    "#cloud-config\nsyslog:\n  forwarder: {% for name, group in vendor_data.groups %}{% if group.syslog_forwarder %}{{ group.syslog_forwarder }}{% endif %}{% endfor %}\n",
+					Template:    "#cloud-config\nsyslog:\n  forwarder: {% for name, group in ds.vendor_data.groups %}{% if group.syslog_forwarder %}{{ group.syslog_forwarder }}{% endif %}{% endfor %}\n",
 				},
 			},
 			"rack1": {

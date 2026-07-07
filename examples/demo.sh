@@ -75,7 +75,7 @@ cat > /tmp/compute-group.json << 'EOF'
   },
   "spec": {
     "description": "Standard compute node configuration",
-    "template": "#cloud-config\nhostname: {{ hostname }}\nfqdn: {{ hostname }}.{{ cluster_name }}.local\npackages:\n  - htop\n  - jq\nwrite_files:\n  - path: /etc/node-info\n    content: |\n      NODE_ID={{ instance_id }}\n      NODE_NID={{ nid }}\n      NODE_ROLE={{ role }}\n      CLUSTER={{ cluster_name }}\n      PRIMARY_IP={{ ip }}\n",
+    "template": "#cloud-config\nhostname: {{ ds.hostname }}\nfqdn: {{ ds.hostname }}.{{ ds.cluster_name }}.local\npackages:\n  - htop\n  - jq\nwrite_files:\n  - path: /etc/node-info\n    content: |\n      NODE_ID={{ ds.instance_id }}\n      NODE_NID={{ ds.nid }}\n      NODE_ROLE={{ ds.role }}\n      CLUSTER={{ ds.cluster_name }}\n      PRIMARY_IP={{ ds.ip }}\n",
     "metaData": {
       "scheduler": "slurm",
       "monitoring": "prometheus"
@@ -98,7 +98,7 @@ cat > /tmp/green-group.json << 'EOF'
   },
   "spec": {
     "description": "Green node overlay",
-    "template": "#cloud-config\nwrite_files:\n  - path: /etc/node-color\n    content: |\n      COLOR={{ color }}\n      HOSTNAME={{ hostname }}\n",
+    "template": "#cloud-config\nwrite_files:\n  - path: /etc/node-color\n    content: |\n      COLOR={{ color }}\n      HOSTNAME={{ ds.hostname }}\n",
     "metaData": {
       "color": "green"
     }
@@ -120,7 +120,7 @@ cat > /tmp/blue-group.json << 'EOF'
   },
   "spec": {
     "description": "Blue node overlay",
-    "template": "#cloud-config\nwrite_files:\n  - path: /etc/node-color\n    content: |\n      COLOR={{ color }}\n      ROLE={{ role }}\n",
+    "template": "#cloud-config\nwrite_files:\n  - path: /etc/node-color\n    content: |\n      COLOR={{ color }}\n      ROLE={{ ds.role }}\n",
     "metaData": {
       "color": "blue"
     }
@@ -142,7 +142,7 @@ cat > /tmp/storage-group.json << 'EOF'
   },
   "spec": {
     "description": "Storage node configuration",
-    "template": "#cloud-config\nhostname: {{ hostname }}\nwrite_files:\n  - path: /etc/storage-node\n    content: |\n      NODE={{ instance_id }}\n      ROLE={{ role }}\n      IP={{ ip }}\npackages:\n  - nfs-common\n  - jq\n",
+    "template": "#cloud-config\nhostname: {{ ds.hostname }}\nwrite_files:\n  - path: /etc/storage-node\n    content: |\n      NODE={{ ds.instance_id }}\n      ROLE={{ ds.role }}\n      IP={{ ds.ip }}\npackages:\n  - nfs-common\n  - jq\n",
     "metaData": {
       "storage_role": "primary"
     }

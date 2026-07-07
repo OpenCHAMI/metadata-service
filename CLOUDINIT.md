@@ -163,23 +163,96 @@ Current behavior
 - Renders the stored plain-text template with merged runtime metadata
 - Uses the same identity resolution path as `/meta-data`
 
-Template context available to group templates
-- Flat keys: `hostname`, `local_hostname`, `instance_id`, `cluster_name`, `cloud_name`, `cloud_provider`, `availability_zone`, `region`, `local_ipv4`, `base_url`, `nid`, `role`, `mac`, `ip`, `interfaces`, and `public_keys`
-- Nested `vendor_data` matching the vendor-data section of `/meta-data`
-- Nested `meta_data` containing the full cloud-init metadata document
-- Custom keys from `Group.Spec.MetaData`
+## Template Variables
 
-Example response:
+Group templates access runtime data through the `ds` (datasource) namespace, following cloud-init conventions. All template variables are prefixed with `ds.` to access the datasource context.
+
+### Available Template Variables
+
+Templates use Pongo2 (Jinja2-compatible) syntax. All variables are accessed via the `ds` prefix:
+
+**Identity & Networking:**
+- `{{ ds.hostname }}` - Generated hostname (e.g., `tc1000`)
+- `{{ ds.local_hostname }}` - Local hostname alias
+- `{{ ds.instance_id }}` - Component XName (e.g., `x1000c0s0b0n0`)
+- `{{ ds.nid }}` - Numeric node ID (e.g., `1000`)
+- `{{ ds.role }}` - Node role from SMD (e.g., `compute`)
+- `{{ ds.mac }}` - Primary MAC address
+- `{{ ds.ip }}` - Primary IP address
+- `{{ ds.interfaces }}` - List of network interfaces with MAC/IP/network
+
+**Cluster Configuration:**
+- `{{ ds.cluster_name }}` - Full cluster name (e.g., `production`)
+- `{{ ds.base_url }}` - Cloud-init server URL
+- `{{ ds.cloud_provider }}` - Provider name (typically `OpenCHAMI`)
+- `{{ ds.region }}` - Cluster region
+- `{{ ds.availability_zone }}` - Availability zone
+
+**SSH Keys:**
+Arrays require a for loop in templates:
+```yaml
+users:
+  - name: root
+    ssh_authorized_keys:{% for key in ds.meta_data.instance_data.v1.public_keys %}
+      - {{ key }}{% endfor %}
+```
+
+**Full Metadata Access:**
+- `{{ ds.meta_data }}` - Complete metadata document as nested YAML
+- `{{ ds.vendor_data }}` - Vendor-specific data including group metadata
+
+**Custom Variables:**
+Access custom keys from `Group.Spec.MetaData` directly by name:
+```yaml
+# If Group.Spec.MetaData = {"scheduler": "slurm"}
+scheduler: {{ scheduler }}
+```
+
+### Example Template
+
+```yaml
+#cloud-config
+hostname: {{ ds.hostname }}
+fqdn: {{ ds.hostname }}.{{ ds.cluster_name }}.local
+
+users:
+  - name: root
+    ssh_authorized_keys:{% for key in ds.meta_data.instance_data.v1.public_keys %}
+      - {{ key }}{% endfor %}
+
+write_files:
+  - path: /etc/node-info
+    content: |
+      NODE_ID={{ ds.instance_id }}
+      NODE_NID={{ ds.nid }}
+      NODE_ROLE={{ ds.role }}
+      CLUSTER={{ ds.cluster_name }}
+      PRIMARY_IP={{ ds.ip }}
+      PRIMARY_MAC={{ ds.mac }}
+```
+
+### Example Response
 
 ```yaml
 #cloud-config
 hostname: tc1000
+fqdn: tc1000.production.local
+
+users:
+  - name: root
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... admin@production
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... deploy@automation
+
 write_files:
-  - path: /etc/node-role
+  - path: /etc/node-info
     content: |
-      ROLE=compute
-      NID=1000
-      IP=10.252.0.26
+      NODE_ID=x1000c0s0b0n0
+      NODE_NID=1000
+      NODE_ROLE=compute
+      CLUSTER=production
+      PRIMARY_IP=10.252.0.26
+      PRIMARY_MAC=b4:2e:99:be:1a:6d
 ```
 
 ## Resource Inputs Used By The Endpoints
