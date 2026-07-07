@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -295,10 +297,23 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 		return nil, err
 	}
 	if c.tokenManager != nil {
+		log.Debug().
+			Str("method", "GET").
+			Str("path", path).
+			Msg("Requesting dynamic auth token for SMD request")
 		token, tokenErr := c.tokenManager.GetToken(req.Context())
 		if tokenErr != nil {
+			log.Error().
+				Err(tokenErr).
+				Str("method", "GET").
+				Str("path", path).
+				Msg("Failed to get dynamic SMD auth token")
 			return nil, fmt.Errorf("failed to get dynamic SMD auth token: %w", tokenErr)
 		}
+		log.Debug().
+			Str("method", "GET").
+			Str("path", path).
+			Msg("Dynamic auth token obtained successfully")
 		req.Header.Set("Authorization", "Bearer "+token)
 	} else {
 		token := c.jwt
@@ -306,7 +321,16 @@ func (c *HTTPClient) getRaw(path string, params url.Values) ([]byte, error) {
 			token = strings.TrimSpace(c.tokenFn())
 		}
 		if token != "" {
+			log.Debug().
+				Str("method", "GET").
+				Str("path", path).
+				Msg("Using static auth token for SMD request")
 			req.Header.Set("Authorization", "Bearer "+token)
+		} else {
+			log.Warn().
+				Str("method", "GET").
+				Str("path", path).
+				Msg("No auth token available for SMD request")
 		}
 	}
 	resp, err := c.client.Do(req)

@@ -46,6 +46,11 @@ type SMDIntegrationService struct {
 	ipToID  map[string]string
 	wgipMap map[string]string
 	lastRun time.Time
+
+	// tokenReady is closed when authentication tokens are ready for use.
+	// Prevents race condition where sync worker starts before token initialization completes.
+	tokenReady     chan struct{}
+	tokenReadyOnce sync.Once
 }
 
 // InitialSyncStatus reports whether the initial background sync requirement has
@@ -80,6 +85,7 @@ func NewSMDIntegrationService(backend SMDClient, opts IntegrationOptions) *SMDIn
 		nodes:        make(map[string]nodeSnapshot),
 		ipToID:       make(map[string]string),
 		wgipMap:      make(map[string]string),
+		tokenReady:   make(chan struct{}),
 	}
 
 	if lister, ok := backend.(ComponentLister); ok {
@@ -121,6 +127,15 @@ func (s *SMDIntegrationService) ResolveComponentID(ip string) (string, error) {
 	return "", err
 }
 
+// SignalTokenReady notifies the sync worker that authentication tokens are ready.
+// Safe to call multiple times; only fires once via sync.Once.
+// Must be called after token initialization completes to unblock sync operations.
+func (s *SMDIntegrationService) SignalTokenReady() {
+	s.tokenReadyOnce.Do(func() {
+		close(s.tokenReady)
+	})
+}
+
 // StartSyncWorker starts the background sync loop. It performs an initial sync
 // and then periodic sync attempts. Sync failures are fail-open and retried.
 func (s *SMDIntegrationService) StartSyncWorker(ctx context.Context) {
@@ -134,6 +149,13 @@ func (s *SMDIntegrationService) runSyncLoop(ctx context.Context) {
 	if s.lister == nil {
 		log.Warn().Msg("SMD sync worker disabled: backend does not support component listing")
 		return
+	}
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-s.tokenReady:
+		log.Debug().Msg("Token ready signal received, starting SMD sync")
 	}
 
 	backoff := defaultBackoffStart

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/openchami/tokensmith/pkg/tokenservice"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -241,6 +242,12 @@ func normalizeTokenExchangeConfig(config TokenExchangeConfig) TokenExchangeConfi
 
 // Initialize performs the startup bootstrap exchange and retries per config.
 func (m *ServiceTokenManager) Initialize(ctx context.Context) error {
+	startTime := time.Now()
+	log.Debug().
+		Str("auth_method", string(m.authMethod)).
+		Str("endpoint", m.tokenEndpoint).
+		Msg("Token manager initialization starting")
+
 	if err := m.errIfUnhealthy(); err != nil {
 		return err
 	}
@@ -248,13 +255,31 @@ func (m *ServiceTokenManager) Initialize(ctx context.Context) error {
 	switch m.authMethod {
 	case TokenAuthMethodBootstrapToken:
 		if m.client == nil {
+			log.Error().
+				Str("endpoint", m.tokenEndpoint).
+				Msg("Bootstrap token exchange failed: service client not configured")
 			return fmt.Errorf("bootstrap token exchange via %s failed: service client not configured", m.tokenEndpoint)
 		}
+		log.Debug().
+			Str("endpoint", m.tokenEndpoint).
+			Msg("Initializing bootstrap token exchange")
 		if err := m.client.Initialize(ctx); err != nil {
+			log.Error().
+				Err(err).
+				Str("endpoint", m.tokenEndpoint).
+				Dur("duration_ms", time.Since(startTime)).
+				Msg("Bootstrap token exchange failed")
 			return m.wrapEndpointError("bootstrap token exchange", m.tokenEndpoint, err)
 		}
+		log.Info().
+			Str("endpoint", m.tokenEndpoint).
+			Dur("duration_ms", time.Since(startTime)).
+			Msg("Bootstrap token exchange completed successfully")
 		return nil
 	case TokenAuthMethodMTLSIdentity:
+		log.Debug().
+			Str("endpoint", m.sessionEndpoint).
+			Msg("Initializing mTLS service identity session")
 		err := m.withRetries(
 			ctx,
 			"service identity session exchange",
@@ -268,10 +293,22 @@ func (m *ServiceTokenManager) Initialize(ctx context.Context) error {
 			},
 		)
 		if err != nil {
+			log.Error().
+				Err(err).
+				Str("endpoint", m.sessionEndpoint).
+				Dur("duration_ms", time.Since(startTime)).
+				Msg("mTLS service identity session failed")
 			return err
 		}
+		log.Info().
+			Str("endpoint", m.sessionEndpoint).
+			Dur("duration_ms", time.Since(startTime)).
+			Msg("mTLS service identity session completed successfully")
 		return nil
 	default:
+		log.Error().
+			Str("auth_method", string(m.authMethod)).
+			Msg("Unsupported token auth method")
 		return fmt.Errorf("unsupported token auth method %q", m.authMethod)
 	}
 }
@@ -279,31 +316,61 @@ func (m *ServiceTokenManager) Initialize(ctx context.Context) error {
 // GetToken returns a current access token, refreshing when the configured skew is reached.
 func (m *ServiceTokenManager) GetToken(ctx context.Context) (string, error) {
 	if err := m.errIfUnhealthy(); err != nil {
+		log.Warn().
+			Err(err).
+			Str("auth_method", string(m.authMethod)).
+			Msg("GetToken called on unhealthy token manager")
 		return "", err
 	}
 	if err := m.RefreshTokenIfNeeded(ctx); err != nil {
+		log.Warn().
+			Err(err).
+			Str("auth_method", string(m.authMethod)).
+			Msg("Token refresh check failed")
 		return "", err
 	}
 
 	switch m.authMethod {
 	case TokenAuthMethodBootstrapToken:
 		if m.client == nil {
+			log.Error().
+				Str("endpoint", m.tokenEndpoint).
+				Msg("Service token unavailable: client not configured")
 			return "", fmt.Errorf("service token unavailable from %s", m.tokenEndpoint)
 		}
 		token := m.client.GetServiceToken()
 		if token == nil || strings.TrimSpace(token.Token) == "" {
+			log.Error().
+				Str("endpoint", m.tokenEndpoint).
+				Msg("Service token unavailable: empty token from client")
 			return "", fmt.Errorf("service token unavailable from %s", m.tokenEndpoint)
 		}
+		log.Debug().
+			Str("endpoint", m.tokenEndpoint).
+			Time("expires_at", token.ExpiresAt).
+			Dur("time_until_expiry", time.Until(token.ExpiresAt)).
+			Msg("Service token retrieved successfully")
 		return strings.TrimSpace(token.Token), nil
 	case TokenAuthMethodMTLSIdentity:
 		m.mu.RLock()
 		token := m.token
 		m.mu.RUnlock()
 		if token == nil || strings.TrimSpace(token.Token) == "" {
+			log.Error().
+				Str("endpoint", m.sessionEndpoint).
+				Msg("Service token unavailable: empty mTLS token")
 			return "", fmt.Errorf("service token unavailable from %s", m.sessionEndpoint)
 		}
+		log.Debug().
+			Str("endpoint", m.sessionEndpoint).
+			Time("expires_at", token.ExpiresAt).
+			Dur("time_until_expiry", time.Until(token.ExpiresAt)).
+			Msg("mTLS service token retrieved successfully")
 		return strings.TrimSpace(token.Token), nil
 	default:
+		log.Error().
+			Str("auth_method", string(m.authMethod)).
+			Msg("Unsupported token auth method in GetToken")
 		return "", fmt.Errorf("unsupported token auth method %q", m.authMethod)
 	}
 }
@@ -326,27 +393,44 @@ func (m *ServiceTokenManager) RefreshTokenIfNeeded(ctx context.Context) error {
 			true,
 			func(opCtx context.Context) error {
 				if m.client == nil {
+					log.Error().Msg("Token refresh failed: service client not configured")
 					return fmt.Errorf("service client not configured")
 				}
 				if err := m.client.RefreshTokenIfNeeded(opCtx); err != nil {
+					log.Warn().
+						Err(err).
+						Str("endpoint", m.tokenEndpoint).
+						Msg("Token refresh attempt failed")
 					return m.wrapEndpointError("service token refresh", m.tokenEndpoint, err)
 				}
+				log.Debug().
+					Str("endpoint", m.tokenEndpoint).
+					Msg("Token refresh completed successfully")
 				return nil
 			},
 		)
 		if err != nil {
+			log.Error().
+				Err(err).
+				Str("endpoint", m.tokenEndpoint).
+				Msg("Token refresh failed after all retry attempts")
 			return err
 		}
 		return nil
 	case TokenAuthMethodMTLSIdentity:
 		needsRefresh, err := m.mtlsNeedsRefresh()
 		if err != nil {
+			log.Error().
+				Err(err).
+				Msg("Failed to check if mTLS token needs refresh")
 			return m.markUnhealthy(err)
 		}
 		if !needsRefresh {
+			log.Debug().Msg("mTLS token does not need refresh yet")
 			return nil
 		}
-		return m.withRetries(
+		log.Debug().Msg("mTLS token needs refresh, starting refresh process")
+		err = m.withRetries(
 			ctx,
 			"service token refresh",
 			m.tokenEndpoint,
@@ -358,7 +442,21 @@ func (m *ServiceTokenManager) RefreshTokenIfNeeded(ctx context.Context) error {
 				return m.refreshMTLS(opCtx)
 			},
 		)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("endpoint", m.tokenEndpoint).
+				Msg("mTLS token refresh failed after all retry attempts")
+			return err
+		}
+		log.Info().
+			Str("endpoint", m.tokenEndpoint).
+			Msg("mTLS token refresh completed successfully")
+		return nil
 	default:
+		log.Error().
+			Str("auth_method", string(m.authMethod)).
+			Msg("Unsupported token auth method in RefreshTokenIfNeeded")
 		return fmt.Errorf("unsupported token auth method %q", m.authMethod)
 	}
 }
