@@ -284,42 +284,6 @@ func derivePublicKey(private string) (string, error) {
 	return base64.StdEncoding.EncodeToString(pubBytes), nil
 }
 
-// persistState serializes the current controller state to the persistence layer.
-// Must be called with PeersMutex held.
-func (c *Controller) persistState() error {
-	if c.Persistence == nil {
-		return nil
-	}
-
-	privKey, err := c.Device.PrivateKeyValue()
-	if err != nil {
-		return fmt.Errorf("get private key: %w", err)
-	}
-
-	// Collect all peers for serialization
-	peers := make([]PersistentPeerState, 0, len(c.Peers))
-	for _, peer := range c.Peers {
-		peers = append(peers, PersistentPeerState{
-			PeerID:    peer.ClientIP,
-			PublicKey: peer.PublicKey,
-			VPNIP:     peer.VPNIP,
-			ClientIP:  peer.ClientIP,
-			AllowedIP: peer.AllowedIP,
-		})
-	}
-
-	state := &ControllerState{
-		Version:          "1",
-		ServerPrivateKey: privKey,
-		ServerPublicKey:  c.Device.PublicKeyValue(),
-		// AllocatedIPs derived from peer VPNIPs for portability
-		AllocatedIPs: collectAllocatedIPsFromPeers(peers),
-		Peers:        peers,
-	}
-
-	return c.Persistence.Save(state)
-}
-
 // snapshotState creates a copy of the current controller state under a read lock.
 // This is safe to call concurrently and minimizes lock hold time (<100µs).
 func (c *Controller) snapshotState() *ControllerState {

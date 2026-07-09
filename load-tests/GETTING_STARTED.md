@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Load Testing - Getting Started
 
 ## Quick Start
@@ -16,19 +22,19 @@ cd ~/Development/OpenCHAMI/metadata-service
 ## What to Expect (Pre-Fix)
 
 ### Smoke Test (10 VUs, 30s)
-**Expected:** ✅ **PASS**  
+**Expected:** ✅ **PASS**
 - P99 < 500ms
 - 0% failure rate
 - Validates basic functionality
 
 ### Staged Boot (1K→10K, 5min)
-**Expected:** ⚠️ **PARTIAL PASS**  
+**Expected:** ⚠️ **PARTIAL PASS**
 - 1K-2K waves: Fast (~200ms P99)
 - 5K wave: Starting to slow (~1s P99)
 - 10K wave: ~5-10% failure rate
 
 ### Cold Boot Storm (10K concurrent, 3min)
-**Expected:** ❌ **FAIL** (This is intentional!)  
+**Expected:** ❌ **FAIL** (This is intentional!)
 - P99 > 5s (likely 10-15s)
 - **30-50% failure rate**
 - Lock contention on `wireguard.Controller.PeersMutex`
@@ -39,9 +45,9 @@ cd ~/Development/OpenCHAMI/metadata-service
 func (c *Controller) AddPeer(...) error {
     c.PeersMutex.Lock()
     defer c.PeersMutex.Unlock()
-    
+
     // ... add peer ...
-    
+
     return c.persistState()  // ← 10ms disk I/O while holding lock
 }
 ```
