@@ -4,6 +4,7 @@
 package wireguard
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -21,13 +22,17 @@ const ControllerContextKey contextKey = "wireguard-controller"
 // Controller manages peer lifecycle with userspace device
 // Controller manages peers, allocations, and device configuration.
 type Controller struct {
-	Device      DeviceAPI
-	Network     net.IPNet
-	ServerIP    net.IP
-	Peers       map[string]PeerState // key: peer identifier (clientIP or resource UID)
-	PeersMutex  sync.RWMutex
-	IPAllocator *IPAllocator
-	Persistence *Persistence
+	Device       DeviceAPI
+	Network      net.IPNet
+	ServerIP     net.IP
+	Peers        map[string]PeerState // key: peer identifier (clientIP or resource UID)
+	PeersMutex   sync.RWMutex
+	IPAllocator  *IPAllocator
+	Persistence  *Persistence
+	persistQueue chan *ControllerState // async persistence queue
+	ctx          context.Context       // lifecycle context
+	cancel       context.CancelFunc    // cancel function for graceful shutdown
+	persistWg    sync.WaitGroup        // tracks persistWorker completion
 }
 
 // PeerState tracks the configured state for a peer.
@@ -108,15 +113,27 @@ func NewController(interfaceName string, serverIP net.IP, network *net.IPNet, li
 		peers = make(map[string]PeerState)
 	}
 
-	return &Controller{
-		Device:      dev,
-		Network:     *network,
-		ServerIP:    serverIP,
-		Peers:       peers,
-		PeersMutex:  sync.RWMutex{},
-		IPAllocator: allocator,
-		Persistence: persistence,
-	}, nil
+	ctx, cancel := context.WithCancel(context.Background())
+
+	c := &Controller{
+		Device:       dev,
+		Network:      *network,
+		ServerIP:     serverIP,
+		Peers:        peers,
+		PeersMutex:   sync.RWMutex{},
+		IPAllocator:  allocator,
+		Persistence:  persistence,
+		persistQueue: make(chan *ControllerState, 100),
+		ctx:          ctx,
+		cancel:       cancel,
+	}
+
+	if persistence != nil {
+		c.persistWg.Add(1)
+		go c.persistWorker()
+	}
+
+	return c, nil
 }
 
 // AddPeer allocates a VPN IP and configures a peer keyed by client IP.
@@ -141,12 +158,7 @@ func (c *Controller) AddPeer(clientIP, publicKey string) (string, error) {
 
 	c.Peers[clientIP] = PeerState{PublicKey: publicKey, VPNIP: vpnIP, ClientIP: clientIP}
 
-	// Persist state after adding peer
-	if c.Persistence != nil {
-		if err := c.persistState(); err != nil {
-			fmt.Printf("Warning: failed to persist controller state: %v\n", err)
-		}
-	}
+	c.enqueuePersist()
 
 	return vpnIP, nil
 }
@@ -169,12 +181,7 @@ func (c *Controller) UpsertPeer(peerID, publicKey, allowedIP string) error {
 		}
 		c.Peers[peerID] = PeerState{PublicKey: publicKey, AllowedIP: allowedIP, VPNIP: peer.VPNIP, ClientIP: peer.ClientIP}
 
-		// Persist state after updating peer
-		if c.Persistence != nil {
-			if err := c.persistState(); err != nil {
-				fmt.Printf("Warning: failed to persist controller state: %v\n", err)
-			}
-		}
+		c.enqueuePersist()
 		return nil
 	}
 
@@ -189,12 +196,7 @@ func (c *Controller) UpsertPeer(peerID, publicKey, allowedIP string) error {
 	}
 	c.Peers[peerID] = PeerState{PublicKey: publicKey, AllowedIP: allowedIP, VPNIP: vpn, ClientIP: peerID}
 
-	// Persist state after adding peer
-	if c.Persistence != nil {
-		if err := c.persistState(); err != nil {
-			fmt.Printf("Warning: failed to persist controller state: %v\n", err)
-		}
-	}
+	c.enqueuePersist()
 	return nil
 }
 
@@ -211,12 +213,7 @@ func (c *Controller) RemovePeerByID(peerID string) error {
 	}
 	delete(c.Peers, peerID)
 
-	// Persist state after removing peer
-	if c.Persistence != nil {
-		if err := c.persistState(); err != nil {
-			fmt.Printf("Warning: failed to persist controller state: %v\n", err)
-		}
-	}
+	c.enqueuePersist()
 	return nil
 }
 
@@ -246,12 +243,7 @@ func (c *Controller) RemovePeer(clientIP string) error {
 	_ = c.IPAllocator.Release(net.IPAddr{IP: net.ParseIP(peer.VPNIP)})
 	delete(c.Peers, clientIP)
 
-	// Persist state after removing peer
-	if c.Persistence != nil {
-		if err := c.persistState(); err != nil {
-			fmt.Printf("Warning: failed to persist controller state: %v\n", err)
-		}
-	}
+	c.enqueuePersist()
 	return nil
 }
 
@@ -326,6 +318,120 @@ func (c *Controller) persistState() error {
 	}
 
 	return c.Persistence.Save(state)
+}
+
+// snapshotState creates a copy of the current controller state under a read lock.
+// This is safe to call concurrently and minimizes lock hold time (<100µs).
+func (c *Controller) snapshotState() *ControllerState {
+	if c.Persistence == nil {
+		return nil
+	}
+
+	c.PeersMutex.RLock()
+	defer c.PeersMutex.RUnlock()
+
+	// Get private key (device access should be fast)
+	privKey, err := c.Device.PrivateKeyValue()
+	if err != nil {
+		// Log error but don't block - worker will handle
+		fmt.Printf("Warning: failed to get private key for snapshot: %v\n", err)
+		return nil
+	}
+
+	// Copy peer state
+	peers := make([]PersistentPeerState, 0, len(c.Peers))
+	for _, peer := range c.Peers {
+		peers = append(peers, PersistentPeerState{
+			PeerID:    peer.ClientIP,
+			PublicKey: peer.PublicKey,
+			VPNIP:     peer.VPNIP,
+			ClientIP:  peer.ClientIP,
+			AllowedIP: peer.AllowedIP,
+		})
+	}
+
+	return &ControllerState{
+		Version:          "1",
+		ServerPrivateKey: privKey,
+		ServerPublicKey:  c.Device.PublicKeyValue(),
+		AllocatedIPs:     collectAllocatedIPsFromPeers(peers),
+		Peers:            peers,
+	}
+}
+
+// persistWorker runs in the background, draining the persistence queue.
+// It exits gracefully when the context is cancelled and the queue is empty.
+func (c *Controller) persistWorker() {
+	defer c.persistWg.Done()
+
+	for {
+		select {
+		case state, ok := <-c.persistQueue:
+			if !ok {
+				return
+			}
+			if state != nil && c.Persistence != nil {
+				if err := c.Persistence.Save(state); err != nil {
+					fmt.Printf("Warning: failed to persist controller state: %v\n", err)
+				}
+			}
+		case <-c.ctx.Done():
+			for {
+				select {
+				case state, ok := <-c.persistQueue:
+					if !ok {
+						return
+					}
+					if state != nil && c.Persistence != nil {
+						if err := c.Persistence.Save(state); err != nil {
+							fmt.Printf("Warning: failed to persist controller state during shutdown: %v\n", err)
+						}
+					}
+				default:
+					return
+				}
+			}
+		}
+	}
+}
+
+// enqueuePersist attempts to enqueue a state snapshot for async persistence.
+// Non-blocking: drops the snapshot if the queue is full (logs warning).
+func (c *Controller) enqueuePersist() {
+	if c.Persistence == nil {
+		return
+	}
+
+	state := c.snapshotState()
+	if state == nil {
+		return
+	}
+
+	select {
+	case c.persistQueue <- state:
+	default:
+		fmt.Printf("Warning: persistence queue full, dropping state snapshot\n")
+	}
+}
+
+// Shutdown gracefully stops the persistence worker and closes the controller.
+// Blocks until all pending persist operations are completed.
+func (c *Controller) Shutdown() error {
+	if c.cancel != nil {
+		c.cancel()
+	}
+
+	if c.persistQueue != nil {
+		close(c.persistQueue)
+	}
+
+	c.persistWg.Wait()
+
+	if c.Device != nil {
+		return c.Device.Close()
+	}
+
+	return nil
 }
 
 // reconstructPeersFromState restores peers from persisted state.
