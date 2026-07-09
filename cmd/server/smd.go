@@ -325,7 +325,13 @@ func parseScopes(raw string) []string {
 func createMockSMDClient() *smdclient.MockSMDClient {
 	mock := smdclient.NewMockSMDClient()
 
-	// Add some sample components for testing
+	// Populate 10,000 nodes for load testing
+	// Matches the node ID/IP generation in load-tests/common.js
+	log.Info().Msg("Populating mock SMD with 10,000 nodes for load testing...")
+	populateMockSMDForLoadTest(mock)
+	log.Info().Msg("Mock SMD populated successfully")
+
+	// Legacy: Keep original test node for backward compatibility
 	mock.AddComponent(&smdclient.Component{
 		ID:   "x1000c0s0b0n0",
 		NID:  1000,
