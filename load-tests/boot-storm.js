@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
 // Cold Boot Storm Test: Worst-case scenario
 // Purpose: Simulate datacenter power-on - all nodes boot simultaneously
 // Duration: ~3 minutes
@@ -20,7 +24,7 @@ export let options = {
     http_req_duration: ['p(95)<3000', 'p(99)<5000'],
     http_req_failed: ['rate<0.05'], // <5% failure (will fail pre-fix)
     'http_req_duration{endpoint:meta-data}': ['p(99)<4000'],
-    
+
     // Resource exhaustion indicators
     'http_req_connecting': ['p(99)<100'], // Connection time should be fast
   },
@@ -30,7 +34,7 @@ export let options = {
 export default function () {
   const nodeIndex = vuNodeIndex();
   const headers = nodeHeaders(nodeIndex);
-  
+
   // During boot storm, nodes hit endpoints in parallel (batch request)
   const responses = http.batch([
     {
@@ -49,13 +53,13 @@ export default function () {
       params: { ...headers, tags: { endpoint: 'vendor-data' } },
     },
   ]);
-  
+
   // Check all responses
   responses.forEach((res, idx) => {
     const endpoint = ['meta-data', 'user-data', 'vendor-data'][idx];
     checkMetadataResponse(res, 5000);
   });
-  
+
   // Short think time during storm
   sleep(0.5);
 }
@@ -67,9 +71,9 @@ export function handleSummary(data) {
   console.log('Scenario: All 10,000 nodes boot simultaneously');
   console.log('Duration: ~3 minutes');
   console.log('');
-  
+
   const metrics = data.metrics;
-  
+
   if (metrics.http_req_duration) {
     const d = metrics.http_req_duration.values;
     console.log('Response Time:');
@@ -81,12 +85,12 @@ export function handleSummary(data) {
     console.log(`  p(99.9):${d['p(99.9)'].toFixed(2)}ms`);
     console.log(`  max:    ${d.max.toFixed(2)}ms`);
   }
-  
+
   if (metrics.http_req_failed) {
     const failed = metrics.http_req_failed.values.rate * 100;
     const total = metrics.http_reqs ? metrics.http_reqs.values.count : 0;
     const failedCount = Math.floor(failed * total / 100);
-    
+
     console.log('');
     if (failed > 5) {
       console.log(`❌ Failed Requests: ${failed.toFixed(2)}% (${failedCount} of ${total})`);
@@ -98,12 +102,12 @@ export function handleSummary(data) {
       console.log(`✅ Failed Requests: ${failed.toFixed(2)}% (${failedCount} of ${total})`);
     }
   }
-  
+
   if (metrics.checks) {
     const passed = metrics.checks.values.rate * 100;
     console.log(`Checks Passed: ${passed.toFixed(2)}%`);
   }
-  
+
   // Connection time analysis
   if (metrics.http_req_connecting) {
     const c = metrics.http_req_connecting.values;
@@ -114,7 +118,7 @@ export function handleSummary(data) {
       console.log('  ⚠️  High connection time - possible socket exhaustion');
     }
   }
-  
+
   // Per-endpoint breakdown
   console.log('');
   console.log('Per-Endpoint P99 Latency:');
@@ -126,14 +130,14 @@ export function handleSummary(data) {
       console.log(`  ${status} /${ep}: ${p99.toFixed(2)}ms`);
     }
   });
-  
+
   console.log('');
   console.log('Success Criteria:');
   console.log('  ✅ P99 < 2000ms');
   console.log('  ✅ Failure rate < 1%');
   console.log('  ⚠️  Failure rate < 5% (acceptable pre-fix)');
   console.log('========================================\n');
-  
+
   return {
     'load-tests/results/boot-storm-summary.json': JSON.stringify(data),
   };

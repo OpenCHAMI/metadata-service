@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 # Makefile for running k6 load tests
 
 .PHONY: help install smoke staged storm endurance all clean

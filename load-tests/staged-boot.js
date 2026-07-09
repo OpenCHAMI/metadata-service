@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
 // Staged Boot Test: Simulates rolling boot waves
 // Purpose: Realistic boot scenario - nodes boot in waves, not all at once
 // Duration: ~5 minutes
@@ -30,35 +34,35 @@ export let options = {
 export default function () {
   const nodeIndex = vuNodeIndex();
   const headers = nodeHeaders(nodeIndex);
-  
+
   // Simulate cloud-init NoCloud sequence
   // Each node hits these endpoints in order during boot
-  
+
   // 1. /meta-data (required, always first)
   let res = http.get(
     `${config.baseURL}${endpoints.metaData}`,
     { ...headers, tags: { endpoint: 'meta-data' } }
   );
   checkMetadataResponse(res, 1500);
-  
+
   sleep(0.05); // Small delay between requests (realistic)
-  
+
   // 2. /user-data (cloud-config)
   res = http.get(
     `${config.baseURL}${endpoints.userData}`,
     { ...headers, tags: { endpoint: 'user-data' } }
   );
   checkMetadataResponse(res, 2000);
-  
+
   sleep(0.05);
-  
+
   // 3. /vendor-data (cluster defaults)
   res = http.get(
     `${config.baseURL}${endpoints.vendorData}`,
     { ...headers, tags: { endpoint: 'vendor-data' } }
   );
   checkMetadataResponse(res, 2000);
-  
+
   // 4. /network-config (optional, not all nodes request this)
   if (Math.random() < 0.3) { // 30% of nodes
     sleep(0.05);
@@ -68,7 +72,7 @@ export default function () {
     );
     checkMetadataResponse(res, 2000);
   }
-  
+
   // Think time: cloud-init processes metadata before next iteration
   sleep(1);
 }
@@ -80,9 +84,9 @@ export function handleSummary(data) {
   console.log('Stages: 1K → 2K → 5K → 10K nodes');
   console.log('Duration: ~5 minutes');
   console.log('');
-  
+
   const metrics = data.metrics;
-  
+
   if (metrics.http_req_duration) {
     const d = metrics.http_req_duration.values;
     console.log('Response Time:');
@@ -91,19 +95,19 @@ export function handleSummary(data) {
     console.log(`  p(95): ${d['p(95)'].toFixed(2)}ms`);
     console.log(`  p(99): ${d['p(99)'].toFixed(2)}ms`);
   }
-  
+
   if (metrics.http_req_failed) {
     const failed = metrics.http_req_failed.values.rate * 100;
     const total = metrics.http_reqs ? metrics.http_reqs.values.count : 0;
     console.log('');
     console.log(`Failed Requests: ${failed.toFixed(2)}% (${Math.floor(failed * total / 100)} of ${total})`);
   }
-  
+
   if (metrics.checks) {
     const passed = metrics.checks.values.rate * 100;
     console.log(`Checks Passed: ${passed.toFixed(2)}%`);
   }
-  
+
   // Per-endpoint breakdown
   console.log('');
   console.log('Per-Endpoint P99 Latency:');
@@ -114,9 +118,9 @@ export function handleSummary(data) {
       console.log(`  /${ep}: ${p99.toFixed(2)}ms`);
     }
   });
-  
+
   console.log('========================================\n');
-  
+
   return {
     'load-tests/results/staged-boot-summary.json': JSON.stringify(data),
   };

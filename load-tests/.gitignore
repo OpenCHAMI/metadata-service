@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 # k6 test results
 results/*.json
 results/*.html

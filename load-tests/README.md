@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Metadata Service Load Tests
 
 Performance and scalability tests for metadata-service using k6.
@@ -164,5 +170,5 @@ ulimit -n 10000
 ```
 
 ### k6 Installation Failed
-**macOS:** Ensure Homebrew is updated: `brew update`  
+**macOS:** Ensure Homebrew is updated: `brew update`
 **Linux:** Follow official docs: https://k6.io/docs/getting-started/installation/

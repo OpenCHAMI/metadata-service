@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
 // Common utilities and configuration for k6 load tests
 
 import { check } from 'k6';

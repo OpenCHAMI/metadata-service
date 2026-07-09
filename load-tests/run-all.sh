@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 # Test runner for load tests - fixed and ready to use
 
 set -e
@@ -47,7 +52,7 @@ echo ""
 run_test() {
     local test_name=$1
     local test_file=$2
-    
+
     echo "=========================================="
     echo "Running: $test_name"
     echo "=========================================="
