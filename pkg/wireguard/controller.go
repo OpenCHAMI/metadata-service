@@ -284,19 +284,6 @@ func derivePublicKey(private string) (string, error) {
 	return base64.StdEncoding.EncodeToString(pubBytes), nil
 }
 
-// snapshotState creates a copy of the current controller state under a read lock.
-// This is safe to call concurrently and minimizes lock hold time (<100µs).
-func (c *Controller) snapshotState() *ControllerState {
-	if c.Persistence == nil {
-		return nil
-	}
-
-	c.PeersMutex.RLock()
-	defer c.PeersMutex.RUnlock()
-
-	return c.snapshotStateUnlocked()
-}
-
 // snapshotStateUnlocked creates a copy of the current controller state.
 // CALLER MUST HOLD c.PeersMutex (either Lock or RLock).
 func (c *Controller) snapshotStateUnlocked() *ControllerState {
@@ -366,25 +353,6 @@ func (c *Controller) persistWorker() {
 				}
 			}
 		}
-	}
-}
-
-// enqueuePersist attempts to enqueue a state snapshot for async persistence.
-// Non-blocking: drops the snapshot if the queue is full (logs warning).
-func (c *Controller) enqueuePersist() {
-	if c.Persistence == nil {
-		return
-	}
-
-	state := c.snapshotState()
-	if state == nil {
-		return
-	}
-
-	select {
-	case c.persistQueue <- state:
-	default:
-		fmt.Printf("Warning: persistence queue full, dropping state snapshot\n")
 	}
 }
 
