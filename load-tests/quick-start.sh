@@ -69,8 +69,7 @@ read -p "Continue to boot storm test? (y/n) " -n 1 -r
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "3️⃣  Running cold boot storm test (~3 minutes)..."
-    echo "   ⚠️  WARNING: This will likely fail with high error rate pre-fix"
-    echo "   Expected: 30-50% failure due to WireGuard lock contention"
+    echo "   Testing worst-case scenario: 10K concurrent boots"
     echo ""
     k6 run load-tests/boot-storm.js
     echo ""

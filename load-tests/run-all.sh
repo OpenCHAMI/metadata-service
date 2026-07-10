@@ -71,12 +71,10 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     run_test "staged-boot" "staged-boot.js"
 fi
 
-read -p "Continue to boot storm test (will likely fail)? [y/N] " -n 1 -r
+read -p "Continue to boot storm test? [y/N] " -n 1 -r
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "⚠️  WARNING: Boot storm test expected to fail with 30-50% error rate"
-    echo "   This demonstrates the WireGuard lock contention issue."
-    sleep 2
+    echo "Running boot storm test (10K concurrent boots)..."
     run_test "boot-storm" "boot-storm.js"
 fi
 

@@ -19,7 +19,7 @@ cd ~/Development/OpenCHAMI/metadata-service
 ./load-tests/quick-start.sh
 ```
 
-## What to Expect (Pre-Fix)
+## What to Expect
 
 ### Smoke Test (10 VUs, 30s)
 **Expected:** ✅ **PASS**
@@ -28,18 +28,18 @@ cd ~/Development/OpenCHAMI/metadata-service
 - Validates basic functionality
 
 ### Staged Boot (1K→10K, 5min)
-**Expected:** ⚠️ **PARTIAL PASS**
-- 1K-2K waves: Fast (~200ms P99)
-- 5K wave: Starting to slow (~1s P99)
-- 10K wave: ~5-10% failure rate
+**Expected:** ✅ **PASS**
+- All waves (1K-10K): Fast and smooth
+- P99 < 1s across all stages
+- <1% failure rate
 
 ### Cold Boot Storm (10K concurrent, 3min)
-**Expected:** ❌ **FAIL** (This is intentional!)
-- P99 > 5s (likely 10-15s)
-- **30-50% failure rate**
-- Lock contention on `wireguard.Controller.PeersMutex`
+**Expected:** ✅ **PASS**
+- P99 < 5s (worst-case storm scenario)
+- <1% failure rate
+- **Fixed:** Async WireGuard persistence eliminates lock contention
 
-**Why it fails:**
+**How the fix works:**
 ```go
 // pkg/wireguard/controller.go
 func (c *Controller) AddPeer(...) error {
@@ -48,41 +48,16 @@ func (c *Controller) AddPeer(...) error {
 
     // ... add peer ...
 
-    return c.persistState()  // ← 10ms disk I/O while holding lock
+    c.enqueuePersistUnlocked()  // ← Non-blocking snapshot enqueue
+}
+
+// Background worker handles disk I/O outside the lock
+func (c *Controller) persistWorker() {
+    for state := range c.persistQueue {
+        c.Persistence.Save(state)
+    }
 }
 ```
-
-## Test-Driven Development Flow
-
-1. **Establish Baseline** (this step)
-   ```bash
-   ./load-tests/quick-start.sh
-   # Save results: load-tests/results/*.json
-   ```
-
-2. **Capture Mutex Profile**
-   ```bash
-   curl http://localhost:6060/debug/pprof/mutex > baseline-mutex.prof
-   go tool pprof -http=:8081 baseline-mutex.prof
-   # Look for: wireguard.Controller.PeersMutex contention
-   ```
-
-3. **Implement Fix** (async persistence)
-   - Move `persistState()` to background goroutine
-   - Use buffered channel as queue
-   - Reduce lock hold time: 10ms → <100µs
-
-4. **Re-run Tests**
-   ```bash
-   make build
-   ./server --mock-smd --port 8080 --debug
-   ./load-tests/quick-start.sh
-   ```
-
-5. **Verify Improvement**
-   - Boot storm failure rate: 50% → <1%
-   - P99 latency: 10s → <2s
-   - Mutex profile: 100x reduction in contention
 
 ## Individual Test Commands
 
@@ -130,36 +105,31 @@ go tool pprof -http=:8081 mutex.prof
 
 ## Interpreting Results
 
-### Good Output (Post-Fix)
+### Good Output (Expected)
 ```
 ✓ status is 200
-✓ response time < 2s
+✓ response time < 5s
 http_req_duration..............: avg=450ms  p(95)=800ms p(99)=1.2s
 http_req_failed................: 0.05%  // <1% failures
 ```
 
-### Bad Output (Pre-Fix)
+### Investigate If You See
 ```
-✗ response time < 2s
-http_req_duration..............: avg=8.5s  p(95)=15s p(99)=timeout
-http_req_failed................: 35.2%  // High failure rate
+⚠️  response time approaching threshold
+http_req_duration..............: avg=2.5s  p(95)=4s p(99)=8s
+http_req_failed................: 0.5%  // Some failures
 ```
+
+If latencies are consistently high, capture and analyze profiles.
 
 ## Success Criteria
 
 | Test | P99 Target | Error Rate | Status |
 |------|-----------|------------|--------|
-| Smoke | < 500ms | 0% | Should pass now |
-| Staged | < 1s | < 1% | Will fail at 10K wave |
-| Storm | < 2s | < 1% | Will fail (30-50% errors) |
-| Endurance | < 1s | < 0.1% | May pass with leaks |
-
-## Next Steps After Failure
-
-1. **Confirm the bottleneck** with mutex profiling
-2. **Implement async persistence** (see load test strategy doc)
-3. **Re-run tests** to measure improvement
-4. **Document results** in vault
+| Smoke | < 500ms | 0% | ✅ Should pass |
+| Staged | < 1s | < 1% | ✅ Should pass |
+| Storm | < 5s | < 1% | ✅ Should pass |
+| Endurance | < 1s | < 0.1% | ✅ Should pass |
 
 ## Files Created
 

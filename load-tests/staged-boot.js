@@ -122,6 +122,6 @@ export function handleSummary(data) {
   console.log('========================================\n');
 
   return {
-    'load-tests/results/staged-boot-summary.json': JSON.stringify(data),
+    'results/staged-boot-summary.json': JSON.stringify(data),
   };
 }

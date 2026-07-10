@@ -78,6 +78,6 @@ export function handleSummary(data) {
   console.log('========================================\n');
 
   return {
-    'load-tests/results/endurance-summary.json': JSON.stringify(data),
+    'results/endurance-summary.json': JSON.stringify(data),
   };
 }

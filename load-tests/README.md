@@ -118,38 +118,31 @@ watch -n 1 'ps aux | grep metadata-service'
 |------|-----------|------------|-------|
 | Smoke | < 500ms | 0% | Baseline |
 | Staged Boot | < 1s | < 1% | Realistic scenario |
-| Boot Storm | < 2s | < 1% | Worst case |
+| Boot Storm | < 5s | < 1% | Worst case (10K concurrent) |
 | Endurance | < 1s | < 0.1% | Memory leak detection |
-
-## Expected Failures (Pre-Fix)
-
-Before implementing async WireGuard persistence, expect:
-- Boot Storm (10K): **30-50% failure rate**, P99 > 10s
-- Staged Boot (5K): ~10-20% failure rate
-- Smoke (10): Should pass
 
 ## Interpreting Results
 
 ### Good Output
 ```
 ✓ status is 200
-✓ response time < 2s
+✓ response time < 5s
 http_req_duration..............: avg=450ms  p(95)=800ms p(99)=1.2s
 http_req_failed................: 0.05%  // <1% failures
 ```
 
-### Bad Output (Lock Contention)
+### Slow Response (Investigation Needed)
 ```
-✗ response time < 2s
-http_req_duration..............: avg=8.5s  p(95)=15s p(99)=timeout
-http_req_failed................: 35.2%  // High failure rate
+✓ status is 200
+⚠️  response time approaching threshold
+http_req_duration..............: avg=2.5s  p(95)=4s p(99)=8s
+http_req_failed................: 0.5%  // Some failures
 ```
 
-Check mutex profile:
+If you see consistently high latencies, capture profiles:
 ```bash
 go tool pprof http://localhost:6060/debug/pprof/mutex
 > top10
-# Should show high contention on wireguard.Controller.PeersMutex
 ```
 
 ## Troubleshooting

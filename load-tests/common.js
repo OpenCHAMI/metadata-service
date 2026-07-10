@@ -36,7 +36,7 @@ export function checkMetadataResponse(response, maxLatency = 2000) {
     'status is 200': (r) => r.status === 200,
     'response time < threshold': (r) => r.timings.duration < maxLatency,
     'has content': (r) => r.body && r.body.length > 0,
-    'not error page': (r) => !r.body.includes('error') && !r.body.includes('Error'),
+    'not error page': (r) => r.body && !r.body.includes('error') && !r.body.includes('Error'),
   });
 }
 

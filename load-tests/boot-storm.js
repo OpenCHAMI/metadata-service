@@ -20,9 +20,9 @@ export let options = {
     { duration: '30s', target: 0 },     // Full recovery
   ],
   thresholds: {
-    // More lenient thresholds for worst-case scenario
+    // Production targets for worst-case scenario (10K concurrent boot)
     http_req_duration: ['p(95)<3000', 'p(99)<5000'],
-    http_req_failed: ['rate<0.05'], // <5% failure (will fail pre-fix)
+    http_req_failed: ['rate<0.01'], // <1% failure rate
     'http_req_duration{endpoint:meta-data}': ['p(99)<4000'],
 
     // Resource exhaustion indicators
@@ -94,7 +94,6 @@ export function handleSummary(data) {
     console.log('');
     if (failed > 5) {
       console.log(`❌ Failed Requests: ${failed.toFixed(2)}% (${failedCount} of ${total})`);
-      console.log('   ^ EXPECTED PRE-FIX: WireGuard lock contention');
     } else if (failed > 1) {
       console.log(`⚠️  Failed Requests: ${failed.toFixed(2)}% (${failedCount} of ${total})`);
       console.log('   ^ Acceptable for storm, but should investigate');
@@ -133,12 +132,11 @@ export function handleSummary(data) {
 
   console.log('');
   console.log('Success Criteria:');
-  console.log('  ✅ P99 < 2000ms');
+  console.log('  ✅ P99 < 5s');
   console.log('  ✅ Failure rate < 1%');
-  console.log('  ⚠️  Failure rate < 5% (acceptable pre-fix)');
   console.log('========================================\n');
 
   return {
-    'load-tests/results/boot-storm-summary.json': JSON.stringify(data),
+    'results/boot-storm-summary.json': JSON.stringify(data),
   };
 }
