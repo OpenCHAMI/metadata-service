@@ -158,7 +158,7 @@ func (c *Controller) AddPeer(clientIP, publicKey string) (string, error) {
 
 	c.Peers[clientIP] = PeerState{PublicKey: publicKey, VPNIP: vpnIP, ClientIP: clientIP}
 
-	c.enqueuePersist()
+	c.enqueuePersistUnlocked()
 
 	return vpnIP, nil
 }
@@ -181,7 +181,7 @@ func (c *Controller) UpsertPeer(peerID, publicKey, allowedIP string) error {
 		}
 		c.Peers[peerID] = PeerState{PublicKey: publicKey, AllowedIP: allowedIP, VPNIP: peer.VPNIP, ClientIP: peer.ClientIP}
 
-		c.enqueuePersist()
+		c.enqueuePersistUnlocked()
 		return nil
 	}
 
@@ -196,7 +196,7 @@ func (c *Controller) UpsertPeer(peerID, publicKey, allowedIP string) error {
 	}
 	c.Peers[peerID] = PeerState{PublicKey: publicKey, AllowedIP: allowedIP, VPNIP: vpn, ClientIP: peerID}
 
-	c.enqueuePersist()
+	c.enqueuePersistUnlocked()
 	return nil
 }
 
@@ -213,7 +213,7 @@ func (c *Controller) RemovePeerByID(peerID string) error {
 	}
 	delete(c.Peers, peerID)
 
-	c.enqueuePersist()
+	c.enqueuePersistUnlocked()
 	return nil
 }
 
@@ -243,7 +243,7 @@ func (c *Controller) RemovePeer(clientIP string) error {
 	_ = c.IPAllocator.Release(net.IPAddr{IP: net.ParseIP(peer.VPNIP)})
 	delete(c.Peers, clientIP)
 
-	c.enqueuePersist()
+	c.enqueuePersistUnlocked()
 	return nil
 }
 
@@ -293,6 +293,16 @@ func (c *Controller) snapshotState() *ControllerState {
 
 	c.PeersMutex.RLock()
 	defer c.PeersMutex.RUnlock()
+
+	return c.snapshotStateUnlocked()
+}
+
+// snapshotStateUnlocked creates a copy of the current controller state.
+// CALLER MUST HOLD c.PeersMutex (either Lock or RLock).
+func (c *Controller) snapshotStateUnlocked() *ControllerState {
+	if c.Persistence == nil {
+		return nil
+	}
 
 	// Get private key (device access should be fast)
 	privKey, err := c.Device.PrivateKeyValue()
@@ -367,6 +377,25 @@ func (c *Controller) enqueuePersist() {
 	}
 
 	state := c.snapshotState()
+	if state == nil {
+		return
+	}
+
+	select {
+	case c.persistQueue <- state:
+	default:
+		fmt.Printf("Warning: persistence queue full, dropping state snapshot\n")
+	}
+}
+
+// enqueuePersistUnlocked enqueues a state snapshot when the caller already holds c.PeersMutex.
+// CALLER MUST HOLD c.PeersMutex (either Lock or RLock).
+func (c *Controller) enqueuePersistUnlocked() {
+	if c.Persistence == nil {
+		return
+	}
+
+	state := c.snapshotStateUnlocked()
 	if state == nil {
 		return
 	}
