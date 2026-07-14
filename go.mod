@@ -7,7 +7,6 @@ module github.com/OpenCHAMI/metadata-service
 go 1.26.4
 
 require (
-	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/go-chi/chi/v5 v5.2.4
 	github.com/openchami/fabrica v0.4.8

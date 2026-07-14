@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 
 	cloudinitv1 "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
@@ -546,15 +547,7 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 			return
 		}
 
-		isMember := false
-		for _, g := range groups {
-			if g == groupName {
-				isMember = true
-				break
-			}
-		}
-
-		if !isMember {
+		if !slices.Contains(groups, groupName) {
 			log.Warn().Msgf("Node %s is not a member of group %s", id, groupName)
 			http.Error(w, fmt.Sprintf("node %s is not a member of group %s", id, groupName), http.StatusNotFound)
 			return
@@ -589,17 +582,9 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 			merged[k] = v
 		}
 
-		// Render template
-		rendered, err := cloudinitv1.RenderTemplate(groupData.Spec.Template, merged)
-		if err != nil {
-			log.Error().Err(err).Msgf("Failed to render template for group %s", groupName)
-			http.Error(w, "template rendering failed", http.StatusInternalServerError)
-			return
-		}
-
 		w.Header().Set("Content-Type", "text/cloud-config")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(rendered)); err != nil {
+		if _, err := w.Write([]byte(groupData.Spec.Template)); err != nil {
 			log.Error().Err(err).Msg("Failed to write response")
 		}
 	}
