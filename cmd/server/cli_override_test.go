@@ -5,43 +5,52 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
-func TestRegisterDashAliases(t *testing.T) {
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-
+func TestBindFlagsWithUnderscoreKeys_ConfigValuesBeatUnchangedFlagDefaults(t *testing.T) {
 	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	flagSet.String("data-dir", "/data", "")
 	flagSet.String("wireguard-state-file", "/data/wireguard/state.yaml", "")
 	flagSet.Bool("wireguard-only", false, "")
+	flagSet.String("tokensmith-url", "", "")
 	flagSet.String("tokensmith-service-identity-cert", "", "")
 	flagSet.String("tokensmith-service-identity-key", "", "")
 	flagSet.String("tokensmith-service-identity-ca", "", "")
 	flagSet.String("tokensmith-target-service", "smd", "")
 	flagSet.Int("tokensmith-refresh-skew-sec", 300, "")
+	flagSet.Bool("smd-sync-enabled", true, "")
+	flagSet.Int("smd-sync-interval", 60, "")
 
-	if err := viper.BindPFlags(flagSet); err != nil {
-		t.Fatalf("BindPFlags failed: %v", err)
+	v := viper.New()
+	if err := bindFlagsWithUnderscoreKeys(v, flagSet); err != nil {
+		t.Fatalf("bindFlagsWithUnderscoreKeys failed: %v", err)
 	}
 
-	registerDashAliases(flagSet)
-
-	viper.Set("data-dir", "/tmp/test-data")
-	viper.Set("wireguard-state-file", "/tmp/test-wireguard.yaml")
-	viper.Set("wireguard-only", true)
-	viper.Set("tokensmith-service-identity-cert", "/certs/client.crt")
-	viper.Set("tokensmith-service-identity-key", "/certs/client.key")
-	viper.Set("tokensmith-service-identity-ca", "/certs/ca.crt")
-	viper.Set("tokensmith-target-service", "hsm")
-	viper.Set("tokensmith-refresh-skew-sec", 42)
+	v.SetConfigType("yaml")
+	configYAML := `
+data_dir: /tmp/test-data
+wireguard_state_file: /tmp/test-wireguard.yaml
+wireguard_only: true
+tokensmith_url: https://tokensmith.example.com
+tokensmith_service_identity_cert: /certs/client.crt
+tokensmith_service_identity_key: /certs/client.key
+tokensmith_service_identity_ca: /certs/ca.crt
+tokensmith_target_service: hsm
+tokensmith_refresh_skew_sec: 42
+smd_sync_enabled: false
+smd_sync_interval: 30
+`
+	if err := v.ReadConfig(strings.NewReader(configYAML)); err != nil {
+		t.Fatalf("ReadConfig failed: %v", err)
+	}
 
 	config := DefaultConfig()
-	if err := viper.Unmarshal(config); err != nil {
+	if err := v.Unmarshal(config); err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
@@ -53,6 +62,9 @@ func TestRegisterDashAliases(t *testing.T) {
 	}
 	if !config.WireGuardOnly {
 		t.Fatalf("expected WireGuardOnly to be true")
+	}
+	if config.TokenSmithURL != "https://tokensmith.example.com" {
+		t.Fatalf("expected TokenSmithURL to be https://tokensmith.example.com, got %q", config.TokenSmithURL)
 	}
 	if config.TokenSmithServiceIdentityCert != "/certs/client.crt" {
 		t.Fatalf("expected TokenSmithServiceIdentityCert to be /certs/client.crt, got %q", config.TokenSmithServiceIdentityCert)
@@ -68,6 +80,44 @@ func TestRegisterDashAliases(t *testing.T) {
 	}
 	if config.TokenSmithRefreshSkewSec != 42 {
 		t.Fatalf("expected TokenSmithRefreshSkewSec to be 42, got %d", config.TokenSmithRefreshSkewSec)
+	}
+	if config.SMDSyncEnabled {
+		t.Fatal("expected SMDSyncEnabled config value to override unchanged --smd-sync-enabled default")
+	}
+	if config.SMDSyncInterval != 30 {
+		t.Fatalf("expected SMDSyncInterval to be 30, got %d", config.SMDSyncInterval)
+	}
+}
+
+func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *testing.T) {
+	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flagSet.String("data-dir", "/data", "")
+	flagSet.String("tokensmith-url", "", "")
+	flagSet.Int("smd-sync-interval", 60, "")
+
+	if err := flagSet.Set("data-dir", "/tmp/from-flag"); err != nil {
+		t.Fatalf("Set data-dir failed: %v", err)
+	}
+	if err := flagSet.Set("tokensmith-url", "https://tokensmith.flag"); err != nil {
+		t.Fatalf("Set tokensmith-url failed: %v", err)
+	}
+	if err := flagSet.Set("smd-sync-interval", "15"); err != nil {
+		t.Fatalf("Set smd-sync-interval failed: %v", err)
+	}
+
+	v := viper.New()
+	if err := bindFlagsWithUnderscoreKeys(v, flagSet); err != nil {
+		t.Fatalf("bindFlagsWithUnderscoreKeys failed: %v", err)
+	}
+
+	if got := v.GetString("data_dir"); got != "/tmp/from-flag" {
+		t.Fatalf("expected --data-dir to bind to data_dir, got %q", got)
+	}
+	if got := v.GetString("tokensmith_url"); got != "https://tokensmith.flag" {
+		t.Fatalf("expected --tokensmith-url to bind to tokensmith_url, got %q", got)
+	}
+	if got := v.GetInt("smd_sync_interval"); got != 15 {
+		t.Fatalf("expected --smd-sync-interval to bind to smd_sync_interval, got %d", got)
 	}
 }
 

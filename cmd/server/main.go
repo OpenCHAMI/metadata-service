@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -152,9 +153,9 @@ func init() {
 	serveCmd.Flags().Int("smd-sync-interval", 60, "SMD cache sync interval in seconds")
 
 	// Bind flags to viper
-	viper.BindPFlags(serveCmd.Flags())
-	viper.BindPFlags(rootCmd.PersistentFlags())
-	registerDashAliases(rootCmd.PersistentFlags(), serveCmd.Flags())
+	if err := bindFlagsWithUnderscoreKeys(viper.GetViper(), serveCmd.Flags(), rootCmd.PersistentFlags()); err != nil {
+		panic(fmt.Errorf("failed to bind flags: %w", err))
+	}
 
 	// Add subcommands
 	rootCmd.AddCommand(serveCmd)
@@ -170,14 +171,16 @@ func initConfig() {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		viper.AddConfigPath(home)
 		viper.AddConfigPath(".")
+		viper.AddConfigPath("/etc/ochami-metadata")
+		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".ochami-metadata")
 	}
 
 	// Environment variables
 	viper.SetEnvPrefix("OCHAMI_METADATA")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 
 	// Read config file if it exists

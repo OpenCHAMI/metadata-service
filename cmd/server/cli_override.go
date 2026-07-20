@@ -29,21 +29,32 @@ func init() {
 	serveCmd.Flags().String("tokensmith-scopes", "", "Comma-separated TokenSmith scope metadata for diagnostics")
 	serveCmd.Flags().Int("tokensmith-refresh-skew-sec", 300, "Refresh service token when remaining lifetime is below this many seconds")
 
+	if err := bindFlagsWithUnderscoreKeys(viper.GetViper(), serveCmd.Flags()); err != nil {
+		panic(fmt.Errorf("failed to bind override flags: %w", err))
+	}
+
 	bindServerEnvVars()
 }
 
-func registerDashAliases(flagSets ...*pflag.FlagSet) {
+func bindFlagsWithUnderscoreKeys(v *viper.Viper, flagSets ...*pflag.FlagSet) error {
+	var bindErr error
+
 	for _, flagSet := range flagSets {
 		if flagSet == nil {
 			continue
 		}
 
 		flagSet.VisitAll(func(flag *pflag.Flag) {
-			if strings.Contains(flag.Name, "-") {
-				viper.RegisterAlias(strings.ReplaceAll(flag.Name, "-", "_"), flag.Name)
+			if bindErr != nil {
+				return
 			}
+
+			key := strings.ReplaceAll(flag.Name, "-", "_")
+			bindErr = v.BindPFlag(key, flag)
 		})
 	}
+
+	return bindErr
 }
 
 func bindServerEnvVars() {
