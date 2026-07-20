@@ -100,44 +100,6 @@ hostname: {{ missing_value }}
 	}
 }
 
-func TestGroupValidateRejectsInvalidRenderedYAML(t *testing.T) {
-	t.Parallel()
-
-	group := &Group{
-		Spec: GroupSpec{
-			Template: `bad_list: [{{ ds.hostname }}`,
-		},
-	}
-
-	err := group.Validate(context.Background())
-	if err == nil {
-		t.Fatal("expected Validate() to fail for invalid rendered YAML")
-	}
-
-	if !strings.Contains(err.Error(), "template YAML invalid after rendering") {
-		t.Fatalf("expected YAML validation error, got %v", err)
-	}
-
-	if group.Status.Valid {
-		t.Fatalf("expected invalid group status, got %+v", group.Status)
-	}
-
-	if group.Status.CurrentTemplateVersion == "" {
-		t.Fatal("expected current template version to be set on failure")
-	}
-
-	if len(group.Status.TemplateHistory) != 1 {
-		t.Fatalf("expected 1 template history entry, got %d", len(group.Status.TemplateHistory))
-	}
-
-	if group.Status.TemplateHistory[0].Valid {
-		t.Fatalf("expected invalid template history entry, got %+v", group.Status.TemplateHistory[0])
-	}
-	if !strings.Contains(group.Status.TemplateHistory[0].ErrorMessage, "yaml") && !strings.Contains(strings.ToLower(group.Status.TemplateHistory[0].ErrorMessage), "yaml") {
-		t.Fatalf("expected YAML error in template history, got %q", group.Status.TemplateHistory[0].ErrorMessage)
-	}
-}
-
 func TestGroupValidateDatasourcePaths(t *testing.T) {
 	t.Parallel()
 

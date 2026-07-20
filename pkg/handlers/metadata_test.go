@@ -558,8 +558,8 @@ fqdn: {{ ds.hostname }}.testcluster.local
 	}
 
 	expected := `#cloud-config
-hostname: tc1000
-fqdn: tc1000.testcluster.local
+hostname: {{ ds.hostname }}
+fqdn: {{ ds.hostname }}.testcluster.local
 `
 	if string(body) != expected {
 		t.Errorf("Expected body:\n%s\nGot:\n%s", expected, string(body))
@@ -1064,26 +1064,11 @@ network:
 		t.Fatalf("Failed to read response body: %v", err)
 	}
 
-	rendered := string(body)
+	template := string(body)
 
-	// Verify rendered output contains both interfaces with correct data
-	if !strings.Contains(rendered, "eth0") {
-		t.Error("Expected eth0 in rendered output")
-	}
-	if !strings.Contains(rendered, "eth1") {
-		t.Error("Expected eth1 in rendered output")
-	}
-	if !strings.Contains(rendered, "b4:2e:99:be:1a:6d") {
-		t.Error("Expected first MAC address in rendered output")
-	}
-	if !strings.Contains(rendered, "b4:2e:99:be:1a:6e") {
-		t.Error("Expected second MAC address in rendered output")
-	}
-	if !strings.Contains(rendered, "10.252.0.26") {
-		t.Error("Expected first IP address in rendered output")
-	}
-	if !strings.Contains(rendered, "10.100.0.26") {
-		t.Error("Expected second IP address in rendered output")
+	// Verify output matches the original template, un-rendered
+	if template != store.groupData["network-config"].Spec.Template {
+		t.Errorf("Expected same template, got other template:\n%s", template)
 	}
 }
 
@@ -1215,92 +1200,5 @@ func TestNetworkConfigHandler(t *testing.T) {
 	}
 	if !strings.Contains(rendered, "address:") {
 		t.Error("Expected address in subnets")
-	}
-}
-
-func TestGroupTemplateRenderingWithDatasourcePaths(t *testing.T) {
-	smd := smdclient.NewMockSMDClient()
-	smd.AddComponent(&smdclient.Component{
-		ID:   "x1000c0s0b0n0",
-		NID:  1000,
-		Role: "compute",
-		MAC:  "aa:bb:cc:dd:ee:ff",
-		IP:   "10.0.0.100",
-	})
-	smd.AddGroupMembership("x1000c0s0b0n0", []string{"compute"})
-
-	store := &mockStore{
-		clusterDefaults: &handlers.ClusterDefaults{
-			BaseURL:       "http://test.local",
-			CloudProvider: "OpenCHAMI",
-			Region:        "us-test-1",
-			ClusterName:   "testcluster",
-			ShortName:     "tc",
-			NidLength:     4,
-			PublicKeys:    []string{"ssh-rsa AAAAB3... test@key"},
-		},
-		instanceInfo: map[string]*handlers.InstanceInfo{},
-		groupData: map[string]*group.Group{
-			"compute": {
-				Spec: group.GroupSpec{
-					Description: "Compute nodes with ds.* paths",
-					Template: `#cloud-config
-hostname: {{ ds.hostname }}
-users:
-  - name: root
-    ssh_authorized_keys:{% for key in ds.meta_data.instance_data.v1.public_keys %}
-      - {{ key }}{% endfor %}
-write_files:
-  - path: /etc/node-info
-    content: |
-      NID={{ ds.nid }}
-      ROLE={{ ds.role }}
-      IP={{ ds.ip }}
-`,
-				},
-			},
-		},
-	}
-
-	r := chi.NewRouter()
-	r.Get("/{group}.yaml", handlers.GroupUserDataHandler(smd, store))
-
-	req := httptest.NewRequest("GET", "/compute.yaml", nil)
-	req.RemoteAddr = "10.0.0.100:12345"
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	resp := w.Result()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("Expected status 200, got %d: %s", resp.StatusCode, string(body))
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("Failed to read response body: %v", err)
-	}
-
-	rendered := string(body)
-
-	if !strings.Contains(rendered, "hostname: tc1000") {
-		t.Errorf("Expected rendered hostname, got: %s", rendered)
-	}
-
-	if !strings.Contains(rendered, "ssh-rsa AAAAB3... test@key") {
-		t.Errorf("Expected rendered public_keys from ds.meta_data.instance_data.v1.public_keys, got: %s", rendered)
-	}
-
-	if !strings.Contains(rendered, "NID=1000") {
-		t.Errorf("Expected rendered NID from ds.nid, got: %s", rendered)
-	}
-
-	if !strings.Contains(rendered, "ROLE=compute") {
-		t.Errorf("Expected rendered role from ds.role, got: %s", rendered)
-	}
-
-	if !strings.Contains(rendered, "IP=10.0.0.100") {
-		t.Errorf("Expected rendered IP from ds.ip, got: %s", rendered)
 	}
 }

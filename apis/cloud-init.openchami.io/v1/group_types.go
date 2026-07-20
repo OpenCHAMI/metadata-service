@@ -12,9 +12,7 @@ import (
 	"strings"
 	"time"
 
-	pongo2 "github.com/flosch/pongo2/v6"
 	"github.com/openchami/fabrica/pkg/fabrica"
-	"gopkg.in/yaml.v3"
 )
 
 // Group represents a Group resource (hub/storage version).
@@ -86,18 +84,6 @@ func MergeMetadata(defaultMeta map[string]any, groupMeta map[string]string) map[
 	return merged
 }
 
-// RenderTemplate renders a Jinja2-compatible template using pongo2.
-func RenderTemplate(templateStr string, metadata map[string]interface{}) (string, error) {
-	templateSet := pongo2.NewSet("group-template", pongo2.MustNewLocalFileSystemLoader(""))
-	return templateSet.RenderTemplateString(templateStr, metadata)
-}
-
-// validateYAML checks if a string is valid YAML.
-func validateYAML(s string) error {
-	var out interface{}
-	return yaml.Unmarshal([]byte(s), &out)
-}
-
 func hasTemplateVariableData(metadata map[string]interface{}, variable string) bool {
 	current := any(metadata)
 	for _, part := range strings.Split(variable, ".") {
@@ -150,36 +136,57 @@ func extractTemplateVariables(tmpl string) []string {
 // sampleMetadata returns example metadata for validation.
 // Returns a cloud-init datasource-compliant structure wrapped in 'ds' key.
 func sampleMetadata() map[string]any {
+	vendordata := map[string]any{
+		"version":             "1.0",
+		"cloud_init_base_url": "http://cloud-init.local",
+		"cluster_name":        "test-cluster",
+		"nid":                 int64(1000),
+		"role":                "compute",
+		"mac":                 "00:11:22:33:44:55",
+		"groups": map[string]any{
+			"rack1": map[string]any{
+				"description":      "Rack 1",
+				"syslog_forwarder": "syslog.rack1.local",
+			},
+		},
+		"interfaces": []map[string]any{{
+			"name":        "eth0",
+			"mac":         "00:11:22:33:44:55",
+			"description": "Node Management Network",
+			"enabled":     true,
+			"redfishid":   "1",
+			"ip":          "192.0.2.1",
+			"network":     "HMN",
+			"ip_addresses": []map[string]string{{
+				"ip":      "192.0.2.1",
+				"network": "HMN",
+			}},
+		}},
+	}
+
 	// Build the core data structure that templates will access via ds.*
 	coreData := map[string]any{
 		"cluster_name":      "test-cluster",
 		"base_url":          "http://cloud-init.local",
+		"cloud_name":        "OpenCHAMI",
 		"cloud_provider":    "OpenCHAMI",
 		"region":            "us-west-1",
 		"availability_zone": "us-west-1a",
+		"local_hostname":    "test-host",
 		"hostname":          "test-host",
+		"instance_type":     "compute",
 		"instance_id":       "x1000c0s0b0n0",
 		"nid":               1000,
 		"role":              "compute",
 		"mac":               "00:11:22:33:44:55",
 		"ip":                "192.0.2.1",
+		"local_ipv4":        "192.0.2.1",
 		"domain":            "example.com",
 		"os_version":        "ubuntu-22.04",
-		"ssh_keys":          "ssh-rsa AAAAB3Nza...",
+		"public_keys":       "ssh-rsa AAAAB3Nza...",
 		"tags":              "role=compute,env=prod",
-		"vendor_data": map[string]any{
-			"version":             "1.0",
-			"cloud_init_base_url": "http://cloud-init.local",
-			"cluster_name":        "test-cluster",
-			"nid":                 1000,
-			"role":                "compute",
-			"mac":                 "00:11:22:33:44:55",
-			"groups": map[string]any{
-				"rack1": map[string]any{
-					"syslog_forwarder": "syslog.rack1.local",
-				},
-			},
-		},
+		"interfaces":        vendordata["interfaces"],
+		"vendor_data":       vendordata,
 		"meta_data": map[string]any{
 			"instance-id":    "x1000c0s0b0n0",
 			"local-hostname": "test-host",
@@ -187,14 +194,17 @@ func sampleMetadata() map[string]any {
 			"cluster-name":   "test-cluster",
 			"instance_data": map[string]any{
 				"v1": map[string]any{
-					"public_keys": []string{"ssh-rsa AAAAB3Nza..."},
-					"vendor_data": map[string]any{
-						"groups": map[string]any{
-							"rack1": map[string]any{
-								"syslog_forwarder": "syslog.rack1.local",
-							},
-						},
-					},
+					"cloud_name":        "OpenCHAMI",
+					"availability_zone": "us-west-1a",
+					"instance_id":       "x1000c0s0b0n0",
+					"instance_type":     "compute",
+					"local_hostname":    "test-host",
+					"region":            "us-west-1",
+					"hostname":          "test-host",
+					"local_ipv4":        "192.0.2.1",
+					"cloud_provider":    "OpenCHAMI",
+					"public_keys":       []string{"ssh-rsa AAAAB3Nza..."},
+					"vendor_data":       vendordata,
 				},
 			},
 		},
@@ -228,21 +238,6 @@ func (r *Group) Validate(ctx context.Context) error { //nolint: revive
 	if len(missing) > 0 {
 		r.Status.Valid = false
 		r.Status.ErrorMessage = "missing required variables: " + fmt.Sprintf("%v", missing)
-		r.trackTemplateVersion(false, r.Status.ErrorMessage)
-		return fmt.Errorf("%s", r.Status.ErrorMessage)
-	}
-
-	rendered, err := RenderTemplate(r.Spec.Template, merged)
-	if err != nil {
-		r.Status.Valid = false
-		r.Status.ErrorMessage = "template render error: " + err.Error()
-		r.trackTemplateVersion(false, r.Status.ErrorMessage)
-		return fmt.Errorf("%s", r.Status.ErrorMessage)
-	}
-
-	if err := validateYAML(rendered); err != nil {
-		r.Status.Valid = false
-		r.Status.ErrorMessage = "template YAML invalid after rendering: " + err.Error()
 		r.trackTemplateVersion(false, r.Status.ErrorMessage)
 		return fmt.Errorf("%s", r.Status.ErrorMessage)
 	}

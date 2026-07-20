@@ -71,20 +71,8 @@ func TestGroupTemplateValidation(t *testing.T) {
 	require.NoError(t, err, "Expected successful creation with valid template")
 	require.True(t, created.Status.Valid, "Status.Valid should be true")
 
-	// 3. Update group with invalid YAML after rendering
-	invalidYAML := "#cloud-config\nhostname: {{hostname}}\nfoo: ["
-	reqUpdate := client.UpdateGroupRequest{
-		Metadata: fabrica.Metadata{Name: "test-good"},
-		Spec: group.GroupSpec{
-			Template: invalidYAML,
-			MetaData: map[string]string{"hostname": "test-host"},
-		},
-	}
-	_, err = c.UpdateGroup(ctx, created.Metadata.UID, reqUpdate)
-	require.Error(t, err, "Expected validation error for invalid YAML")
-
-	// 4. Bulk validation: create multiple groups, some valid, some invalid
-	for i := 0; i < 3; i++ {
+	// 3. Bulk validation: create multiple groups, some valid, some invalid
+	for i := range(3) {
 		tmpl := goodTemplate
 		name := fmt.Sprintf("bulk-%d", i)
 		if i == 2 {

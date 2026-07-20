@@ -347,68 +347,7 @@ kubectl rollout restart deployment/metadata-service -n openchami
 
 **Common errors:**
 
-#### 1. Invalid Pongo2 syntax
-
-**Error message:**
-```json
-{
-  "error": "template validation failed: unexpected token at line 5"
-}
-```
-
-**Check template:**
-```yaml
-template: |
-  #cloud-config
-  hostname: {{ hostname }}
-  write_files:
-    - path: /etc/config
-      content: |
-        VALUE={{ value }  # Missing closing brace
-```
-
-**Fix:**
-```yaml
-template: |
-  #cloud-config
-  hostname: {{ hostname }}
-  write_files:
-    - path: /etc/config
-      content: |
-        VALUE={{ value }}  # Corrected
-```
-
-#### 2. Invalid YAML output
-
-**Error message:**
-```json
-{
-  "error": "template validation failed: rendered output is not valid YAML"
-}
-```
-
-**Common causes:**
-- Missing quotes around strings with special characters
-- Incorrect indentation
-- Unclosed brackets/braces
-
-**Debug:**
-```bash
-# Test template locally with sample context
-cat > test-template.txt <<'EOF'
-#cloud-config
-hostname: {{ hostname }}
-write_files:
-  - path: /etc/test
-    content: |
-      IP={{ ip }}
-EOF
-
-# Render with sample data (using pongo2 CLI or custom script)
-# Verify output is valid YAML
-```
-
-#### 3. Undefined variable reference
+#### 1. Undefined variable reference
 
 **Error message:**
 ```json
