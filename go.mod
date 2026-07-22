@@ -4,12 +4,12 @@
 
 module github.com/OpenCHAMI/metadata-service
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/go-chi/chi/v5 v5.2.4
-	github.com/openchami/fabrica v0.4.8
+	github.com/openchami/fabrica v0.4.9
 	github.com/openchami/tokensmith v0.4.1
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.10.2

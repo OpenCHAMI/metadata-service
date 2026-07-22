@@ -41,7 +41,9 @@ import (
 	"github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
 )
 
-// CreateClusterDefaultsRequest represents a request to create a ClusterDefaults
+// CreateClusterDefaultsRequest represents a request to create a ClusterDefaults (Advanced API)
+// Use this when you need full control over metadata fields (labels, annotations).
+// For simpler usage, see CreateClusterDefaultsSimple in the client.
 type CreateClusterDefaultsRequest struct {
 	Metadata    fabrica.Metadata       `json:"metadata" yaml:"metadata" validate:"required"`
 	Spec        v1.ClusterDefaultsSpec `json:"spec" yaml:"spec" validate:"required"`
@@ -49,7 +51,9 @@ type CreateClusterDefaultsRequest struct {
 	Annotations map[string]string      `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// UpdateClusterDefaultsRequest represents a request to update a ClusterDefaults
+// UpdateClusterDefaultsRequest represents a request to update a ClusterDefaults (Advanced API)
+// Use this when you need to update metadata fields along with the spec.
+// For simpler usage, see UpdateClusterDefaultsSimple in the client.
 type UpdateClusterDefaultsRequest struct {
 	Metadata    fabrica.Metadata       `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	Spec        v1.ClusterDefaultsSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
@@ -57,7 +61,9 @@ type UpdateClusterDefaultsRequest struct {
 	Annotations map[string]string      `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// CreateGroupRequest represents a request to create a Group
+// CreateGroupRequest represents a request to create a Group (Advanced API)
+// Use this when you need full control over metadata fields (labels, annotations).
+// For simpler usage, see CreateGroupSimple in the client.
 type CreateGroupRequest struct {
 	Metadata    fabrica.Metadata  `json:"metadata" yaml:"metadata" validate:"required"`
 	Spec        v1.GroupSpec      `json:"spec" yaml:"spec" validate:"required"`
@@ -65,7 +71,9 @@ type CreateGroupRequest struct {
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// UpdateGroupRequest represents a request to update a Group
+// UpdateGroupRequest represents a request to update a Group (Advanced API)
+// Use this when you need to update metadata fields along with the spec.
+// For simpler usage, see UpdateGroupSimple in the client.
 type UpdateGroupRequest struct {
 	Metadata    fabrica.Metadata  `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	Spec        v1.GroupSpec      `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
@@ -73,7 +81,9 @@ type UpdateGroupRequest struct {
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// CreateInstanceInfoRequest represents a request to create a InstanceInfo
+// CreateInstanceInfoRequest represents a request to create a InstanceInfo (Advanced API)
+// Use this when you need full control over metadata fields (labels, annotations).
+// For simpler usage, see CreateInstanceInfoSimple in the client.
 type CreateInstanceInfoRequest struct {
 	Metadata    fabrica.Metadata    `json:"metadata" yaml:"metadata" validate:"required"`
 	Spec        v1.InstanceInfoSpec `json:"spec" yaml:"spec" validate:"required"`
@@ -81,7 +91,9 @@ type CreateInstanceInfoRequest struct {
 	Annotations map[string]string   `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// UpdateInstanceInfoRequest represents a request to update a InstanceInfo
+// UpdateInstanceInfoRequest represents a request to update a InstanceInfo (Advanced API)
+// Use this when you need to update metadata fields along with the spec.
+// For simpler usage, see UpdateInstanceInfoSimple in the client.
 type UpdateInstanceInfoRequest struct {
 	Metadata    fabrica.Metadata    `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	Spec        v1.InstanceInfoSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
@@ -89,7 +101,9 @@ type UpdateInstanceInfoRequest struct {
 	Annotations map[string]string   `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// CreateWireGuardPeerRequest represents a request to create a WireGuardPeer
+// CreateWireGuardPeerRequest represents a request to create a WireGuardPeer (Advanced API)
+// Use this when you need full control over metadata fields (labels, annotations).
+// For simpler usage, see CreateWireGuardPeerSimple in the client.
 type CreateWireGuardPeerRequest struct {
 	Metadata    fabrica.Metadata     `json:"metadata" yaml:"metadata" validate:"required"`
 	Spec        v1.WireGuardPeerSpec `json:"spec" yaml:"spec" validate:"required"`
@@ -97,7 +111,9 @@ type CreateWireGuardPeerRequest struct {
 	Annotations map[string]string    `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// UpdateWireGuardPeerRequest represents a request to update a WireGuardPeer
+// UpdateWireGuardPeerRequest represents a request to update a WireGuardPeer (Advanced API)
+// Use this when you need to update metadata fields along with the spec.
+// For simpler usage, see UpdateWireGuardPeerSimple in the client.
 type UpdateWireGuardPeerRequest struct {
 	Metadata    fabrica.Metadata     `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	Spec        v1.WireGuardPeerSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
