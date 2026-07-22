@@ -40,6 +40,7 @@ dist/
 # Runtime config (contains environment-specific values)
 config.yaml
 config.yml
+!packaging/**/configs/*
 
 # IDE files
 .vscode/

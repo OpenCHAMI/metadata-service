@@ -1,0 +1,22 @@
+---
+# SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+# SPDX-License-Identifier: MIT
+
+# listen port
+port: 8080
+
+# SMD
+# Required. Set here or via METADATA_SERVICE_SMD_URL in the systemd drop-in.
+#smd_url: ''
+smd_sync_enabled: true
+
+# Token authentication
+# tokensmith_url: ''
+# tokensmith_target_service: ''
+
+# Persistent data storage
+data_dir: '/app/data'
+
+# Prometheus metrics
+enable_metrics: true
+metrics_port: 9090
