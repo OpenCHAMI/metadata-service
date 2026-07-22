@@ -18,18 +18,48 @@ on:
       - "Makefile"
       - ".github/workflows/codegen-check.yaml"
   workflow_dispatch:
+    inputs:
+      fabrica_ref:
+        description: 'Fabrica ref (branch, tag, commit) to use for code generation'
+        required: false
+        default: ''
 
 jobs:
   codegen-drift:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v6.4.0
         with:
           go-version: stable
 
+      - name: Determine Fabrica Ref
+        id: fabrica_ref
+        run: |
+          if [ -n "${{ github.event.inputs.fabrica_ref }}" ]; then
+            ref="${{ github.event.inputs.fabrica_ref }}"
+          else
+            ref="$(awk '/github.com\/openchami\/fabrica[[:space:]]+v/ {print $2; exit}' go.mod)"
+          fi
+          echo "fabrica ref is: ${ref}"
+          echo "ref=${ref}" >> $GITHUB_OUTPUT
+
+      - name: Checkout Fabrica
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: openchami/fabrica
+          ref: ${{ steps.fabrica_ref.outputs.ref }}
+          path: "${{ github.workspace }}/fabrica"
+
+      - name: Build Fabrica
+        run: |
+          cd "${{ github.workspace }}/fabrica"
+          make build
+
       - name: Verify generated code is committed
-        run: make generate-check
+        run: make LOCAL_FABRICA='${{ github.workspace }}/fabrica' generate-check

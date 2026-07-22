@@ -25,6 +25,8 @@ func TestBindFlagsWithUnderscoreKeys_ConfigValuesBeatUnchangedFlagDefaults(t *te
 	flagSet.Int("tokensmith-refresh-skew-sec", 300, "")
 	flagSet.Bool("smd-sync-enabled", true, "")
 	flagSet.Int("smd-sync-interval", 60, "")
+	flagSet.Bool("enable-metrics", false, "")
+	flagSet.Int("metrics-port", 9090, "")
 
 	v := viper.New()
 	if err := bindFlagsWithUnderscoreKeys(v, flagSet); err != nil {
@@ -44,6 +46,8 @@ tokensmith_target_service: hsm
 tokensmith_refresh_skew_sec: 42
 smd_sync_enabled: false
 smd_sync_interval: 30
+enable_metrics: true
+metrics_port: 9191
 `
 	if err := v.ReadConfig(strings.NewReader(configYAML)); err != nil {
 		t.Fatalf("ReadConfig failed: %v", err)
@@ -87,6 +91,12 @@ smd_sync_interval: 30
 	if config.SMDSyncInterval != 30 {
 		t.Fatalf("expected SMDSyncInterval to be 30, got %d", config.SMDSyncInterval)
 	}
+	if !config.EnableMetrics {
+		t.Fatal("expected EnableMetrics config value to override unchanged --enable-metrics default")
+	}
+	if config.MetricsPort != 9191 {
+		t.Fatalf("expected MetricsPort to be 9191, got %d", config.MetricsPort)
+	}
 }
 
 func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *testing.T) {
@@ -94,6 +104,8 @@ func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *
 	flagSet.String("data-dir", "/data", "")
 	flagSet.String("tokensmith-url", "", "")
 	flagSet.Int("smd-sync-interval", 60, "")
+	flagSet.Bool("enable-metrics", false, "")
+	flagSet.Int("metrics-port", 9090, "")
 
 	if err := flagSet.Set("data-dir", "/tmp/from-flag"); err != nil {
 		t.Fatalf("Set data-dir failed: %v", err)
@@ -103,6 +115,12 @@ func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *
 	}
 	if err := flagSet.Set("smd-sync-interval", "15"); err != nil {
 		t.Fatalf("Set smd-sync-interval failed: %v", err)
+	}
+	if err := flagSet.Set("enable-metrics", "true"); err != nil {
+		t.Fatalf("Set enable-metrics failed: %v", err)
+	}
+	if err := flagSet.Set("metrics-port", "9191"); err != nil {
+		t.Fatalf("Set metrics-port failed: %v", err)
 	}
 
 	v := viper.New()
@@ -118,6 +136,12 @@ func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *
 	}
 	if got := v.GetInt("smd_sync_interval"); got != 15 {
 		t.Fatalf("expected --smd-sync-interval to bind to smd_sync_interval, got %d", got)
+	}
+	if !v.GetBool("enable_metrics") {
+		t.Fatal("expected --enable-metrics to bind to enable_metrics")
+	}
+	if got := v.GetInt("metrics_port"); got != 9191 {
+		t.Fatalf("expected --metrics-port to bind to metrics_port, got %d", got)
 	}
 }
 
@@ -144,6 +168,12 @@ func TestDefaultConfigUsesAbsoluteDataPaths(t *testing.T) {
 	}
 	if config.TokenSmithRefreshSkewSec != 300 {
 		t.Fatalf("expected default TokenSmithRefreshSkewSec to be 300, got %d", config.TokenSmithRefreshSkewSec)
+	}
+	if config.EnableMetrics {
+		t.Fatal("expected default EnableMetrics to be false")
+	}
+	if config.MetricsPort != 9090 {
+		t.Fatalf("expected default MetricsPort to be 9090, got %d", config.MetricsPort)
 	}
 }
 

@@ -517,9 +517,10 @@ For larger deployments, consider:
 **Current:**
 - Check logs for request duration: `level=debug msg="request completed" duration="15ms"`
 - Monitor health endpoint: `curl http://localhost:8080/health`
+- Enable Prometheus metrics with `enable_metrics: true` or `--enable-metrics`
+- Scrape metrics from `http://localhost:8080/metrics` or the configured metrics port (default `9090`)
 
 **Future:**
-- Prometheus metrics (planned)
 - Distributed tracing with OpenTelemetry (planned)
 
 ---
