@@ -190,7 +190,7 @@ func initConfig() {
 	}
 
 	// Environment variables
-	viper.SetEnvPrefix("OCHAMI_METADATA")
+	viper.SetEnvPrefix("METADATA_SERVICE")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 

@@ -44,7 +44,7 @@ func TestInitConfigLoadsConfigFileAndEnvOverrides(t *testing.T) {
 		cfgFile = prevCfgFile
 	})
 
-	t.Setenv("OCHAMI_METADATA_PORT", "9191")
+	t.Setenv("METADATA_SERVICE_PORT", "9191")
 
 	initConfig()
 

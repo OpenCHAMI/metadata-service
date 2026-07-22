@@ -160,7 +160,7 @@ See LEGACY_COMPATIBILITY.md for compatibility and migration notes.
 
 The service is configured via:
   - command-line flags: go run ./cmd/server serve --help
-  - environment variables: OCHAMI_METADATA_* plus explicitly bound keys like SMD_URL,
+  - environment variables: METADATA_SERVICE_* plus explicitly bound keys like SMD_URL,
     SMD_JWT/SMD_TOKEN, and TOKENSMITH_*
   - configuration file: --config
 
