@@ -13,6 +13,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-22
+
+### Added
+
+- Added WireGuardPeer reconciliation runtime and reconciler support for
+  applying persisted WireGuard peer intent to device state
+- Added WireGuard peer allocation persistence, deterministic peer UIDs, peer
+  status handling, and reconciliation/deletion tests
+- Added Prometheus metrics support with `enable_metrics`/`--enable-metrics`,
+  `metrics_port`/`--metrics-port`, and `/metrics` endpoints
+- Added generated `version` commands and build/version metadata for the server
+  and client
+- Added generated simple create/update client helpers for resource APIs
+- Added architecture, client usage, deployment, FAQ, troubleshooting, and
+  WireGuard testing documentation
+
+### Changed
+
+- Regenerated server and client using Fabrica v0.4.9
+- Updated cloud-init template handling to return group templates unrendered for
+  client-side cloud-init rendering
+- Updated template context to use the cloud-init datasource-style `ds` wrapper
+- Updated WireGuard initialization to persist `WireGuardPeer` resources and
+  return accepted peer allocation responses
+- Updated code generation checks to use a locally built Fabrica binary
+- Updated Go version to 1.26.5
+- Updated `github.com/go-chi/chi/v5` from v5.2.3 to v5.2.4
+
+### Fixed
+
+- Fixed config precedence so underscore-separated YAML and environment keys
+  override defaults while CLI flags continue to use hyphen-separated names
+- Added `/etc/ochami-metadata` to the server config search path
+- Fixed SMD sync startup race by waiting for token readiness before background
+  synchronization
+- Improved SMD dynamic token logging and diagnostics
+- Fixed metadata validation sample data to include expected cloud-init keys
+- Fixed WireGuard key handling by converting base64 keys to hex for
+  `wireguard-go`
+- Fixed WireGuard route registration and middleware ordering issues
+
 ## [0.1.2] - 2026-06-17
 
 ### Added
