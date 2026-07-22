@@ -17,8 +17,10 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/OpenCHAMI/metadata-service/pkg/apiversion"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/openchami/fabrica/pkg/versioning"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -56,7 +58,9 @@ type Config struct {
 	SMDSyncInterval int  `mapstructure:"smd_sync_interval"`
 
 	// Feature Flags
-	Debug bool `mapstructure:"debug"`
+	Debug         bool `mapstructure:"debug"`
+	EnableMetrics bool `mapstructure:"enable_metrics"`
+	MetricsPort   int  `mapstructure:"metrics_port"`
 }
 
 // DefaultConfig returns the default configuration
@@ -85,7 +89,9 @@ func DefaultConfig() *Config {
 		SMDSyncEnabled:  true,
 		SMDSyncInterval: 60,
 
-		Debug: false,
+		Debug:         false,
+		EnableMetrics: false,
+		MetricsPort:   9090,
 	}
 }
 
@@ -152,6 +158,10 @@ func init() {
 	serveCmd.Flags().Bool("smd-sync-enabled", true, "Enable background SMD cache sync worker")
 	serveCmd.Flags().Int("smd-sync-interval", 60, "SMD cache sync interval in seconds")
 
+	// Metrics flags
+	serveCmd.Flags().Bool("enable-metrics", false, "Enable Prometheus metrics")
+	serveCmd.Flags().Int("metrics-port", 9090, "Port for metrics endpoint")
+
 	// Bind flags to viper
 	if err := bindFlagsWithUnderscoreKeys(viper.GetViper(), serveCmd.Flags(), rootCmd.PersistentFlags()); err != nil {
 		panic(fmt.Errorf("failed to bind flags: %w", err))
@@ -159,6 +169,7 @@ func init() {
 
 	// Add subcommands
 	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(NewVersionCommand())
 }
 
 func initConfig() {
@@ -220,18 +231,36 @@ func runServer(cmd *cobra.Command, args []string) error {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 
-	if config.Debug {
-		r.Mount("/debug", middleware.Profiler())
+	var metrics *Metrics
+	if config.EnableMetrics {
+		metrics = initializeMetrics(config)
+		if metrics != nil {
+			r.Use(metrics.Middleware)
+		}
 	}
 
-	if err := registerServerIntegrations(appCtx, r); err != nil {
-		return err
+	r.Use(versioning.VersionNegotiationMiddleware(versioning.GlobalVersionRegistry, nil))
+
+	if config.Debug {
+		r.Mount("/debug", middleware.Profiler())
 	}
 
 	// Public service endpoints (outside WG middleware).
 	r.Get("/health", healthHandler)
 	r.Get("/openapi.json", ServeOpenAPISpec)
 	r.Get("/docs", ServeSwaggerUI)
+	if config.EnableMetrics && metrics != nil {
+		r.Handle("/metrics", metrics.Handler())
+		go startMetricsServer(config, metrics.Handler())
+	}
+
+	var integrationErr error
+	r.Group(func(protected chi.Router) {
+		integrationErr = registerServerIntegrations(appCtx, protected)
+	})
+	if integrationErr != nil {
+		return integrationErr
+	}
 
 	reconcileRuntime, err := newReconciliationRuntimeFn(currentWGController)
 	if err != nil {
@@ -282,6 +311,18 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	log.Println("Server exited")
 	return nil
+}
+
+func startMetricsServer(config *Config, handler http.Handler) {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", handler)
+
+	metricsAddr := fmt.Sprintf("%s:%d", config.Host, config.MetricsPort)
+	log.Printf("Metrics server starting on %s", metricsAddr)
+
+	if err := http.ListenAndServe(metricsAddr, mux); err != nil {
+		log.Printf("Metrics server error: %v", err)
+	}
 }
 
 // Health check handler

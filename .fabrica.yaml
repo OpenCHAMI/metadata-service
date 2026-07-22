@@ -29,7 +29,8 @@ features:
     enabled: true
     type: file
   metrics:
-    enabled: false
+    enabled: true
+    provider: prometheus
 generation:
   handlers: true
   storage: true
