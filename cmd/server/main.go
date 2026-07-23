@@ -276,11 +276,12 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
 	server := &http.Server{
-		Addr:         addr,
-		Handler:      r,
-		ReadTimeout:  time.Duration(config.ReadTimeout) * time.Second,
-		WriteTimeout: time.Duration(config.WriteTimeout) * time.Second,
-		IdleTimeout:  time.Duration(config.IdleTimeout) * time.Second,
+		Addr:              addr,
+		Handler:           r,
+		ReadHeaderTimeout: 2 * time.Second,
+		ReadTimeout:       time.Duration(config.ReadTimeout) * time.Second,
+		WriteTimeout:      time.Duration(config.WriteTimeout) * time.Second,
+		IdleTimeout:       time.Duration(config.IdleTimeout) * time.Second,
 	}
 
 	// Start server in goroutine

@@ -493,13 +493,13 @@ func VendorDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc {
 		// Get base URL
 		clusterDefaults, err := store.GetClusterDefaults()
 		baseURL := ""
-		if err == nil {
+		if err == nil && clusterDefaults != nil {
 			baseURL = clusterDefaults.BaseURL
 		}
 
 		// Check for instance-specific override
 		instanceInfo, err := store.GetInstanceInfo(id)
-		if err == nil && instanceInfo.CloudInitBaseURL != "" {
+		if err == nil && instanceInfo != nil && instanceInfo.CloudInitBaseURL != "" {
 			baseURL = instanceInfo.CloudInitBaseURL
 		}
 
