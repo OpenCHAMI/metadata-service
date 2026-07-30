@@ -178,9 +178,11 @@ func initConfig() {
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-		viper.AddConfigPath("/etc/metadata-service")
 		viper.SetConfigName("config")
 		viper.SetConfigType("yaml")
+		viper.AddConfigPath(".")
+		viper.AddConfigPath("/etc/metadata-service")
+		viper.AddConfigPath("$HOME/.metadata-service")
 	}
 
 	// Environment variables
