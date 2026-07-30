@@ -13,12 +13,12 @@ import (
 )
 
 func init() {
-	rootCmd.Use = "ochami-metadata-server"
+	rootCmd.Use = "metadata-service"
 	rootCmd.Short = "OpenCHAMI metadata service"
-	rootCmd.Long = "ochami-metadata-server - OpenCHAMI metadata service"
+	rootCmd.Long = "metadata-service - OpenCHAMI metadata service"
 
-	serveCmd.Short = "Start the ochami-metadata-server server"
-	serveCmd.Long = "Start the ochami-metadata-server HTTP server with the configured options"
+	serveCmd.Short = "Start the metadata-service server"
+	serveCmd.Long = "Start the metadata-service HTTP server with the configured options"
 	serveCmd.Flags().String("wireguard-server", "", "Enable WireGuard userspace controller (CIDR, e.g. 100.97.0.1/16)")
 	serveCmd.Flags().String("tokensmith-url", "", "Enable TokenSmith dynamic SMD authentication via this base URL")
 	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "TokenSmith bootstrap token for initial service-token exchange")

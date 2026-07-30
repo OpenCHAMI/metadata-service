@@ -32,7 +32,7 @@ This guide helps diagnose and resolve common issues with the OpenCHAMI metadata 
 export LOG_LEVEL=debug
 
 # Command-line flag
-./server serve --log-level=debug
+./bin/metadata-service-server serve --log-level=debug
 
 # Kubernetes
 kubectl set env deployment/metadata-service LOG_LEVEL=debug -n openchami
@@ -150,7 +150,7 @@ level=error msg="bind: address already in use"
 **Fix:**
 ```bash
 # Change port
-./server serve --port=8888
+./bin/metadata-service-server serve --port=8888
 
 # Or stop conflicting service
 lsof -i :8080
@@ -509,7 +509,7 @@ kubectl rollout restart deployment/metadata-service -n openchami
 
 **Or adjust sync interval:**
 ```bash
-./server serve --smd-sync-interval=30  # Sync every 30 seconds
+./bin/metadata-service-server serve --smd-sync-interval=30  # Sync every 30 seconds
 ```
 
 ---
@@ -603,7 +603,7 @@ level=warn msg="token refresh scheduled" refresh_in=3300
 **Adjust refresh skew if needed:**
 ```bash
 # Refresh 10 minutes before expiry
-./server serve --tokensmith-refresh-skew-sec=600
+./bin/metadata-service-server serve --tokensmith-refresh-skew-sec=600
 ```
 
 ### Problem: Service identity exchange fails
@@ -662,7 +662,7 @@ level=error msg="WireGuard controller not initialized"
 **Fix:**
 ```bash
 # Ensure WireGuard is enabled
-./server serve --wireguard-server=100.97.0.1/16
+./bin/metadata-service-server serve --wireguard-server=100.97.0.1/16
 ```
 
 ### Problem: IP allocation exhausted
@@ -863,7 +863,7 @@ kubectl top pod -l app=metadata-service -n openchami
 ```bash
 # Use dashes consistently
 export DATA_DIR=/data
-./server serve --data-dir=/data
+./bin/metadata-service-server serve --data-dir=/data
 
 # Or use underscores
 export data_dir=/data
@@ -917,14 +917,14 @@ volumes:
 
 ```bash
 export LOG_LEVEL=debug
-./server serve
+./bin/metadata-service-server serve
 ```
 
 ### Collect Diagnostic Information
 
 ```bash
 # Service version
-./server version
+./bin/metadata-service-server version
 
 # Health status
 curl http://localhost:8080/health

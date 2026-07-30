@@ -121,13 +121,13 @@ Three modes:
 
 1. **Mock mode** (development only):
    ```bash
-   ./server serve --mock-smd
+   ./bin/metadata-service-server serve --mock-smd
    ```
 
 2. **Static token** (simple):
    ```bash
    export SMD_JWT="your-token"
-   ./server serve
+   ./bin/metadata-service-server serve
    ```
 
 3. **Dynamic token** (recommended for production):
@@ -135,7 +135,7 @@ Three modes:
    export TOKENSMITH_URL=https://tokensmith.example.com
    export TOKENSMITH_SERVICE_IDENTITY_CERT=/path/to/cert.crt
    export TOKENSMITH_SERVICE_IDENTITY_KEY=/path/to/key.key
-   ./server serve
+   ./bin/metadata-service-server serve
    ```
 
 See [TokenSmith Integration](./tokensmith-integration.md) for details.
@@ -148,7 +148,7 @@ By default: `/data` (absolute path)
 
 **Change with:**
 ```bash
-./server serve --data-dir=/var/lib/metadata-service
+./bin/metadata-service-server serve --data-dir=/var/lib/metadata-service
 ```
 
 **In containers:**
@@ -179,7 +179,7 @@ The service prefers HMN (Hardware Management Network) interfaces when available.
 
 ```bash
 # Start server with mock SMD
-./server serve --port 8888 --mock-smd
+./bin/metadata-service-server serve --port 8888 --mock-smd
 
 # Simulate node request
 curl -H "X-Forwarded-For: 10.252.0.26" http://localhost:8888/meta-data
@@ -247,7 +247,7 @@ See [Cloud-Init Template Context](../CLOUDINIT.md#template-context) for complete
 1. **Enable debug logging:**
    ```bash
    export LOG_LEVEL=debug
-   ./server serve
+   ./bin/metadata-service-server serve
    ```
 
 2. **Check logs for template context:**
@@ -330,7 +330,7 @@ See [Troubleshooting - SMD Issues](./TROUBLESHOOTING.md#smd-integration-issues) 
 
 1. **Enable background sync:**
    ```bash
-   ./server serve --smd-sync-enabled --smd-sync-interval=60
+   ./bin/metadata-service-server serve --smd-sync-enabled --smd-sync-interval=60
    ```
 
 2. **Increase cache TTL** (requires code change):
@@ -361,7 +361,7 @@ WireGuard provides a secure VPN channel for:
 ### How do I enable WireGuard?
 
 ```bash
-./server serve --wireguard-server=100.97.0.1/16
+./bin/metadata-service-server serve --wireguard-server=100.97.0.1/16
 ```
 
 This:

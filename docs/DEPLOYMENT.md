@@ -500,7 +500,7 @@ Type=simple
 User=metadata
 Group=metadata
 WorkingDirectory=/opt/metadata-service
-ExecStart=/opt/metadata-service/bin/server serve \
+ExecStart=/opt/metadata-service/bin/metadata-service-server serve \
   --port=8080 \
   --data-dir=/var/lib/metadata-service
 Environment=SMD_URL=http://smd.example.com:27779
@@ -533,11 +533,11 @@ sudo mkdir -p /var/lib/metadata-service
 sudo mkdir -p /etc/metadata-service
 
 # Install binary
-sudo cp bin/server /opt/metadata-service/bin/
+sudo cp bin/metadata-service-server /opt/metadata-service/bin/
 
 # Set ownership
 sudo chown -R metadata:metadata /var/lib/metadata-service
-sudo chown metadata:metadata /opt/metadata-service/bin/server
+sudo chown metadata:metadata /opt/metadata-service/bin/metadata-service-server
 
 # Store token securely
 echo "your-jwt-token" | sudo tee /etc/metadata-service/smd-jwt.token
@@ -722,7 +722,7 @@ metrics_port: 9090
 Or with flags:
 
 ```bash
-ochami-metadata-server serve --enable-metrics --metrics-port 9090
+metadata-service serve --enable-metrics --metrics-port 9090
 ```
 
 When enabled, metrics are available at:

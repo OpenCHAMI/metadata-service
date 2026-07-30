@@ -21,7 +21,7 @@ export METADATA_SERVICE_HOST=http://localhost:8080
 > You may also need to run the following if you receieve an error stating "Failed to initialize WireGuard controller: failed to create userspace device: failed to create TUN device: operation not permitted".
 >
 > ```bash
-> sudo setcap cap_net_admin+ep bin/ochami-metadata-server
+> sudo setcap cap_net_admin+ep bin/metadata-service-server
 > ```
 >
 > If you are using Podman Quadlets, add the following lines to your quadlet file under the `[Container]` section.
@@ -36,7 +36,7 @@ export METADATA_SERVICE_HOST=http://localhost:8080
 ### 1. Start the server with WireGuard enabled
 
 ```bash
-bin/ochami-metadata-server serve \
+bin/metadata-service-server serve \
   --data-dir /tmp/metadata-test \
   --wireguard-server 100.97.0.1/24 \
   --wireguard-state-file /tmp/metadata-test/wg-state.yaml
@@ -137,7 +137,7 @@ curl -s -X DELETE "$METADATA_SERVICE_HOST/wireguardpeers/$PEER_UID" -w "HTTP %{h
 Restart the server with the following.
 
 ```bash
-bin/ochami-metadata-server serve \
+bin/metadata-service-server serve \
   --data-dir /tmp/metadata-test-wgonly \
   --wireguard-server 100.97.0.1/24 \
   --wireguard-only
@@ -163,7 +163,7 @@ go test ./cmd/server/... ./pkg/reconcilers/... ./pkg/wireguard/... -v -count=1 2
 Stop the server from step 1 (Ctrl+C), then restart:
 
 ```bash
-bin/ochami-metadata-server serve \
+bin/metadata-service-server serve \
   --data-dir /tmp/metadata-test \
   --wireguard-server 100.97.0.1/24 \
   --wireguard-state-file /tmp/metadata-test/wg-state.yaml
