@@ -137,7 +137,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ochami-metadata.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is /etc/metadata-service/config.yaml)")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().BoolVar(&mockSMD, "mock-smd", false, "Use built-in mock SMD data instead of requiring SMD_URL")
 
@@ -178,15 +178,11 @@ func initConfig() {
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Search for config in home directory
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-
-		viper.AddConfigPath(".")
-		viper.AddConfigPath("/etc/ochami-metadata")
-		viper.AddConfigPath(home)
+		viper.SetConfigName("config")
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".ochami-metadata")
+		viper.AddConfigPath(".")
+		viper.AddConfigPath("/etc/metadata-service")
+		viper.AddConfigPath("$HOME/.metadata-service")
 	}
 
 	// Environment variables
