@@ -31,7 +31,7 @@ cd metadata-service
 make build
 
 # Client binary location
-./bin/client
+./bin/metadata-service-client
 
 # Or run directly
 go run ./cmd/client/main.go
@@ -41,15 +41,15 @@ go run ./cmd/client/main.go
 
 ```bash
 # Show help
-./bin/client --help
+./bin/metadata-service-client --help
 
 # Show help for specific resource
-./bin/client group --help
+./bin/metadata-service-client group --help
 
 # Set server URL (required)
 export METADATA_SERVER=http://localhost:8080
 # Or use --server flag
-./bin/client --server http://localhost:8080 group list
+./bin/metadata-service-client --server http://localhost:8080 group list
 ```
 
 ### Global Flags
@@ -79,22 +79,22 @@ Each resource type supports these commands:
 
 ```bash
 # List resources
-./bin/client <resource> list
+./bin/metadata-service-client <resource> list
 
 # Get specific resource
-./bin/client <resource> get <uid>
+./bin/metadata-service-client <resource> get <uid>
 
 # Create resource
-./bin/client <resource> create --spec <json-file>
+./bin/metadata-service-client <resource> create --spec <json-file>
 
 # Update resource
-./bin/client <resource> update <uid> --spec <json-file>
+./bin/metadata-service-client <resource> update <uid> --spec <json-file>
 
 # Delete resource
-./bin/client <resource> delete <uid>
+./bin/metadata-service-client <resource> delete <uid>
 
 # Watch for changes (streaming)
-./bin/client <resource> watch
+./bin/metadata-service-client <resource> watch
 ```
 
 ---
@@ -128,26 +128,26 @@ cat > clusterdefaults.json <<'EOF'
 }
 EOF
 
-./bin/client clusterdefaults create --spec clusterdefaults.json
+./bin/metadata-service-client clusterdefaults create --spec clusterdefaults.json
 ```
 
 **List:**
 ```bash
-./bin/client clusterdefaults list
+./bin/metadata-service-client clusterdefaults list
 ```
 
 **Get latest:**
 ```bash
 # The service returns the most recently updated ClusterDefaults
-./bin/client clusterdefaults list | jq '.[0]'
+./bin/metadata-service-client clusterdefaults list | jq '.[0]'
 ```
 
 **Update:**
 ```bash
 # Fetch current, modify, and update
-./bin/client clusterdefaults get <uid> > current.json
+./bin/metadata-service-client clusterdefaults get <uid> > current.json
 # Edit current.json
-./bin/client clusterdefaults update <uid> --spec current.json
+./bin/metadata-service-client clusterdefaults update <uid> --spec current.json
 ```
 
 ### Groups
@@ -173,38 +173,38 @@ cat > compute-group.json <<'EOF'
 }
 EOF
 
-./bin/client group create --spec compute-group.json
+./bin/metadata-service-client group create --spec compute-group.json
 ```
 
 **List:**
 ```bash
-./bin/client group list
+./bin/metadata-service-client group list
 
 # Filter by name (requires jq)
-./bin/client group list --output json | jq '.[] | select(.metadata.name == "compute")'
+./bin/metadata-service-client group list --output json | jq '.[] | select(.metadata.name == "compute")'
 ```
 
 **Get by UID:**
 ```bash
-./bin/client group get group-abc123
+./bin/metadata-service-client group get group-abc123
 ```
 
 **Update template:**
 ```bash
 # Fetch current group
-./bin/client group get group-abc123 --output json > compute.json
+./bin/metadata-service-client group get group-abc123 --output json > compute.json
 
 # Edit template
 jq '.spec.template = "#cloud-config\nhostname: {{ hostname }}\n# Updated template"' \
   compute.json > compute-updated.json
 
 # Update
-./bin/client group update group-abc123 --spec compute-updated.json
+./bin/metadata-service-client group update group-abc123 --spec compute-updated.json
 ```
 
 **Delete:**
 ```bash
-./bin/client group delete group-abc123
+./bin/metadata-service-client group delete group-abc123
 ```
 
 ### InstanceInfo
@@ -230,18 +230,18 @@ cat > instance-override.json <<'EOF'
 }
 EOF
 
-./bin/client instanceinfo create --spec instance-override.json
+./bin/metadata-service-client instanceinfo create --spec instance-override.json
 ```
 
 **List:**
 ```bash
-./bin/client instanceinfo list
+./bin/metadata-service-client instanceinfo list
 ```
 
 **Get by name:**
 ```bash
 # Service supports query by metadata.name
-./bin/client instanceinfo list --output json | \
+./bin/metadata-service-client instanceinfo list --output json | \
   jq '.[] | select(.metadata.name == "x1000c0s0b0n0")'
 ```
 
@@ -251,17 +251,17 @@ VPN peer allocations (typically managed by `/wg-init` endpoint).
 
 **List peers:**
 ```bash
-./bin/client wireguardpeer list
+./bin/metadata-service-client wireguardpeer list
 ```
 
 **Get peer:**
 ```bash
-./bin/client wireguardpeer get wireguardpeer-abc123
+./bin/metadata-service-client wireguardpeer get wireguardpeer-abc123
 ```
 
 **Check status:**
 ```bash
-./bin/client wireguardpeer get wireguardpeer-abc123 --output json | jq '.status'
+./bin/metadata-service-client wireguardpeer get wireguardpeer-abc123 --output json | jq '.status'
 ```
 
 **Expected status:**
@@ -276,7 +276,7 @@ VPN peer allocations (typically managed by `/wg-init` endpoint).
 **Delete peer:**
 ```bash
 # Manual deletion (prefer /phone-home endpoint)
-./bin/client wireguardpeer delete wireguardpeer-abc123
+./bin/metadata-service-client wireguardpeer delete wireguardpeer-abc123
 ```
 
 ---

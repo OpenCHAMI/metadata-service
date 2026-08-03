@@ -6,7 +6,7 @@
 .PHONY: help build test lint clean install run container-build container-run generate generate-check dev
 
 # Variables
-BINARY_NAME=ochami-metadata
+BINARY_NAME=metadata-service
 GO=go
 GOFLAGS=-v
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -85,8 +85,8 @@ generate-check: ## Verify generated code is up-to-date
 
 dev: clean generate build ## Clean, regenerate code, and build binaries
 
-run: build ## Build and run the application
-	./bin/$(BINARY_NAME)
+run: build ## Build and run the server
+	./bin/$(BINARY_NAME)-server
 
 container-build: ## Build Docker image
 	$(CONTAINER_PROG) build -f Dockerfile.standalone \
