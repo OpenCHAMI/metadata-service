@@ -234,3 +234,45 @@ func (m *MockSMDClient) EthernetInterfaces(id string) ([]EthernetInterface, erro
 	}
 	return []EthernetInterface{}, nil
 }
+
+// BulkGroupMemberships retrieves group memberships for all components in a single call.
+func (m *MockSMDClient) BulkGroupMemberships() (map[string][]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make(map[string][]string, len(m.groups))
+	for id, groups := range m.groups {
+		groupsCopy := make([]string, len(groups))
+		copy(groupsCopy, groups)
+		result[id] = groupsCopy
+	}
+	return result, nil
+}
+
+// BulkEthernetInterfaces retrieves all EthernetInterfaces for all components in a single call.
+func (m *MockSMDClient) BulkEthernetInterfaces() (map[string][]EthernetInterface, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make(map[string][]EthernetInterface, len(m.ethernetIfaces))
+	for id, ifaces := range m.ethernetIfaces {
+		ifacesCopy := make([]EthernetInterface, len(ifaces))
+		copy(ifacesCopy, ifaces)
+		result[id] = ifacesCopy
+	}
+	return result, nil
+}
+
+// BulkEthernetNICInfo retrieves EthernetNIC info for all components in a single call.
+func (m *MockSMDClient) BulkEthernetNICInfo() (map[string][]EthernetNIC, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make(map[string][]EthernetNIC, len(m.ethernetNICs))
+	for id, nics := range m.ethernetNICs {
+		nicsCopy := make([]EthernetNIC, len(nics))
+		copy(nicsCopy, nics)
+		result[id] = nicsCopy
+	}
+	return result, nil
+}

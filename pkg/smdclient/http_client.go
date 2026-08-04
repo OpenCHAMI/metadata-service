@@ -380,6 +380,100 @@ func (c *HTTPClient) ListComponents() ([]*Component, error) {
 	return result, nil
 }
 
+// BulkGroupMemberships retrieves group memberships for all components in a single call.
+func (c *HTTPClient) BulkGroupMemberships() (map[string][]string, error) {
+	var resp []membershipResponse
+	if err := c.doGet("/memberships", nil, &resp); err != nil {
+		return nil, err
+	}
+
+	result := make(map[string][]string, len(resp))
+	for _, membership := range resp {
+		groups := membership.GroupLabels
+		if len(groups) == 0 {
+			groups = membership.Groups
+		}
+		if membership.ID != "" {
+			result[membership.ID] = groups
+		}
+	}
+	return result, nil
+}
+
+// BulkEthernetInterfaces retrieves all EthernetInterfaces for all components in a single call.
+func (c *HTTPClient) BulkEthernetInterfaces() (map[string][]EthernetInterface, error) {
+	var resp []compEthInterfaceV2
+	if err := c.doGet("/Inventory/EthernetInterfaces", nil, &resp); err != nil {
+		return nil, err
+	}
+
+	result := make(map[string][]EthernetInterface)
+	for _, iface := range resp {
+		if iface.ComponentID == "" {
+			continue
+		}
+
+		ipMappings := make([]IPMapping, 0, len(iface.IPAddresses))
+		for _, ip := range iface.IPAddresses {
+			ipMappings = append(ipMappings, IPMapping(ip))
+		}
+
+		ethIface := EthernetInterface{
+			ID:          iface.ID,
+			Description: iface.Description,
+			MACAddress:  iface.MACAddress,
+			IPAddresses: ipMappings,
+			ComponentID: iface.ComponentID,
+			Type:        iface.Type,
+		}
+
+		result[iface.ComponentID] = append(result[iface.ComponentID], ethIface)
+	}
+	return result, nil
+}
+
+// BulkEthernetNICInfo retrieves EthernetNIC info for all components in a single call.
+func (c *HTTPClient) BulkEthernetNICInfo() (map[string][]EthernetNIC, error) {
+	// Use the bulk ComponentEndpoints API to get all endpoints at once
+	var resp struct {
+		ComponentEndpoints []componentEndpointResponse `json:"ComponentEndpoints"`
+	}
+
+	if err := c.doGet("/Inventory/ComponentEndpoints", nil, &resp); err != nil {
+		return nil, err
+	}
+
+	result := make(map[string][]EthernetNIC)
+
+	for _, endpoint := range resp.ComponentEndpoints {
+		if endpoint.ID == "" {
+			continue
+		}
+
+		var nics []EthernetNIC
+		if endpoint.RedfishSystemInfo != nil {
+			for _, nic := range endpoint.RedfishSystemInfo.EthNICInfo {
+				ifaceEnabled := false
+				if nic.InterfaceEnabled != nil {
+					ifaceEnabled = *nic.InterfaceEnabled
+				}
+				nics = append(nics, EthernetNIC{
+					RedfishID:           nic.RedfishID,
+					Description:         nic.Description,
+					MACAddress:          nic.MACAddress,
+					PermanentMACAddress: nic.PermanentMACAddress,
+					InterfaceEnabled:    ifaceEnabled,
+				})
+			}
+		}
+
+		result[endpoint.ID] = nics
+		c.cache.setEthernetNICs(endpoint.ID, nics)
+	}
+
+	return result, nil
+}
+
 type componentResponse struct {
 	ID        string `json:"ID"`
 	NID       int64  `json:"NID"`
@@ -394,6 +488,7 @@ type componentListResponse struct {
 }
 
 type membershipResponse struct {
+	ID          string   `json:"id"`
 	GroupLabels []string `json:"groupLabels"`
 	Groups      []string `json:"Groups"`
 }
@@ -413,6 +508,7 @@ type compEthIPMapping struct {
 }
 
 type componentEndpointResponse struct {
+	ID                string             `json:"ID"`
 	RedfishSystemInfo *redfishSystemInfo `json:"RedfishSystemInfo"`
 }
 
