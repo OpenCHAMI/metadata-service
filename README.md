@@ -175,9 +175,9 @@ Bootstrap fallback example (legacy compatibility):
 SMD_URL=https://smd.example.com \
 TOKENSMITH_URL=https://tokensmith.example.com \
 TOKENSMITH_BOOTSTRAP_TOKEN="$BOOTSTRAP_TOKEN" \
+TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT=metadata:read,groups:read \
 go run ./cmd/server/main.go serve --port 8888 \
   --tokensmith-target-service smd \
-  --tokensmith-scopes metadata:read,groups:read \
   --tokensmith-refresh-skew-sec 300
 ```
 
@@ -188,7 +188,7 @@ TokenSmith server options:
 - `tokensmith_service_identity_key` / `TOKENSMITH_SERVICE_IDENTITY_KEY`
 - `tokensmith_service_identity_ca` / `TOKENSMITH_SERVICE_IDENTITY_CA` (optional)
 - `tokensmith_target_service` / `TOKENSMITH_TARGET_SERVICE` (default: `smd`)
-- `tokensmith_scopes` / `TOKENSMITH_SCOPES` (diagnostics metadata only)
+- `tokensmith_bootstrap_policy_scopes_hint` / `TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT` (diagnostics metadata only)
 - `tokensmith_refresh_skew_sec` / `TOKENSMITH_REFRESH_SKEW_SEC` (default: `300`)
 
 Request identity resolution prefers a WireGuard reverse lookup when available, then falls back to direct IP lookup through SMD.

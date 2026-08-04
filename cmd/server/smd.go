@@ -182,7 +182,7 @@ func loadTokenExchangeConfig() (smdclient.TokenExchangeConfig, bool, error) {
 	if targetService := firstConfiguredValue("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE"); targetService != "" {
 		config.TargetService = targetService
 	}
-	config.Scopes = parseScopes(firstConfiguredValue("tokensmith_scopes", "TOKENSMITH_SCOPES"))
+	config.Scopes = parseScopes(firstConfiguredValue("tokensmith_bootstrap_policy_scopes_hint", "TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT"))
 
 	defaultRefreshBefore := int(config.RefreshBefore / time.Second)
 	if skewSeconds := configIntOrDefault("tokensmith_refresh_skew_sec", defaultRefreshBefore, "TOKENSMITH_REFRESH_SKEW_SEC"); skewSeconds > 0 {

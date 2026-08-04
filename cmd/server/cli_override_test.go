@@ -22,6 +22,7 @@ func TestBindFlagsWithUnderscoreKeys_ConfigValuesBeatUnchangedFlagDefaults(t *te
 	flagSet.String("tokensmith-service-identity-key", "", "")
 	flagSet.String("tokensmith-service-identity-ca", "", "")
 	flagSet.String("tokensmith-target-service", "smd", "")
+	flagSet.String("tokensmith-bootstrap-policy-scopes-hint", "", "")
 	flagSet.Int("tokensmith-refresh-skew-sec", 300, "")
 	flagSet.Bool("smd-sync-enabled", true, "")
 	flagSet.Int("smd-sync-interval", 60, "")
@@ -43,6 +44,7 @@ tokensmith_service_identity_cert: /certs/client.crt
 tokensmith_service_identity_key: /certs/client.key
 tokensmith_service_identity_ca: /certs/ca.crt
 tokensmith_target_service: hsm
+tokensmith_bootstrap_policy_scopes_hint: metadata:read,groups:read
 tokensmith_refresh_skew_sec: 42
 smd_sync_enabled: false
 smd_sync_interval: 30
@@ -82,6 +84,9 @@ metrics_port: 9191
 	if config.TokenSmithTargetService != "hsm" {
 		t.Fatalf("expected TokenSmithTargetService to be hsm, got %q", config.TokenSmithTargetService)
 	}
+	if config.TokenSmithBootstrapPolicyScopesHint != "metadata:read,groups:read" {
+		t.Fatalf("expected TokenSmithBootstrapPolicyScopesHint config value, got %q", config.TokenSmithBootstrapPolicyScopesHint)
+	}
 	if config.TokenSmithRefreshSkewSec != 42 {
 		t.Fatalf("expected TokenSmithRefreshSkewSec to be 42, got %d", config.TokenSmithRefreshSkewSec)
 	}
@@ -103,6 +108,7 @@ func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *
 	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	flagSet.String("data-dir", "/data", "")
 	flagSet.String("tokensmith-url", "", "")
+	flagSet.String("tokensmith-bootstrap-policy-scopes-hint", "", "")
 	flagSet.Int("smd-sync-interval", 60, "")
 	flagSet.Bool("enable-metrics", false, "")
 	flagSet.Int("metrics-port", 9090, "")
@@ -112,6 +118,9 @@ func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *
 	}
 	if err := flagSet.Set("tokensmith-url", "https://tokensmith.flag"); err != nil {
 		t.Fatalf("Set tokensmith-url failed: %v", err)
+	}
+	if err := flagSet.Set("tokensmith-bootstrap-policy-scopes-hint", "metadata:read,groups:read"); err != nil {
+		t.Fatalf("Set tokensmith-bootstrap-policy-scopes-hint failed: %v", err)
 	}
 	if err := flagSet.Set("smd-sync-interval", "15"); err != nil {
 		t.Fatalf("Set smd-sync-interval failed: %v", err)
@@ -133,6 +142,9 @@ func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *
 	}
 	if got := v.GetString("tokensmith_url"); got != "https://tokensmith.flag" {
 		t.Fatalf("expected --tokensmith-url to bind to tokensmith_url, got %q", got)
+	}
+	if got := v.GetString("tokensmith_bootstrap_policy_scopes_hint"); got != "metadata:read,groups:read" {
+		t.Fatalf("expected --tokensmith-bootstrap-policy-scopes-hint to bind to tokensmith_bootstrap_policy_scopes_hint, got %q", got)
 	}
 	if got := v.GetInt("smd_sync_interval"); got != 15 {
 		t.Fatalf("expected --smd-sync-interval to bind to smd_sync_interval, got %d", got)
@@ -166,6 +178,9 @@ func TestDefaultConfigUsesAbsoluteDataPaths(t *testing.T) {
 	if config.TokenSmithServiceIdentityCA != "" {
 		t.Fatalf("expected default TokenSmithServiceIdentityCA to be empty, got %q", config.TokenSmithServiceIdentityCA)
 	}
+	if config.TokenSmithBootstrapPolicyScopesHint != "" {
+		t.Fatalf("expected default TokenSmithBootstrapPolicyScopesHint to be empty, got %q", config.TokenSmithBootstrapPolicyScopesHint)
+	}
 	if config.TokenSmithRefreshSkewSec != 300 {
 		t.Fatalf("expected default TokenSmithRefreshSkewSec to be 300, got %d", config.TokenSmithRefreshSkewSec)
 	}
@@ -187,7 +202,7 @@ func TestBindServerEnvVarsForTokenSmith(t *testing.T) {
 	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_KEY", "/etc/tokensmith/client.key")
 	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CA", "/etc/tokensmith/ca.crt")
 	t.Setenv("TOKENSMITH_TARGET_SERVICE", "smd")
-	t.Setenv("TOKENSMITH_SCOPES", "scope:a,scope:b")
+	t.Setenv("TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT", "scope:a,scope:b")
 	t.Setenv("TOKENSMITH_REFRESH_SKEW_SEC", "75")
 
 	bindServerEnvVars()
@@ -215,8 +230,8 @@ func TestBindServerEnvVarsForTokenSmith(t *testing.T) {
 	if config.TokenSmithTargetService != "smd" {
 		t.Fatalf("expected TokenSmithTargetService env override, got %q", config.TokenSmithTargetService)
 	}
-	if config.TokenSmithScopes != "scope:a,scope:b" {
-		t.Fatalf("expected TokenSmithScopes env override, got %q", config.TokenSmithScopes)
+	if config.TokenSmithBootstrapPolicyScopesHint != "scope:a,scope:b" {
+		t.Fatalf("expected TokenSmithBootstrapPolicyScopesHint env override, got %q", config.TokenSmithBootstrapPolicyScopesHint)
 	}
 	if config.TokenSmithRefreshSkewSec != 75 {
 		t.Fatalf("expected TokenSmithRefreshSkewSec env override, got %d", config.TokenSmithRefreshSkewSec)
