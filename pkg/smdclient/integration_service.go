@@ -224,11 +224,14 @@ func (s *SMDIntegrationService) syncOnce(ctx context.Context) error {
 	nextWGIPIndex := make(map[string]string)
 
 	// Use bulk fetching if available, otherwise fall back to per-component fetching
+	var syncErr error
 	if s.bulkFetcher != nil {
-		if err := s.syncOnceBulk(ctx, components, nextNodes, nextIPIndex, nextWGIPIndex); err != nil {
-			log.Warn().Err(err).Msg("Bulk sync failed, falling back to per-component sync")
-			// Fall back to per-component sync on bulk failure
-			s.syncOncePerComponent(ctx, components, nextNodes, nextIPIndex, nextWGIPIndex)
+		syncErr = s.syncOnceBulk(ctx, components, nextNodes, nextIPIndex, nextWGIPIndex)
+		if syncErr != nil {
+			// Don't fall back to per-component sync as it can create lookup storms
+			// on an already overloaded SMD. Just retain the existing cache.
+			log.Error().Err(syncErr).Msg("Bulk sync failed, retaining existing cache")
+			return syncErr
 		}
 	} else {
 		s.syncOncePerComponent(ctx, components, nextNodes, nextIPIndex, nextWGIPIndex)
@@ -246,23 +249,25 @@ func (s *SMDIntegrationService) syncOnce(ctx context.Context) error {
 }
 
 func (s *SMDIntegrationService) syncOnceBulk(ctx context.Context, components []*Component, nextNodes map[string]nodeSnapshot, nextIPIndex, nextWGIPIndex map[string]string) error {
-	// Fetch all group memberships in one call
+	// Check for context cancellation before starting bulk operations
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// Fetch all data upfront - fail fast if any critical fetch fails
 	bulkGroups, err := s.bulkFetcher.BulkGroupMemberships()
 	if err != nil {
 		return fmt.Errorf("bulk fetch group memberships: %w", err)
 	}
 
-	// Fetch all EthernetInterfaces in one call
 	bulkIfaces, err := s.bulkFetcher.BulkEthernetInterfaces()
 	if err != nil {
 		return fmt.Errorf("bulk fetch ethernet interfaces: %w", err)
 	}
 
-	// Fetch all EthernetNICs in one call
 	bulkNICs, err := s.bulkFetcher.BulkEthernetNICInfo()
 	if err != nil {
-		log.Warn().Err(err).Msg("Bulk fetch ethernet NICs failed, continuing without NICs")
-		bulkNICs = make(map[string][]EthernetNIC)
+		return fmt.Errorf("bulk fetch ethernet NICs: %w", err)
 	}
 
 	// Process each component with bulk-fetched data

@@ -429,6 +429,12 @@ func (c *HTTPClient) BulkEthernetInterfaces() (map[string][]EthernetInterface, e
 
 		result[iface.ComponentID] = append(result[iface.ComponentID], ethIface)
 	}
+
+	// Cache the results
+	for componentID, ifaces := range result {
+		c.cache.setEthernetIfaces(componentID, ifaces)
+	}
+
 	return result, nil
 }
 
