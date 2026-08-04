@@ -13,10 +13,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-04
+
+### Changed
+
+- Standardized the server environment variable prefix to `METADATA_SERVICE`
+- Updated configuration discovery to use `/etc/metadata-service/config.yaml`
+  and the platform-specific user configuration directory
+- Renamed the built server and client binaries from `ochami-metadata-*` to
+  `metadata-service-*`
+- Reduced SMD synchronization API calls by using bulk group membership,
+  Ethernet interface, and Ethernet NIC lookups while retaining the existing
+  cache when bulk synchronization fails
+- Updated `github.com/getkin/kin-openapi` from v0.133.0 to v0.144.0
+- BREAKING: Changed the Go module and import path from
+  `github.com/OpenCHAMI/metadata-service` to
+  `github.com/openchami/metadata-service`
+
 ### Fixed
 
 - Added support for the standardized non-prefixed TokenSmith environment
-  variables, including `TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT`
+  variables, including `TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT`, replacing
+  the legacy `TOKENSMITH_SCOPES` variable
 
 ## [0.2.0] - 2026-07-22
 
