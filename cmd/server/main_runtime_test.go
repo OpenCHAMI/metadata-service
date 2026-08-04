@@ -62,6 +62,51 @@ func TestInitConfigLoadsConfigFileAndEnvOverrides(t *testing.T) {
 	}
 }
 
+func TestInitConfigLoadsConfigFromUserConfigDir(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	configRoot := t.TempDir()
+	t.Setenv("HOME", configRoot)
+	t.Setenv("XDG_CONFIG_HOME", configRoot)
+	t.Setenv("AppData", configRoot)
+
+	base, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatalf("resolve user config directory: %v", err)
+	}
+	configDir := filepath.Join(base, "metadata-service")
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
+		t.Fatalf("create user config directory: %v", err)
+	}
+	cfgPath := filepath.Join(configDir, "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte("port: 9292\nhost: 127.0.0.2\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	prevCfgFile := cfgFile
+	cfgFile = ""
+	t.Cleanup(func() {
+		cfgFile = prevCfgFile
+	})
+
+	t.Chdir(t.TempDir())
+	initConfig()
+
+	if config == nil {
+		t.Fatal("expected config to be initialized")
+	}
+	if config.Port != 9292 {
+		t.Fatalf("expected port from user config file, got %d", config.Port)
+	}
+	if config.Host != "127.0.0.2" {
+		t.Fatalf("expected host from user config file, got %q", config.Host)
+	}
+	if used := viper.ConfigFileUsed(); used != cfgPath {
+		t.Fatalf("expected user config file %q, got %q", cfgPath, used)
+	}
+}
+
 func TestHealthHandlerReturnsExpectedPayload(t *testing.T) {
 	previous := currentSMDHealth
 	currentSMDHealth = nil
