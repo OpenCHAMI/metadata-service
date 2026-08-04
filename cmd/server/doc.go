@@ -39,7 +39,7 @@ Common server flags:
 SMD and token-exchange inputs are read from explicitly bound keys including:
 SMD_URL, SMD_JWT/SMD_TOKEN, TOKENSMITH_URL, TOKENSMITH_BOOTSTRAP_TOKEN,
 TOKENSMITH_TARGET_SERVICE, TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT,
-TOKENSMITH_SCOPES (deprecated), and TOKENSMITH_REFRESH_SKEW_SEC.
+and TOKENSMITH_REFRESH_SKEW_SEC.
 
 # Route Structure
 

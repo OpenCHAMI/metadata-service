@@ -23,7 +23,6 @@ func TestBindFlagsWithUnderscoreKeys_ConfigValuesBeatUnchangedFlagDefaults(t *te
 	flagSet.String("tokensmith-service-identity-ca", "", "")
 	flagSet.String("tokensmith-target-service", "smd", "")
 	flagSet.String("tokensmith-bootstrap-policy-scopes-hint", "", "")
-	flagSet.String("tokensmith-scopes", "", "")
 	flagSet.Int("tokensmith-refresh-skew-sec", 300, "")
 	flagSet.Bool("smd-sync-enabled", true, "")
 	flagSet.Int("smd-sync-interval", 60, "")
@@ -46,7 +45,6 @@ tokensmith_service_identity_key: /certs/client.key
 tokensmith_service_identity_ca: /certs/ca.crt
 tokensmith_target_service: hsm
 tokensmith_bootstrap_policy_scopes_hint: metadata:read,groups:read
-tokensmith_scopes: legacy:read
 tokensmith_refresh_skew_sec: 42
 smd_sync_enabled: false
 smd_sync_interval: 30
@@ -88,9 +86,6 @@ metrics_port: 9191
 	}
 	if config.TokenSmithBootstrapPolicyScopesHint != "metadata:read,groups:read" {
 		t.Fatalf("expected TokenSmithBootstrapPolicyScopesHint config value, got %q", config.TokenSmithBootstrapPolicyScopesHint)
-	}
-	if config.TokenSmithScopesLegacy != "legacy:read" {
-		t.Fatalf("expected TokenSmithScopesLegacy config value, got %q", config.TokenSmithScopesLegacy)
 	}
 	if config.TokenSmithRefreshSkewSec != 42 {
 		t.Fatalf("expected TokenSmithRefreshSkewSec to be 42, got %d", config.TokenSmithRefreshSkewSec)
@@ -186,9 +181,6 @@ func TestDefaultConfigUsesAbsoluteDataPaths(t *testing.T) {
 	if config.TokenSmithBootstrapPolicyScopesHint != "" {
 		t.Fatalf("expected default TokenSmithBootstrapPolicyScopesHint to be empty, got %q", config.TokenSmithBootstrapPolicyScopesHint)
 	}
-	if config.TokenSmithScopesLegacy != "" {
-		t.Fatalf("expected default TokenSmithScopesLegacy to be empty, got %q", config.TokenSmithScopesLegacy)
-	}
 	if config.TokenSmithRefreshSkewSec != 300 {
 		t.Fatalf("expected default TokenSmithRefreshSkewSec to be 300, got %d", config.TokenSmithRefreshSkewSec)
 	}
@@ -211,7 +203,6 @@ func TestBindServerEnvVarsForTokenSmith(t *testing.T) {
 	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CA", "/etc/tokensmith/ca.crt")
 	t.Setenv("TOKENSMITH_TARGET_SERVICE", "smd")
 	t.Setenv("TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT", "scope:a,scope:b")
-	t.Setenv("TOKENSMITH_SCOPES", "legacy:a,legacy:b")
 	t.Setenv("TOKENSMITH_REFRESH_SKEW_SEC", "75")
 
 	bindServerEnvVars()
@@ -241,9 +232,6 @@ func TestBindServerEnvVarsForTokenSmith(t *testing.T) {
 	}
 	if config.TokenSmithBootstrapPolicyScopesHint != "scope:a,scope:b" {
 		t.Fatalf("expected TokenSmithBootstrapPolicyScopesHint env override, got %q", config.TokenSmithBootstrapPolicyScopesHint)
-	}
-	if config.TokenSmithScopesLegacy != "legacy:a,legacy:b" {
-		t.Fatalf("expected TokenSmithScopesLegacy env override, got %q", config.TokenSmithScopesLegacy)
 	}
 	if config.TokenSmithRefreshSkewSec != 75 {
 		t.Fatalf("expected TokenSmithRefreshSkewSec env override, got %d", config.TokenSmithRefreshSkewSec)

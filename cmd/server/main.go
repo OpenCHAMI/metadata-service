@@ -51,7 +51,6 @@ type Config struct {
 	TokenSmithServiceIdentityCA         string `mapstructure:"tokensmith_service_identity_ca"`
 	TokenSmithTargetService             string `mapstructure:"tokensmith_target_service"`
 	TokenSmithBootstrapPolicyScopesHint string `mapstructure:"tokensmith_bootstrap_policy_scopes_hint"`
-	TokenSmithScopesLegacy              string `mapstructure:"tokensmith_scopes"`
 	TokenSmithRefreshSkewSec            int    `mapstructure:"tokensmith_refresh_skew_sec"`
 
 	// SMD Integration Configuration
@@ -84,7 +83,6 @@ func DefaultConfig() *Config {
 		TokenSmithServiceIdentityCA:         "",
 		TokenSmithTargetService:             "smd",
 		TokenSmithBootstrapPolicyScopesHint: "",
-		TokenSmithScopesLegacy:              "",
 		TokenSmithRefreshSkewSec:            300,
 
 		SMDSyncEnabled:  true,

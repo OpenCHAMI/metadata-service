@@ -16,8 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Added support for the standardized non-prefixed TokenSmith environment
-  variables, including `TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT`, while
-  retaining `TOKENSMITH_SCOPES` as a deprecated compatibility alias
+  variables, including `TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT`
 
 ## [0.2.0] - 2026-07-22
 

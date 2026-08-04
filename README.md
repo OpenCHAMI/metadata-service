@@ -189,7 +189,6 @@ TokenSmith server options:
 - `tokensmith_service_identity_ca` / `TOKENSMITH_SERVICE_IDENTITY_CA` (optional)
 - `tokensmith_target_service` / `TOKENSMITH_TARGET_SERVICE` (default: `smd`)
 - `tokensmith_bootstrap_policy_scopes_hint` / `TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT` (diagnostics metadata only)
-- `tokensmith_scopes` / `TOKENSMITH_SCOPES` (deprecated alias for the bootstrap policy scope hint)
 - `tokensmith_refresh_skew_sec` / `TOKENSMITH_REFRESH_SKEW_SEC` (default: `300`)
 
 Request identity resolution prefers a WireGuard reverse lookup when available, then falls back to direct IP lookup through SMD.
