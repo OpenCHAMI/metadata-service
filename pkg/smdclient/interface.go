@@ -79,6 +79,19 @@ type ComponentLister interface {
 	ListComponents() ([]*Component, error)
 }
 
+// BulkDataFetcher is implemented by SMD clients that support bulk data fetching.
+// It is used by the integration sync worker to efficiently fetch data for multiple components.
+type BulkDataFetcher interface {
+	// BulkGroupMemberships returns a map of component ID to group memberships for all components.
+	BulkGroupMemberships() (map[string][]string, error)
+
+	// BulkEthernetInterfaces returns a map of component ID to EthernetInterfaces for all components.
+	BulkEthernetInterfaces() (map[string][]EthernetInterface, error)
+
+	// BulkEthernetNICInfo returns a map of component ID to EthernetNICs for all components.
+	BulkEthernetNICInfo() (map[string][]EthernetNIC, error)
+}
+
 // ComponentResolver is an optional interface for clients that provide an
 // optimized ResolveComponentID implementation.
 type ComponentResolver interface {

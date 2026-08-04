@@ -38,6 +38,7 @@ type nodeSnapshot struct {
 type SMDIntegrationService struct {
 	backend      SMDClient
 	lister       ComponentLister
+	bulkFetcher  BulkDataFetcher
 	syncEnabled  bool
 	syncInterval time.Duration
 
@@ -90,6 +91,10 @@ func NewSMDIntegrationService(backend SMDClient, opts IntegrationOptions) *SMDIn
 
 	if lister, ok := backend.(ComponentLister); ok {
 		service.lister = lister
+	}
+
+	if bulkFetcher, ok := backend.(BulkDataFetcher); ok {
+		service.bulkFetcher = bulkFetcher
 	}
 
 	return service
@@ -218,6 +223,105 @@ func (s *SMDIntegrationService) syncOnce(ctx context.Context) error {
 	nextIPIndex := make(map[string]string)
 	nextWGIPIndex := make(map[string]string)
 
+	// Use bulk fetching if available, otherwise fall back to per-component fetching
+	var syncErr error
+	if s.bulkFetcher != nil {
+		syncErr = s.syncOnceBulk(ctx, components, nextNodes, nextIPIndex, nextWGIPIndex)
+		if syncErr != nil {
+			// Don't fall back to per-component sync as it can create lookup storms
+			// on an already overloaded SMD. Just retain the existing cache.
+			log.Error().Err(syncErr).Msg("Bulk sync failed, retaining existing cache")
+			return syncErr
+		}
+	} else {
+		s.syncOncePerComponent(ctx, components, nextNodes, nextIPIndex, nextWGIPIndex)
+	}
+
+	s.mu.Lock()
+	s.nodes = nextNodes
+	s.ipToID = nextIPIndex
+	s.wgipMap = nextWGIPIndex
+	s.lastRun = time.Now().UTC()
+	s.mu.Unlock()
+
+	log.Debug().Int("nodes", len(nextNodes)).Msg("SMD sync completed")
+	return nil
+}
+
+func (s *SMDIntegrationService) syncOnceBulk(ctx context.Context, components []*Component, nextNodes map[string]nodeSnapshot, nextIPIndex, nextWGIPIndex map[string]string) error {
+	// Check for context cancellation before starting bulk operations
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// Fetch all data upfront - fail fast if any critical fetch fails
+	bulkGroups, err := s.bulkFetcher.BulkGroupMemberships()
+	if err != nil {
+		return fmt.Errorf("bulk fetch group memberships: %w", err)
+	}
+
+	bulkIfaces, err := s.bulkFetcher.BulkEthernetInterfaces()
+	if err != nil {
+		return fmt.Errorf("bulk fetch ethernet interfaces: %w", err)
+	}
+
+	bulkNICs, err := s.bulkFetcher.BulkEthernetNICInfo()
+	if err != nil {
+		return fmt.Errorf("bulk fetch ethernet NICs: %w", err)
+	}
+
+	// Process each component with bulk-fetched data
+	for _, component := range components {
+		if component == nil || component.ID == "" {
+			continue
+		}
+
+		componentCopy := *component
+		snapshot := nodeSnapshot{component: &componentCopy}
+
+		// Get group membership from bulk data
+		if groups, ok := bulkGroups[component.ID]; ok {
+			snapshot.groups = cloneStrings(groups)
+		}
+
+		// Get EthernetInterfaces from bulk data
+		if ifaces, ok := bulkIfaces[component.ID]; ok {
+			snapshot.ifaces = cloneIfaces(ifaces)
+		}
+
+		// Get EthernetNICs from bulk data
+		if nics, ok := bulkNICs[component.ID]; ok {
+			snapshot.nics = cloneNICs(nics)
+		}
+
+		// WireGuard IP still requires individual lookup (stored locally)
+		if wgip, err := s.backend.WGIPfromID(component.ID); err == nil && wgip != "" {
+			snapshot.wgip = wgip
+			nextWGIPIndex[wgip] = component.ID
+		}
+
+		// Index component IP
+		if componentCopy.IP != "" {
+			nextIPIndex[componentCopy.IP] = component.ID
+		}
+
+		// Index all interface IPs
+		for _, iface := range snapshot.ifaces {
+			for _, mapping := range iface.IPAddresses {
+				if mapping.IPAddress == "" {
+					continue
+				}
+				nextIPIndex[mapping.IPAddress] = component.ID
+			}
+		}
+
+		nextNodes[component.ID] = snapshot
+	}
+
+	return nil
+}
+
+func (s *SMDIntegrationService) syncOncePerComponent(ctx context.Context, components []*Component, nextNodes map[string]nodeSnapshot, nextIPIndex, nextWGIPIndex map[string]string) {
 	for _, component := range components {
 		if component == nil || component.ID == "" {
 			continue
@@ -263,16 +367,6 @@ func (s *SMDIntegrationService) syncOnce(ctx context.Context) error {
 
 		nextNodes[component.ID] = snapshot
 	}
-
-	s.mu.Lock()
-	s.nodes = nextNodes
-	s.ipToID = nextIPIndex
-	s.wgipMap = nextWGIPIndex
-	s.lastRun = time.Now().UTC()
-	s.mu.Unlock()
-
-	log.Debug().Int("nodes", len(nextNodes)).Msg("SMD sync completed")
-	return nil
 }
 
 func (s *SMDIntegrationService) isCacheStale(lastRun time.Time) bool {
