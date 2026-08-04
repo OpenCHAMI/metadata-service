@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -182,7 +183,9 @@ func initConfig() {
 		viper.SetConfigType("yaml")
 		viper.AddConfigPath(".")
 		viper.AddConfigPath("/etc/metadata-service")
-		viper.AddConfigPath("$HOME/.metadata-service")
+		if base, err := os.UserConfigDir(); err == nil {
+			viper.AddConfigPath(filepath.Join(base, "metadata-service"))
+		}
 	}
 
 	// Environment variables
