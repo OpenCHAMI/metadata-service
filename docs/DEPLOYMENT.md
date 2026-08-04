@@ -567,9 +567,9 @@ sudo systemctl start metadata-service
 | `TOKENSMITH_SERVICE_IDENTITY_KEY` | Client key path | - | No |
 | `TOKENSMITH_SERVICE_IDENTITY_CA` | CA cert path | - | No |
 | `TOKENSMITH_TARGET_SERVICE` | Target service name | `smd` | No |
-| `TOKENSMITH_SCOPES` | OAuth scopes | - | No |
+| `TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT` | Bootstrap policy scope hint for diagnostics | - | No |
+| `TOKENSMITH_SCOPES` | Deprecated alias for `TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT` | - | No |
 | `TOKENSMITH_REFRESH_SKEW_SEC` | Refresh skew (seconds) | `300` | No |
-| `TOKENSMITH_SCOPE_HINT` | Scope hint for diagnostics | - | No |
 | `LOG_LEVEL` | Log level (debug/info/warn/error) | `info` | No |
 | `WIREGUARD_SERVER` | WireGuard server CIDR | - | No |
 | `WIREGUARD_STATE_FILE` | WireGuard state file path | - | No |
@@ -592,7 +592,9 @@ Flags:
                                   Bootstrap token
   --tokensmith-target-service string
                                   Target service (default "smd")
-  --tokensmith-scopes string      OAuth scopes
+  --tokensmith-bootstrap-policy-scopes-hint string
+                                  Bootstrap policy scope hint for diagnostics
+  --tokensmith-scopes string      Deprecated alias for the scope hint
   --tokensmith-refresh-skew-sec int
                                   Refresh skew in seconds (default 300)
   --wireguard-server string       WireGuard server CIDR (e.g., 100.97.0.1/16)

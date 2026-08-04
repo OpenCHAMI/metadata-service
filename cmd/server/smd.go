@@ -182,7 +182,7 @@ func loadTokenExchangeConfig() (smdclient.TokenExchangeConfig, bool, error) {
 	if targetService := firstConfiguredValue("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE"); targetService != "" {
 		config.TargetService = targetService
 	}
-	config.Scopes = parseScopes(firstConfiguredValue("tokensmith_scopes", "TOKENSMITH_SCOPES"))
+	config.Scopes = parseScopes(tokenSmithScopeHintCSV())
 
 	defaultRefreshBefore := int(config.RefreshBefore / time.Second)
 	if skewSeconds := configIntOrDefault("tokensmith_refresh_skew_sec", defaultRefreshBefore, "TOKENSMITH_REFRESH_SKEW_SEC"); skewSeconds > 0 {
@@ -319,6 +319,15 @@ func parseScopes(raw string) []string {
 		out = append(out, scope)
 	}
 	return out
+}
+
+func tokenSmithScopeHintCSV() string {
+	if scopeHint := firstConfiguredValue("tokensmith_bootstrap_policy_scopes_hint", "TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT"); scopeHint != "" {
+		return scopeHint
+	}
+
+	// Backward compatibility for the legacy key, environment variable, and flag.
+	return firstConfiguredValue("tokensmith_scopes", "TOKENSMITH_SCOPES")
 }
 
 // createMockSMDClient creates a mock SMD client with sample data for development

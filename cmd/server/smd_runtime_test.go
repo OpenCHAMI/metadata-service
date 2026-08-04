@@ -29,7 +29,8 @@ func resetSMDEnv(t *testing.T) {
 	t.Setenv("TOKENSMITH_SERVICE_IDENTITY_CA", "")
 	t.Setenv("TOKENSMITH_TARGET_SERVICE", "")
 	t.Setenv("TOKENSMITH_REFRESH_SKEW_SEC", "")
-	t.Setenv("TOKENSMITH_SCOPE_HINT", "")
+	t.Setenv("TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT", "")
+	t.Setenv("TOKENSMITH_SCOPES", "")
 	viper.Reset()
 	t.Cleanup(viper.Reset)
 }

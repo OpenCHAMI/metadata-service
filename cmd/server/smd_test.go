@@ -164,7 +164,7 @@ func TestInitSMDClientDynamicModeWithTokenSmith(t *testing.T) {
 	viper.Set("tokensmith_url", tokensmith.URL)
 	viper.Set("tokensmith_bootstrap_token", "bootstrap-token")
 	viper.Set("tokensmith_target_service", "smd")
-	viper.Set("tokensmith_scopes", "metadata:read,groups:read")
+	viper.Set("tokensmith_bootstrap_policy_scopes_hint", "metadata:read,groups:read")
 	viper.Set("tokensmith_refresh_skew_sec", 300)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -232,6 +232,55 @@ func TestLoadTokenExchangeConfigFallsBackToBootstrapWhenIdentityFilesUnreadable(
 	}
 	if config.BootstrapToken != "bootstrap-token" {
 		t.Fatalf("expected bootstrap token to be preserved, got %q", config.BootstrapToken)
+	}
+}
+
+func TestLoadTokenExchangeConfigScopeHintPrecedence(t *testing.T) {
+	tests := []struct {
+		name      string
+		canonical string
+		legacy    string
+		expected  []string
+	}{
+		{
+			name:      "canonical scope hint",
+			canonical: "metadata:read, groups:read",
+			expected:  []string{"metadata:read", "groups:read"},
+		},
+		{
+			name:     "legacy scope fallback",
+			legacy:   "legacy:read, legacy:write",
+			expected: []string{"legacy:read", "legacy:write"},
+		},
+		{
+			name:      "canonical scope hint takes precedence",
+			canonical: "metadata:read",
+			legacy:    "legacy:read",
+			expected:  []string{"metadata:read"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
+			t.Cleanup(viper.Reset)
+
+			viper.Set("tokensmith_url", "https://tokensmith.example.com")
+			viper.Set("tokensmith_bootstrap_token", "bootstrap-token")
+			viper.Set("tokensmith_bootstrap_policy_scopes_hint", tt.canonical)
+			viper.Set("tokensmith_scopes", tt.legacy)
+
+			config, enabled, err := loadTokenExchangeConfig()
+			if err != nil {
+				t.Fatalf("loadTokenExchangeConfig returned error: %v", err)
+			}
+			if !enabled {
+				t.Fatal("expected dynamic mode enabled when tokensmith_url is set")
+			}
+			if strings.Join(config.Scopes, ",") != strings.Join(tt.expected, ",") {
+				t.Fatalf("expected scopes %v, got %v", tt.expected, config.Scopes)
+			}
+		})
 	}
 }
 

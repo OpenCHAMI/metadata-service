@@ -26,7 +26,8 @@ func init() {
 	serveCmd.Flags().String("tokensmith-service-identity-key", "", "Path to TokenSmith mTLS service-identity client key PEM")
 	serveCmd.Flags().String("tokensmith-service-identity-ca", "", "Optional path to TokenSmith CA PEM for mTLS verification override")
 	serveCmd.Flags().String("tokensmith-target-service", "smd", "Target downstream service name used for TokenSmith exchange diagnostics")
-	serveCmd.Flags().String("tokensmith-scopes", "", "Comma-separated TokenSmith scope metadata for diagnostics")
+	serveCmd.Flags().String("tokensmith-bootstrap-policy-scopes-hint", "", "Comma-separated scope hint from bootstrap token policy used for diagnostics only")
+	serveCmd.Flags().String("tokensmith-scopes", "", "Deprecated alias for --tokensmith-bootstrap-policy-scopes-hint")
 	serveCmd.Flags().Int("tokensmith-refresh-skew-sec", 300, "Refresh service token when remaining lifetime is below this many seconds")
 
 	if err := bindFlagsWithUnderscoreKeys(viper.GetViper(), serveCmd.Flags()); err != nil {
@@ -74,6 +75,7 @@ func bindServerEnvVars() {
 	mustBindEnv("tokensmith_service_identity_key", "TOKENSMITH_SERVICE_IDENTITY_KEY")
 	mustBindEnv("tokensmith_service_identity_ca", "TOKENSMITH_SERVICE_IDENTITY_CA")
 	mustBindEnv("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE")
+	mustBindEnv("tokensmith_bootstrap_policy_scopes_hint", "TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT")
 	mustBindEnv("tokensmith_scopes", "TOKENSMITH_SCOPES")
 	mustBindEnv("tokensmith_refresh_skew_sec", "TOKENSMITH_REFRESH_SKEW_SEC")
 }
