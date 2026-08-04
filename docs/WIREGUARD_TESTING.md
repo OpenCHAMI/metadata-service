@@ -7,7 +7,7 @@ This is a quick guide for testing the WireGuard with the metadata-service.
 Two terminal sessions — one for the server, one for testing. You'll also need `jq` and `wg` (WireGuard tools) installed. This guide assumes that you have cloned the respository and are testing from source. Install `go`, `git`, and `make` if necessary and build the binaries before proceeding with the rest of this guide.
 
 ```bash
-git clone https://github.com/OpenCHAMI/metadata-service
+git clone https://github.com/openchami/metadata-service
 cd metadata-service && make build && ls bin -lah
 ```
 

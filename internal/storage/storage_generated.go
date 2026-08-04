@@ -23,7 +23,7 @@ import (
 	"github.com/openchami/fabrica/pkg/reconcile"
 	fabricaStorage "github.com/openchami/fabrica/pkg/storage"
 
-	"github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
+	"github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
 )
 
 // Backend is the storage backend used by all storage operations.

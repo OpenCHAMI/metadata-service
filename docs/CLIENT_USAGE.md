@@ -26,7 +26,7 @@ This guide covers how to use the generated client library and CLI to interact wi
 
 ```bash
 # Build from source
-git clone https://github.com/OpenCHAMI/metadata-service.git
+git clone https://github.com/openchami/metadata-service.git
 cd metadata-service
 make build
 
@@ -286,7 +286,7 @@ VPN peer allocations (typically managed by `/wg-init` endpoint).
 ### Installation
 
 ```bash
-go get github.com/OpenCHAMI/metadata-service/pkg/client
+go get github.com/openchami/metadata-service/pkg/client
 ```
 
 ### Basic Client Setup
@@ -300,7 +300,7 @@ import (
     "net/http"
     "time"
 
-    "github.com/OpenCHAMI/metadata-service/pkg/client"
+    "github.com/openchami/metadata-service/pkg/client"
     "github.com/rs/zerolog"
 )
 
@@ -361,8 +361,8 @@ c = c.WithVersion("v1")
 
 ```go
 import (
-    "github.com/OpenCHAMI/metadata-service/pkg/client"
-    v1 "github.com/OpenCHAMI/metadata-service/pkg/resources/v1"
+    "github.com/openchami/metadata-service/pkg/client"
+    v1 "github.com/openchami/metadata-service/pkg/resources/v1"
 )
 
 // Create ClusterDefaults

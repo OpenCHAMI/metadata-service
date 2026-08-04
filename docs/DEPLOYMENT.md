@@ -60,7 +60,7 @@ openchami/metadata-service:latest
 
 ```bash
 # Clone repository
-git clone https://github.com/OpenCHAMI/metadata-service.git
+git clone https://github.com/openchami/metadata-service.git
 cd metadata-service
 
 # Build binary

@@ -4,7 +4,7 @@
 
 project:
   name: metadata-service
-  module: github.com/OpenCHAMI/metadata-service
+  module: github.com/openchami/metadata-service
   description: Cloud-init metadata service with Fabrica-generated REST APIs
   created: 2026-04-24T00:00:00Z
 features:

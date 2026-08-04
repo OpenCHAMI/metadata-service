@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	v1 "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
-	"github.com/OpenCHAMI/metadata-service/pkg/client"
 	"github.com/openchami/fabrica/pkg/fabrica"
+	v1 "github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
+	"github.com/openchami/metadata-service/pkg/client"
 	"github.com/stretchr/testify/require"
 )
 

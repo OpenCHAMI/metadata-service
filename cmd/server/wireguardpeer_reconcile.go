@@ -7,7 +7,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
+	"github.com/openchami/metadata-service/pkg/wireguard"
 )
 
 // wireGuardControllerMiddleware injects the controller into the request context for reconciliation hooks.

@@ -11,8 +11,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
 	"github.com/go-chi/chi/v5"
+	"github.com/openchami/metadata-service/pkg/wireguard"
 	"github.com/spf13/viper"
 )
 

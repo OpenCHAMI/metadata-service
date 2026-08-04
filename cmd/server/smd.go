@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenCHAMI/metadata-service/pkg/smdclient"
+	"github.com/openchami/metadata-service/pkg/smdclient"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
