@@ -12,10 +12,10 @@ import (
 	"strings"
 	"testing"
 
-	cloudinitv1 "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
-	"github.com/OpenCHAMI/metadata-service/pkg/handlers"
-	"github.com/OpenCHAMI/metadata-service/pkg/smdclient"
 	"github.com/go-chi/chi/v5"
+	cloudinitv1 "github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
+	"github.com/openchami/metadata-service/pkg/handlers"
+	"github.com/openchami/metadata-service/pkg/smdclient"
 	"gopkg.in/yaml.v3"
 )
 

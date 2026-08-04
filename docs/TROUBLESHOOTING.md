@@ -949,4 +949,4 @@ When reporting issues, include:
 4. Steps to reproduce
 5. Expected vs actual behavior
 
-**GitHub Issues:** https://github.com/OpenCHAMI/metadata-service/issues
+**GitHub Issues:** https://github.com/openchami/metadata-service/issues

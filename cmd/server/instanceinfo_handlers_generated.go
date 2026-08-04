@@ -41,15 +41,15 @@ import (
 	"net/http"
 	"time"
 
-	v1 "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
 	"github.com/go-chi/chi/v5"
 	"github.com/openchami/fabrica/pkg/events"
 	"github.com/openchami/fabrica/pkg/patch"
 	"github.com/openchami/fabrica/pkg/resource"
 	"github.com/openchami/fabrica/pkg/validation"
 	"github.com/openchami/fabrica/pkg/versioning"
+	v1 "github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
 
-	"github.com/OpenCHAMI/metadata-service/internal/storage"
+	"github.com/openchami/metadata-service/internal/storage"
 )
 
 // GetInstanceInfos returns all InstanceInfo resources

@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
+	"github.com/openchami/metadata-service/pkg/wireguard"
 )
 
 // TestWireGuardOnlyMiddlewareWithValidIP tests in-network access passes through.

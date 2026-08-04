@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	v1 "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
-	"github.com/OpenCHAMI/metadata-service/internal/storage"
-	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
 	"github.com/go-chi/chi/v5"
 	"github.com/openchami/fabrica/pkg/events"
 	"github.com/openchami/fabrica/pkg/fabrica"
+	v1 "github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
+	"github.com/openchami/metadata-service/internal/storage"
+	"github.com/openchami/metadata-service/pkg/wireguard"
 )
 
 func TestReconciliationRuntimeStartsAndStops(t *testing.T) {

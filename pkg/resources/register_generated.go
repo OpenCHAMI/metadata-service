@@ -11,8 +11,8 @@ package resources
 import (
 	"fmt"
 
-	v1 "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
 	"github.com/openchami/fabrica/pkg/codegen"
+	v1 "github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
 )
 
 // RegisterAllResources registers all discovered resources with the generator.

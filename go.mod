@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-module github.com/OpenCHAMI/metadata-service
+module github.com/openchami/metadata-service
 
 go 1.26.5
 

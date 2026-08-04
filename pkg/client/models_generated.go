@@ -38,7 +38,7 @@ package client
 import (
 	"github.com/openchami/fabrica/pkg/fabrica"
 
-	"github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
+	"github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
 )
 
 // CreateClusterDefaultsRequest represents a request to create a ClusterDefaults (Advanced API)

@@ -23,9 +23,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
+	"github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
 )
 
 // ServeOpenAPISpec returns the OpenAPI 3.0 specification

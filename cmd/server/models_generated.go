@@ -39,7 +39,7 @@ import (
 
 	"github.com/openchami/fabrica/pkg/fabrica"
 
-	"github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
+	"github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
 )
 
 // ClusterDefaultsResponse represents the response for ClusterDefaults operations

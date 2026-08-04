@@ -18,15 +18,15 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/OpenCHAMI/metadata-service/pkg/apiversion"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/openchami/fabrica/pkg/versioning"
+	_ "github.com/openchami/metadata-service/pkg/apiversion"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/OpenCHAMI/metadata-service/internal/storage"
-	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
+	"github.com/openchami/metadata-service/internal/storage"
+	"github.com/openchami/metadata-service/pkg/wireguard"
 )
 
 // Config holds all configuration for the service
@@ -119,16 +119,16 @@ func main() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "github.com/OpenCHAMI/metadata-service",
+	Use:   "github.com/openchami/metadata-service",
 	Short: "",
-	Long:  `github.com/OpenCHAMI/metadata-service - A Fabrica-generated OpenCHAMI service`,
+	Long:  `github.com/openchami/metadata-service - A Fabrica-generated OpenCHAMI service`,
 	RunE:  runServer,
 }
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Start the github.com/OpenCHAMI/metadata-service server",
-	Long:  `Start the github.com/OpenCHAMI/metadata-service HTTP server with the configured options`,
+	Short: "Start the github.com/openchami/metadata-service server",
+	Long:  `Start the github.com/openchami/metadata-service HTTP server with the configured options`,
 	RunE:  runServer,
 }
 
@@ -209,7 +209,7 @@ func initConfig() {
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
-	log.Printf("Starting github.com/OpenCHAMI/metadata-service server...")
+	log.Printf("Starting github.com/openchami/metadata-service server...")
 
 	appCtx, appCancel := context.WithCancel(context.Background())
 	defer appCancel()
@@ -327,7 +327,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	payload := map[string]string{
 		"status":  "healthy",
-		"service": "github.com/OpenCHAMI/metadata-service",
+		"service": "github.com/openchami/metadata-service",
 	}
 	statusCode := http.StatusOK
 

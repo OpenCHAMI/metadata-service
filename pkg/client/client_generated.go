@@ -67,7 +67,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
+	"github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
 )
 
 // Client provides access to the inventory API

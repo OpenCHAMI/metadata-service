@@ -12,11 +12,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/OpenCHAMI/metadata-service/internal/storage"
-	"github.com/OpenCHAMI/metadata-service/pkg/reconcilers"
-	"github.com/OpenCHAMI/metadata-service/pkg/wireguard"
 	"github.com/openchami/fabrica/pkg/events"
 	fabricaStorage "github.com/openchami/fabrica/pkg/storage"
+	"github.com/openchami/metadata-service/internal/storage"
+	"github.com/openchami/metadata-service/pkg/reconcilers"
+	"github.com/openchami/metadata-service/pkg/wireguard"
 )
 
 var newReconciliationRuntimeFn = initializeReconciliationRuntime

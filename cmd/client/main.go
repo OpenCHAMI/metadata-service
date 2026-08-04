@@ -78,7 +78,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenCHAMI/metadata-service/pkg/client"
+	"github.com/openchami/metadata-service/pkg/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

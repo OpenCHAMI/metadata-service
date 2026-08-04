@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	group "github.com/OpenCHAMI/metadata-service/apis/cloud-init.openchami.io/v1"
 	"github.com/openchami/fabrica/pkg/fabrica"
+	group "github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
 
-	"github.com/OpenCHAMI/metadata-service/pkg/client"
+	"github.com/openchami/metadata-service/pkg/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -72,7 +72,7 @@ func TestGroupTemplateValidation(t *testing.T) {
 	require.True(t, created.Status.Valid, "Status.Valid should be true")
 
 	// 3. Bulk validation: create multiple groups, some valid, some invalid
-	for i := range(3) {
+	for i := range 3 {
 		tmpl := goodTemplate
 		name := fmt.Sprintf("bulk-%d", i)
 		if i == 2 {
