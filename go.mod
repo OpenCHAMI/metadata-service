@@ -9,7 +9,7 @@ go 1.26.5
 require (
 	github.com/getkin/kin-openapi v0.144.0
 	github.com/go-chi/chi/v5 v5.2.4
-	github.com/openchami/fabrica v0.4.9
+	github.com/openchami/fabrica v0.4.10
 	github.com/openchami/tokensmith v0.4.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/zerolog v1.34.0
@@ -66,7 +66,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
