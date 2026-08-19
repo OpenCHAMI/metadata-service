@@ -582,9 +582,17 @@ func GroupUserDataHandler(smd smdclient.SMDClient, store Store) http.HandlerFunc
 			merged[k] = v
 		}
 
+		// Render template
+		rendered, err := cloudinitv1.RenderTemplate(groupData.Spec.Template, merged)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to render template for group %s", groupName)
+			http.Error(w, "template rendering failed", http.StatusInternalServerError)
+			return
+		}
+
 		w.Header().Set("Content-Type", "text/cloud-config")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(groupData.Spec.Template)); err != nil {
+		if _, err := w.Write([]byte(rendered)); err != nil {
 			log.Error().Err(err).Msg("Failed to write response")
 		}
 	}

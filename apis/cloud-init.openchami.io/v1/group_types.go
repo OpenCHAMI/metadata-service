@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	pongo2 "github.com/flosch/pongo2/v6"
 	"github.com/openchami/fabrica/pkg/fabrica"
+	"gopkg.in/yaml.v3"
 )
 
 // Group represents a Group resource (hub/storage version).
@@ -82,6 +84,18 @@ func MergeMetadata(defaultMeta map[string]any, groupMeta map[string]string) map[
 		merged[k] = v
 	}
 	return merged
+}
+
+// RenderTemplate renders a Jinja2-compatible template using pongo2.
+func RenderTemplate(templateStr string, metadata map[string]interface{}) (string, error) {
+	templateSet := pongo2.NewSet("group-template", pongo2.MustNewLocalFileSystemLoader(""))
+	return templateSet.RenderTemplateString(templateStr, metadata)
+}
+
+// validateYAML checks if a string is valid YAML.
+func validateYAML(s string) error {
+	var out interface{}
+	return yaml.Unmarshal([]byte(s), &out)
 }
 
 func hasTemplateVariableData(metadata map[string]interface{}, variable string) bool {
@@ -238,6 +252,21 @@ func (r *Group) Validate(ctx context.Context) error { //nolint: revive
 	if len(missing) > 0 {
 		r.Status.Valid = false
 		r.Status.ErrorMessage = "missing required variables: " + fmt.Sprintf("%v", missing)
+		r.trackTemplateVersion(false, r.Status.ErrorMessage)
+		return fmt.Errorf("%s", r.Status.ErrorMessage)
+	}
+
+	rendered, err := RenderTemplate(r.Spec.Template, merged)
+	if err != nil {
+		r.Status.Valid = false
+		r.Status.ErrorMessage = "template render error: " + err.Error()
+		r.trackTemplateVersion(false, r.Status.ErrorMessage)
+		return fmt.Errorf("%s", r.Status.ErrorMessage)
+	}
+
+	if err := validateYAML(rendered); err != nil {
+		r.Status.Valid = false
+		r.Status.ErrorMessage = "template YAML invalid after rendering: " + err.Error()
 		r.trackTemplateVersion(false, r.Status.ErrorMessage)
 		return fmt.Errorf("%s", r.Status.ErrorMessage)
 	}
