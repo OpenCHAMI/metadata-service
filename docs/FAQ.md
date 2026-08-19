@@ -210,7 +210,7 @@ Not in production. SMD is the source of truth for node identity and group member
 
 ### What templating language is used?
 
-Templates are rendered by the cloud-init *client* (not this server), and follow Jinja style. For further details, see [cloud-init's](https://docs.cloud-init.io/en/latest/explanation/format/jinja.html) and [Jinja's](https://jinja.palletsprojects.com/en/stable/templates/) documentation.
+[Pongo2](https://github.com/flosch/pongo2) - a Django-syntax inspired template engine for Go. It's similar to Jinja2 but with Go-specific features.
 
 **Example:**
 ```yaml
@@ -303,9 +303,13 @@ nid: {{ nid|default:"0000" }}
 
 ### How are templates validated?
 
-At create/update time, the service checks against sample metadata to verify that all referenced template fields exist.
+At create/update time, the service:
+1. Parses template with Pongo2
+2. Renders against sample metadata
+3. Validates output is valid YAML
+4. Rejects if any step fails
 
-This prevents deploying certain types of broken templates that would fail at boot time.
+This prevents deploying broken templates that would fail at boot time.
 
 ---
 
