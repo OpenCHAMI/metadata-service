@@ -27,7 +27,7 @@ type Group struct {
 // GroupSpec defines the desired state of Group.
 type GroupSpec struct { //nolint: revive
 	Description string            `json:"description,omitempty" yaml:"description,omitempty"`
-	Template    string            `json:"template" yaml:"template" validate:"required"`
+	Template    string            `json:"template,omitempty" yaml:"template,omitempty"`
 	MetaData    map[string]string `json:"metaData,omitempty" yaml:"metaData,omitempty"`
 	OSVersion   string            `json:"osVersion,omitempty" yaml:"osVersion,omitempty"`
 }
@@ -219,28 +219,9 @@ func sampleMetadata() map[string]any {
 
 // Validate implements custom validation logic for Group.
 func (r *Group) Validate(ctx context.Context) error { //nolint: revive
-	if r.Spec.Template == "" {
-		r.Status.Valid = false
-		r.Status.ErrorMessage = "template is required"
-		r.trackTemplateVersion(false, "template is required")
-		return fmt.Errorf("template is required")
-	}
 
 	vars := extractTemplateVariables(r.Spec.Template)
 	r.Status.RequiredVariables = vars
-	merged := MergeMetadata(sampleMetadata(), r.Spec.MetaData)
-	missing := []string{}
-	for _, v := range vars {
-		if !hasTemplateVariableData(merged, v) {
-			missing = append(missing, v)
-		}
-	}
-	if len(missing) > 0 {
-		r.Status.Valid = false
-		r.Status.ErrorMessage = "missing required variables: " + fmt.Sprintf("%v", missing)
-		r.trackTemplateVersion(false, r.Status.ErrorMessage)
-		return fmt.Errorf("%s", r.Status.ErrorMessage)
-	}
 
 	r.Status.Valid = true
 	r.Status.ErrorMessage = ""
