@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: © 2025 OpenCHAMI a Series of LF Projects, LLC
+
+SPDX-License-Identifier: MIT
+-->
+
 # Testing Guide: Reconciliation Runtime & WireGuard Peer Lifecycle
 
 This is a quick guide for testing the WireGuard with the metadata-service.

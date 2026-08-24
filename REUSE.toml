@@ -1,28 +1,12 @@
 version = 1
 SPDX-PackageName = "OpenCHAMI Metadata Service"
 SPDX-PackageSupplier = "OpenCHAMI <info@openchami.org>"
-SPDX-PackageDownloadLocation = "https://github.com/openchami/openchami/metadata-service"
+SPDX-PackageDownloadLocation = "https://github.com/openchami/metadata-service"
 
 [[annotations]]
-path = ".github/renovate.json"
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2025 OpenCHAMI Contributors"
-SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = "docs/_posts/**"
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2025 OpenCHAMI Contributors"
-SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = "docs/blog/**"
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2025 OpenCHAMI Contributors"
-SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = ["docs/guides/**", "docs/reference/**", "docs/**.md"]
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2025 OpenCHAMI Contributors"
+path = [
+    "renovate.json",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "© 2026 OpenCHAMI a Series of LF Projects, LLC"
 SPDX-License-Identifier = "MIT"

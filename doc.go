@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+// SPDX-FileCopyrightText: © 2025 OpenCHAMI a Series of LF Projects, LLC
 
 /*
 Package cloud-init provides a cloud-init metadata service built on the OpenCHAMI Fabrica framework.

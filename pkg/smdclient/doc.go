@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+// SPDX-FileCopyrightText: © 2025 OpenCHAMI a Series of LF Projects, LLC
 
 /*
 Package smdclient provides an interface and implementations for interacting with
