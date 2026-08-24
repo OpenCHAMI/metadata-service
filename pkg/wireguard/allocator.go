@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+// SPDX-FileCopyrightText: © 2025 OpenCHAMI a Series of LF Projects, LLC
 
 // Package wireguard implements userspace WireGuard helpers and utilities.
 package wireguard
