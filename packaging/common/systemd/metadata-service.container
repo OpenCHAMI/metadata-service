@@ -3,19 +3,14 @@
 
 [Unit]
 Description=The %N container
+Wants=smd.service
+After=smd.service
 PartOf=openchami.target
 
 [Container]
 ContainerName=%N
 HostName=%N
 Image=ghcr.io/openchami/%N:@IMAGE_TAG@
-
-# Secrets
-Secret=%N-bootstrap-token,type=env,target=TOKENSMITH_BOOTSTRAP_TOKEN
-
-# Volumes
-Volume=/etc/openchami/configs/%N.yaml:/etc/%N/config.yaml:ro,Z
-Volume=metadata-service-data.volume:/app/data:rw,Z
 
 [Service]
 Restart=always
