@@ -114,7 +114,7 @@ rpm-build: ## Build the metadata-service RPM (VERSION/RPM_RELEASE override the d
 	rm -rf $(RPM_TOPDIR)
 	mkdir -p $(RPM_TOPDIR)/SOURCES/$(RPM_NAME)-$(RPM_VERSION)/LICENSES
 	cp -rL packaging/rpm-quadlet/systemd/* $(RPM_TOPDIR)/SOURCES/$(RPM_NAME)-$(RPM_VERSION)/
-	cp packaging/rpm-quadlet/configs/* $(RPM_TOPDIR)/SOURCES/$(RPM_NAME)-$(RPM_VERSION)/
+	cp -rL packaging/rpm-quadlet/configs/* $(RPM_TOPDIR)/SOURCES/$(RPM_NAME)-$(RPM_VERSION)/
 	cp LICENSES/MIT.txt $(RPM_TOPDIR)/SOURCES/$(RPM_NAME)-$(RPM_VERSION)/LICENSES/
 	tar -C $(RPM_TOPDIR)/SOURCES -czf $(RPM_TOPDIR)/SOURCES/$(RPM_NAME)-$(RPM_VERSION).tar.gz \
 		$(RPM_NAME)-$(RPM_VERSION)

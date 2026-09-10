@@ -41,6 +41,7 @@ dist/
 config.yaml
 config.yml
 !packaging/**/configs/*
+!config.example.yaml
 
 # IDE files
 .vscode/
