@@ -19,6 +19,8 @@ Key capabilities
 
 The server defaults to port `8080`. The examples below use `8888` explicitly.
 
+Flags used below can also be set in a config file (`--config`, default `/etc/metadata-service/config.yaml`) or via `METADATA_SERVICE_*` environment variables; see [`config.example.yaml`](config.example.yaml) for every option and its default.
+
 1. Start the server with the built-in mock SMD data:
 
 	 ```bash
