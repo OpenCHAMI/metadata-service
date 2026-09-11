@@ -554,6 +554,9 @@ sudo systemctl start metadata-service
 
 ## Configuration Reference
 
+See [`config.example.yaml`](../config.example.yaml) for a documented example
+configuration file.
+
 ### Environment Variables
 
 | Variable | Description | Default | Required |

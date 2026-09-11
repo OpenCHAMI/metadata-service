@@ -1,0 +1,224 @@
+---
+# SPDX-FileCopyrightText: © 2026 OpenCHAMI a Series of LF Projects, LLC
+# SPDX-License-Identifier: MIT
+#
+# /etc/metadata-service/config.yaml
+#
+# =============================================================================
+# Metadata‑Service - Example Configuration
+# =============================================================================
+#
+# This file serves as a reference that users can copy, uncomment, and edit
+# for the options they need.  All keys shown use the service's default
+# values. Each option lists the flag (--flag-name) and the environment
+# variable (METADATA_SERVICE_...) that can be used to override it.
+#
+# Environment variables may be set using a systemd drop-in (in order of highest
+# precedence):
+#   /etc/containers/systemd/metadata-service.container.d/*.conf   (site, wins)
+#   /usr/share/containers/systemd/metadata-service.container.d/*.conf  (packaged)
+#   /etc/systemd/system/metadata-service.service.d/*.conf   (generated unit)
+# Run `systemctl daemon-reload` after editing any of them.
+#
+# Configuration precedence (highest first):
+#   1. command-line flag
+#   2. environment variable
+#   3. this file
+#   4. compiled-in default
+
+# -------------------------------------------------------------------------
+# Server Configuration
+# -------------------------------------------------------------------------
+
+# TCP port to listen on
+#
+# Default: 8080
+# Flag:    --port
+# Env var: METADATA_SERVICE_PORT
+port: 8080
+
+# Host/IP address to bind to
+#
+# Default: 0.0.0.0 (i.e. all interfaces)
+# Flag:    --host
+# Env var: METADATA_SERVICE_HOST
+host: "0.0.0.0"
+
+# HTTP request read timeout, in seconds
+#
+# Default: 15
+# Flag:    --read-timeout
+# Env var: METADATA_SERVICE_READ_TIMEOUT
+#read_timeout: 15
+
+# HTTP request write timeout, in seconds
+#
+# Default: 15
+# Flag:    --write-timeout
+# Env var: METADATA_SERVICE_WRITE_TIMEOUT
+#write_timeout: 15
+
+# HTTP connection idle timeout, in seconds
+#
+# Default: 60
+# Flag:    --idle-timeout
+# Env var: METADATA_SERVICE_IDLE_TIMEOUT
+#idle_timeout: 60
+
+# Enable debug‑level logging.  When true, log entries include file and line
+# information to aid troubleshooting.
+#
+# Flag:    --debug
+# Env var: METADATA_SERVICE_DEBUG
+debug: false
+
+# Enable Prometheus metrics collection and expose the `/metrics` endpoint.
+# Flag:    --enable-metrics
+# Env var: METADATA_SERVICE_ENABLE_METRICS
+enable_metrics: false
+
+# Port on which the Prometheus metrics endpoint listens.
+# Separate from the main service port for security isolation.
+# Flag:    --metrics-port
+# Env var: METADATA_SERVICE_METRICS_PORT
+metrics_port: 9090
+
+# -------------------------------------------------------------------------
+# Storage Configuration
+# -------------------------------------------------------------------------
+
+# Directory used by the file‑based storage backend.
+# Stores ClusterDefaults, Group, InstanceInfo, and WireGuardPeer resources.
+#
+# NOTE: When using the container, this should be the path where a volume/host
+# directory is mounted into the container. The default /data is unwritable by
+# the non-root container user.
+#
+# Default: /data
+# Flag:    --data-dir
+# Env var: METADATA_SERVICE_DATA_DIR
+data_dir: "/app/data"
+
+# -------------------------------------------------------------------------
+# WireGuard Configuration (Optional)
+# -------------------------------------------------------------------------
+
+# Path to the WireGuard state file for persistence.
+#
+# Example: /data/wireguard/state.yaml
+# Flag:    --wireguard-state-file
+# Env var: METADATA_SERVICE_WIREGUARD_STATE_FILE
+#wireguard_state_file: "/data/wireguard/state.yaml"
+
+# When true, the service rejects all requests that do not originate from the
+# configured WireGuard CIDR.  Set to false to allow regular network access.
+#
+# Flag:    --wireguard-only
+# Env var: METADATA_SERVICE_WIREGUARD_ONLY
+wireguard_only: false
+
+# -------------------------------------------------------------------------
+# TokenSmith Configuration (Optional - for dynamic authentication)
+# -------------------------------------------------------------------------
+
+# Base URL of the TokenSmith service.
+# Supports both mTLS and bootstrap‑token authentication modes.
+#
+# Default: ""
+# Example: https://tokensmith.example.com
+# Flag:    --tokensmith-url
+# Env var: METADATA_SERVICE_TOKENSMITH_URL
+#          TOKENSMITH_URL
+tokensmith_url: "http://tokensmith:8080"
+
+# Bootstrap token used when the service cannot present a client certificate.
+# Required only if `tokensmith_url` is set and mTLS is not used.
+#
+# Flag:    --tokensmith-bootstrap-token
+# Env var: METADATA_SERVICE_TOKENSMITH_BOOTSTRAP_TOKEN
+#          TOKENSMITH_BOOTSTRAP_TOKEN
+#tokensmith_bootstrap_token: ""
+
+# Path to the client certificate (PEM) for mTLS authentication with TokenSmith.
+#
+# Flag:    --tokensmith-service-identity-cert
+# Env var: METADATA_SERVICE_TOKENSMITH_SERVICE_IDENTITY_CERT
+#          TOKENSMITH_SERVICE_IDENTITY_CERT
+#tokensmith_service_identity_cert: ""
+
+# Path to the client private key (PEM) for mTLS authentication with TokenSmith.
+#
+# Flag:    --tokensmith-service-identity-key
+# Env var: METADATA_SERVICE_TOKENSMITH_SERVICE_IDENTITY_KEY
+#          TOKENSMITH_SERVICE_IDENTITY_KEY
+#tokensmith_service_identity_key: ""
+
+# Optional CA certificate (PEM) used to verify the TokenSmith server's
+# TLS certificate.  If omitted the system's default CA pool is used.
+#
+# Flag:    --tokensmith-service-identity-ca
+# Env var: METADATA_SERVICE_TOKENSMITH_SERVICE_IDENTITY_CA
+#          TOKENSMITH_SERVICE_IDENTITY_CA
+#tokensmith_service_identity_ca: ""
+
+# Target downstream service name for which TokenSmith should issue a token.
+#
+# Default: "smd"
+# Flag:    --tokensmith-target-service
+# Env var: METADATA_SERVICE_TOKENSMITH_TARGET_SERVICE
+#          TOKENSMITH_TARGET_SERVICE
+tokensmith_target_service: "smd"
+
+# Diagnostic hint: a comma‑separated list of scopes that the bootstrap token
+# is allowed to request.  Not enforced by the service.
+#
+# Example: "metadata:read,groups:read"
+# Flag:    --tokensmith-bootstrap-policy-scopes-hint
+# Env var: METADATA_SERVICE_TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT
+#          TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT
+#tokensmith_bootstrap_policy_scopes_hint: ""
+
+# Number of seconds before a token's expiry when the service should attempt a
+# refresh.  This avoids edge‑case failures when the token is about to expire.
+#
+# Flag:    --tokensmith-refresh-skew-sec
+# Env var: METADATA_SERVICE_TOKENSMITH_REFRESH_SKEW_SEC
+#tokensmith_refresh_skew_sec: 300
+
+# -------------------------------------------------------------------------
+# SMD Integration Configuration
+# -------------------------------------------------------------------------
+
+# Enable the background worker that synchronizes node/group membership from
+# the System Management Database (SMD). Set to false to disable the cache.
+#
+# Flag:    --smd-sync-enabled
+# Env var: METADATA_SERVICE_SMD_SYNC_ENABLED
+smd_sync_enabled: true
+
+# Interval, in seconds, at which the SMD cache is refreshed.
+#
+# Flag:    --smd-sync-interval
+# Env var: METADATA_SERVICE_SMD_SYNC_INTERVAL
+smd_sync_interval: 60
+
+# -------------------------------------------------------------------------
+# Additional (Non‑Config‑File) Flags
+# -------------------------------------------------------------------------
+# The following flags are persistent (global) and are NOT represented in the
+# YAML configuration, but they can still be used on the command line or via
+# environment variables:
+#
+#   --mock-smd            (env: METADATA_SERVICE_MOCK_SMD)
+#        Use built‑in mock SMD data instead of contacting a real SMD service.
+#
+#   --config <path>       (env: METADATA_SERVICE_CONFIG)
+#        Path to an alternative configuration file.
+#
+#   --debug               (already listed above)
+#
+#   --help, --version, etc. are standard Cobra flags.
+
+# =============================================================================
+# End of example configuration.
+# =============================================================================
