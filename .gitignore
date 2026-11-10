@@ -34,6 +34,12 @@ data/
 !.github/workflows/*.yaml
 !.github/workflows/*.yml
 
+# Fabrica feature-generation locking and recovery. Preserve pending recovery
+# state; cmd/server/features_manifest_generated.json stays tracked.
+.fabrica-features.lock
+.fabrica-features-transaction.json
+*.fabrica-tmp
+
 # Goreleaser dist directory
 dist/
 

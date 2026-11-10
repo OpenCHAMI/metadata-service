@@ -21,7 +21,9 @@ import (
 
 var newReconciliationRuntimeFn = initializeReconciliationRuntime
 
-// reconciliationRuntime wires Fabrica eventing to resource reconcilers.
+// reconciliationRuntime wires Fabrica eventing to resource reconcilers. The
+// event bus itself is owned by the generated feature loader; this runtime only
+// manages its own subscriptions.
 type reconciliationRuntime struct {
 	eventBus                events.EventBus
 	storageClient           *storage.StorageClient
@@ -67,22 +69,14 @@ func (r *reconciliationRuntime) initialize() error {
 }
 
 func (r *reconciliationRuntime) initializeEventing() error {
-	config := events.GetEventConfig()
-	config.Enabled = true
-	config.LifecycleEventsEnabled = true
-	if config.EventTypePrefix == "" {
-		config.EventTypePrefix = "io.fabrica"
+	bus := events.GetGlobalEventBus()
+	if bus == nil {
+		return errors.New("event bus is not initialized; enable features.events in .fabrica.yaml and regenerate")
 	}
-	if config.Source == "" {
-		config.Source = "metadata-service"
+	if !events.AreLifecycleEventsEnabled() {
+		return errors.New("lifecycle events are disabled; WireGuardPeer reconciliation requires them")
 	}
-	events.SetEventConfig(config)
-
-	bus := events.NewInMemoryEventBus(1000, 5)
-	bus.Start()
-	events.SetGlobalEventBus(bus)
 	r.eventBus = bus
-
 	return nil
 }
 
@@ -156,7 +150,8 @@ func (r *reconciliationRuntime) withWireGuardController(ctx context.Context) con
 	return context.WithValue(ctx, wireguard.ControllerContextKey, r.wireGuardController)
 }
 
-// Stop releases event subscriptions and closes the event bus.
+// Stop releases event subscriptions. The generated feature cleanup closes the
+// event bus.
 func (r *reconciliationRuntime) Stop() error {
 	var stopErr error
 
@@ -167,14 +162,6 @@ func (r *reconciliationRuntime) Stop() error {
 			}
 		}
 		r.subscriptionIDs = nil
-
-		if r.eventBus != nil {
-			if err := r.eventBus.Close(); err != nil {
-				stopErr = errors.Join(stopErr, fmt.Errorf("close event bus: %w", err))
-			}
-		}
-
-		events.SetGlobalEventBus(nil)
 	})
 
 	return stopErr

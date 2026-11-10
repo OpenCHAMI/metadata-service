@@ -18,10 +18,60 @@ import (
 	"github.com/openchami/metadata-service/pkg/wireguard"
 )
 
+// initTestEventBus starts the event bus through the generated feature loader
+// path, as runServer does, and closes it when the test ends.
+func initTestEventBus(t *testing.T) {
+	t.Helper()
+
+	previous := events.GetEventConfig()
+	cleanup, err := initializeEventingAndReconciliation(DefaultConfig())
+	if err != nil {
+		t.Fatalf("initializeEventingAndReconciliation() failed: %v", err)
+	}
+	t.Cleanup(func() {
+		cleanup()
+		events.SetEventConfig(previous)
+	})
+}
+
+func TestReconciliationRuntimeRequiresGeneratedEventBus(t *testing.T) {
+	events.SetGlobalEventBus(nil)
+
+	if _, err := initializeReconciliationRuntime(nil); err == nil || !strings.Contains(err.Error(), "event bus is not initialized") {
+		t.Fatalf("expected missing event bus error, got %v", err)
+	}
+}
+
+func TestReconciliationRuntimeStopLeavesGeneratedEventBusOpen(t *testing.T) {
+	if err := storage.InitFileBackend(t.TempDir()); err != nil {
+		t.Fatalf("InitFileBackend() failed: %v", err)
+	}
+	initTestEventBus(t)
+	bus := events.GetGlobalEventBus()
+
+	runtime, err := initializeReconciliationRuntime(nil)
+	if err != nil {
+		t.Fatalf("initializeReconciliationRuntime() failed: %v", err)
+	}
+	if runtime.eventBus != bus {
+		t.Fatal("expected reconciliation runtime to subscribe to the generated event bus")
+	}
+	if err := runtime.Stop(); err != nil {
+		t.Fatalf("runtime.Stop() failed: %v", err)
+	}
+	if events.GetGlobalEventBus() != bus {
+		t.Fatal("runtime.Stop() must not replace the generated event bus")
+	}
+	if _, err := bus.Subscribe("**", func(context.Context, events.Event) error { return nil }); err != nil {
+		t.Fatalf("generated event bus should remain usable after runtime.Stop(): %v", err)
+	}
+}
+
 func TestReconciliationRuntimeStartsAndStops(t *testing.T) {
 	if err := storage.InitFileBackend(t.TempDir()); err != nil {
 		t.Fatalf("InitFileBackend() failed: %v", err)
 	}
+	initTestEventBus(t)
 
 	runtime, err := initializeReconciliationRuntime(nil)
 	if err != nil {
@@ -60,6 +110,7 @@ func TestReconciliationRuntimeReconcilesExistingWireGuardPeersWithoutController(
 	if err := storage.SaveWireGuardPeer(context.Background(), peer); err != nil {
 		t.Fatalf("SaveWireGuardPeer() failed: %v", err)
 	}
+	initTestEventBus(t)
 
 	runtime, err := initializeReconciliationRuntime(nil)
 	if err != nil {
