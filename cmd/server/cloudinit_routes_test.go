@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/openchami/fabrica/pkg/fabrica"
+	fabricauid "github.com/openchami/fabrica/pkg/uid"
 	v1 "github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
 	"github.com/openchami/metadata-service/internal/storage"
 )
@@ -198,7 +200,19 @@ func TestRegisterCustomServerIntegrationsAllowsGeneratedCreateRoutes(t *testing.
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("expected 201 from generated create route, got %d: %s", resp.StatusCode, string(responseBody))
 	}
-	if !strings.Contains(string(responseBody), `"uid":"clusterdefaults-`) {
-		t.Fatalf("expected generated UID with clusterdefaults prefix, got %s", string(responseBody))
+	var created struct {
+		Metadata struct {
+			UID string `json:"uid"`
+		} `json:"metadata"`
+	}
+	if err := json.Unmarshal(responseBody, &created); err != nil {
+		t.Fatalf("decoding create response: %v: %s", err, string(responseBody))
+	}
+	parsed, err := fabricauid.Codec{}.Parse(created.Metadata.UID)
+	if err != nil {
+		t.Fatalf("expected parseable generated UID, got %q: %v", created.Metadata.UID, err)
+	}
+	if parsed.Format != fabricauid.FormatTypeID || parsed.Prefix != "clusterdefaults" {
+		t.Fatalf("expected TypeID UID with clusterdefaults prefix, got %q (format %s, prefix %q)", created.Metadata.UID, parsed.Format, parsed.Prefix)
 	}
 }
