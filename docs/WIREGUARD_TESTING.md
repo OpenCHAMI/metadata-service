@@ -61,9 +61,11 @@ Expected startup log lines:
 ```bash
 PUBKEY=$(wg genkey | wg pubkey)
 
-curl -s -X POST $METADATA_SERVICE_HOST/wg-init \
+RESPONSE=$(curl -s -X POST $METADATA_SERVICE_HOST/wg-init \
   -H "Content-Type: application/json" \
-  -d "{\"public_key\": \"$PUBKEY\"}" | jq .
+  -d "{\"public_key\": \"$PUBKEY\"}")
+echo "$RESPONSE" | jq .
+PEER_UID=$(echo "$RESPONSE" | jq -r '."peer-uid"')
 ```
 
 Expected response (HTTP 202):
@@ -71,13 +73,17 @@ Expected response (HTTP 202):
 ```json
 {
   "message": "WireGuard peer allocation accepted",
-  "peer-uid": "wireguardpeer-<hex>",
+  "peer-uid": "wireguardpeer_<26 chars>",
   "client-vpn-ip": "100.97.0.2",
   "server-public-key": "<base64>",
   "server-ip": "100.97.0.1",
   "server-port": "51820"
 }
 ```
+
+Treat `peer-uid` as an opaque string. New peers get TypeIDs such as
+`wireguardpeer_01m738n2rkf45rpkzas3w8prnh`; peers created by releases before
+v0.3.0 keep their `wireguardpeer-<hex>` UIDs.
 
 ---
 
@@ -89,7 +95,9 @@ curl -s -X POST $METADATA_SERVICE_HOST/wg-init \
   -d "{\"public_key\": \"$PUBKEY\"}" | jq .
 ```
 
-Expected: Same `peer-uid` and `client-vpn-ip` as the first call.
+Expected: Same `peer-uid` and `client-vpn-ip` as the first call. `/wg-init`
+finds the existing peer by public key, so this also holds for a peer created
+through `/wireguardpeers`.
 
 ---
 
@@ -97,7 +105,7 @@ Expected: Same `peer-uid` and `client-vpn-ip` as the first call.
 
 ```bash
 curl -s $METADATA_SERVICE_HOST/wireguardpeers | jq .
-curl -s $METADATA_SERVICE_HOST/wireguardpeers/wireguardpeer-<hex> | jq .
+curl -s $METADATA_SERVICE_HOST/wireguardpeers/$PEER_UID | jq .
 ```
 
 Expected: Status shows `"phase": "Ready"` if reconciliation succeeded. `"Degraded"` is also normal when running outside the reconciler's event bus (peer still works).
@@ -107,8 +115,8 @@ Expected: Status shows `"phase": "Ready"` if reconciliation succeeded. `"Degrade
 ### 5. Test phone-home de-registration (`POST /phone-home/{id}`)
 
 ```bash
-curl -s -X POST $METADATA_SERVICE_HOST/phone-home/wireguardpeer-<hex> -w "\nHTTP %{http_code}\n"
-curl -s $METADATA_SERVICE_HOST/wireguardpeers/wireguardpeer-<hex>
+curl -s -X POST $METADATA_SERVICE_HOST/phone-home/$PEER_UID -w "\nHTTP %{http_code}\n"
+curl -s $METADATA_SERVICE_HOST/wireguardpeers/$PEER_UID
 ```
 
 Expected: HTTP 200, then 404 (peer deleted).

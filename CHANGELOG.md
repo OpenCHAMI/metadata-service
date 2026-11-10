@@ -56,6 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metrics listener
 - Resource creation via the generated API now issues TypeID/UUIDv7 UIDs.
   Existing legacy UIDs are never rewritten and remain fully usable
+- `/wg-init` now assigns TypeID UIDs (`wireguardpeer_…`) to new WireGuard
+  peers and finds existing peers by public key instead of by a UID derived from
+  it. Repeating `/wg-init` with the same key still returns the same peer, and
+  existing `wireguardpeer-<hex>` peers keep their UIDs (#72)
 - Generated create handlers require the `spec` envelope; conditional
   `If-Match` updates and deletes are atomic, and `If-None-Match` accepts weak
   ETags
@@ -75,13 +79,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   header, so linters check it
 - `Dockerfile.standalone` defaulted to a Go toolchain older than `go.mod`
   requires
+- `/wg-init` created a second peer, with a second VPN IP, for a public key
+  already registered through `/wireguardpeers`. Concurrent `/wg-init` calls for
+  the same key can no longer create two peers either
 
 ### Known Limitations
 
 - `/.well-known/api-catalog` and the OpenAPI `servers` entry report
   `http://localhost:8080` in every deployment (OpenCHAMI/fabrica#170)
-- `/wg-init` still assigns deterministic legacy-format WireGuard peer UIDs,
-  while peers created through `/wireguardpeers` get TypeIDs
+- `/wg-init` scans every stored WireGuard peer when it does not find one under
+  the legacy UID, so its cost grows with the number of peers
+- `/wireguardpeers` does not reject a public key that another peer already
+  uses, so a peer created there at the same moment as a `/wg-init` call for
+  the same key can still produce a duplicate
 
 ## [0.2.1] - 2026-08-04
 
