@@ -13,6 +13,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Before Deploying
+
+- Back up the data directory and plan to roll forward. New resources get
+  TypeID UIDs (for example `group_01m738…`) as soon as the upgraded service
+  creates them, and no setting disables this. Fabrica does not consider binaries
+  without dual-format UID parsing safe rollback targets once TypeIDs are stored.
+- **`/metrics` is now always on and public.** It used to be off unless
+  `enable_metrics: true` was set. Fabrica's feature loader now enables it at
+  build time and serves it on the main port to anyone, with no authentication.
+  `wireguard_only` does not cover it: `/metrics` sits with the public routes
+  (`/health`, `/service/status`, `/.well-known/api-catalog`, `/openapi.json`,
+  `/docs`), which skip the WireGuard check. Sites that need `/metrics` private
+  must block it at the network, firewall, or reverse proxy.
+- **Metric names changed** from `main_http_*` to `metadata_service_http_*`.
+  Update dashboards and alerts, or they will stop matching.
+- Clients that create resources without a `spec` must send one; a missing or
+  `null` `spec` now returns HTTP 400.
+- Treat UIDs as opaque strings.
+
+### Added
+
+- Public `GET /service/status` endpoint backed by SMD readiness
+  (`initializing` until the first SMD sync completes, `down` for other SMD or
+  TokenSmith failures, `ok` otherwise)
+- Public RFC 9727 API catalog at `GET`/`HEAD /.well-known/api-catalog`
+
+### Changed
+
+- Upgraded Fabrica from v0.4.10 to v0.4.15 and Go to 1.26.10
+- Adopted Fabrica's generated feature loader: storage, event bus, and metrics
+  startup now live in generated `cmd/server/features_generated.go`, so
+  `.fabrica.yaml` feature changes no longer require editing `main.go`.
+  Commit `cmd/server/features_manifest_generated.json` with generated code
+- The WireGuard peer reconciler now subscribes to the generated event bus
+  instead of starting its own. Event type prefix (`io.fabrica`), source
+  (`metadata-service`), and condition prefix are unchanged; set
+  `event_type_prefix` to override the prefix
+- Prometheus metrics are selected at build time by `.fabrica.yaml`, use the
+  `metadata_service` namespace, and are always served at `/metrics` on the main
+  port. `enable_metrics` and `metrics_port` now control only the dedicated
+  metrics listener
+- Resource creation via the generated API now issues TypeID/UUIDv7 UIDs.
+  Existing legacy UIDs are never rewritten and remain fully usable
+- Generated create handlers require the `spec` envelope; conditional
+  `If-Match` updates and deletes are atomic, and `If-None-Match` accepts weak
+  ETags
+- `make generate` now runs the Fabrica version pinned in `go.mod` instead of
+  `@latest`
+
 ### Fixed
 
 - Fixed the container image build failing with goreleaser 2.20 and later by
@@ -20,6 +69,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   container image publishes `v1` as `linux/amd64` and `v3` as
   `linux/amd64/v3`, and release archives for `v3` carry a `_v3` suffix
   ([#71](https://github.com/OpenCHAMI/metadata-service/issues/71))
+- `go build ./...` and `go vet ./...` failed because the root `doc.go` declared
+  `package main` without a `main` function
+- `cmd/server/main.go` no longer carries a "Code generated ... DO NOT EDIT"
+  header, so linters check it
+- `Dockerfile.standalone` defaulted to a Go toolchain older than `go.mod`
+  requires
+
+### Known Limitations
+
+- `/.well-known/api-catalog` and the OpenAPI `servers` entry report
+  `http://localhost:8080` in every deployment (OpenCHAMI/fabrica#170)
+- `/wg-init` still assigns deterministic legacy-format WireGuard peer UIDs,
+  while peers created through `/wireguardpeers` get TypeIDs
 
 ## [0.2.1] - 2026-08-04
 
