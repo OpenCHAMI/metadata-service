@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed the container image build failing with goreleaser 2.20 and later by
+  building `linux/amd64` binaries for both the `v1` baseline and `v3`. The
+  container image publishes `v1` as `linux/amd64` and `v3` as
+  `linux/amd64/v3`, and release archives for `v3` carry a `_v3` suffix
+  ([#71](https://github.com/OpenCHAMI/metadata-service/issues/71))
+
 ## [0.2.1] - 2026-08-04
 
 ### Changed
