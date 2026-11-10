@@ -268,7 +268,7 @@ curl \
 	http://localhost:8888/wg-init
 ```
 
-If you also pass `--wireguard-only`, the server will reject requests whose remote address is not inside the configured WireGuard CIDR.
+If you also pass `--wireguard-only`, the server will reject API and cloud-init requests whose remote address is not inside the configured WireGuard CIDR. The public routes (`/health`, `/service/status`, `/.well-known/api-catalog`, `/openapi.json`, `/docs`, and `/metrics`) are not covered; block them at the network or reverse proxy if they must stay private.
 
 ## Documentation
 

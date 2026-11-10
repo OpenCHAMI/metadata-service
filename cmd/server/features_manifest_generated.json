@@ -1,0 +1,31 @@
+{
+  "Format": 1,
+  "Config": {
+    "ProjectName": "metadata-service",
+    "StorageType": "file",
+    "DBDriver": "sqlite3",
+    "EventsEnabled": true,
+    "EventBusType": "memory",
+    "ReconciliationEnabled": false,
+    "ReconcileWorkers": 5,
+    "ReconcileRequeueMinutes": 5,
+    "MetricsEnabled": true,
+    "AuthEnabled": false,
+    "AuthZEnabled": false,
+    "AuthZMode": "enforce",
+    "ValidationEnabled": true,
+    "ValidationMode": "strict",
+    "ConditionalEnabled": true,
+    "ETagAlgorithm": "sha256",
+    "VersioningEnabled": true
+  },
+  "Files": {
+    "../../internal/middleware/conditional_middleware_generated.go": "82b7f1aa3f7b10485c4d95359b9557975174f1aa3568b6c33c57e3582b028cd1",
+    "../../internal/middleware/event_bus_generated.go": "2ab4d6ea86a1f5a9fb89f83d588068b62a912c78c1987c573ff765741a2ed11b",
+    "../../internal/middleware/validation_middleware_generated.go": "63a30fe64540965c2730b151870b675f2c5adad5974b6591a549db6aa63755a7",
+    "../../internal/middleware/versioning_middleware_generated.go": "ec70088b03ee308b95f291da4f901291c1d17a5c8bb7e695ac064ab62723ecd8",
+    "features_generated.go": "02a4aa75901fe6bfab811448afbe4bd5353bd296027e39ac07b2be972a2a7856",
+    "metrics_generated.go": "683163ed72dbdb7af15099482e450f10f806bdc3c394f4093753f88a0c859d91",
+    "runtime_helpers_generated.go": "ab30446baa8efa2f546ea763b668a88f8f38506ae1f84d120d827f224c66603b"
+  }
+}

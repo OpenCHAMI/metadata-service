@@ -183,7 +183,9 @@ func TestRunServerStartsAndShutsDownGracefully(t *testing.T) {
 		ReadTimeout:  1,
 		WriteTimeout: 1,
 		IdleTimeout:  1,
-		DataDir:      t.TempDir(),
+		GeneratedFeatureConfig: GeneratedFeatureConfig{
+			DataDir: t.TempDir(),
+		},
 	}
 
 	origNotify := notifyShutdownSignals

@@ -517,8 +517,8 @@ For larger deployments, consider:
 **Current:**
 - Check logs for request duration: `level=debug msg="request completed" duration="15ms"`
 - Monitor health endpoint: `curl http://localhost:8080/health`
-- Enable Prometheus metrics with `enable_metrics: true` or `--enable-metrics`
-- Scrape metrics from `http://localhost:8080/metrics` or the configured metrics port (default `9090`)
+- Scrape Prometheus metrics from `http://localhost:8080/metrics` (always served)
+- Optionally add a dedicated metrics listener with `enable_metrics: true` or `--enable-metrics` (port `metrics_port`, default `9090`)
 
 **Future:**
 - Distributed tracing with OpenTelemetry (planned)
@@ -571,7 +571,7 @@ runcmd:
 ### What are the network security recommendations?
 
 1. **Restrict cloud-init endpoints to HMN:** Use firewall rules
-2. **Use WireGuard-only mode:** `--wireguard-only` restricts access to VPN clients
+2. **Use WireGuard-only mode:** `--wireguard-only` restricts API and cloud-init access to VPN clients. It does not cover the public routes (`/health`, `/service/status`, `/.well-known/api-catalog`, `/openapi.json`, `/docs`, `/metrics`); block those at the firewall or proxy if they must stay private
 3. **Deploy behind gateway:** Use API gateway for authentication/authorization
 4. **Enable TLS:** Terminate TLS at ingress/load balancer
 5. **Rotate tokens:** Use TokenSmith for automatic rotation

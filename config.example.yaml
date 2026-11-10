@@ -72,13 +72,14 @@ host: "0.0.0.0"
 # Env var: METADATA_SERVICE_DEBUG
 debug: false
 
-# Enable Prometheus metrics collection and expose the `/metrics` endpoint.
+# Start a dedicated Prometheus metrics listener on metrics_port.
+# `/metrics` is always served on the main service port; this only adds the
+# separate listener.
 # Flag:    --enable-metrics
 # Env var: METADATA_SERVICE_ENABLE_METRICS
 enable_metrics: false
 
-# Port on which the Prometheus metrics endpoint listens.
-# Separate from the main service port for security isolation.
+# Port for the dedicated metrics listener (used when enable_metrics is true).
 # Flag:    --metrics-port
 # Env var: METADATA_SERVICE_METRICS_PORT
 metrics_port: 9090
@@ -110,8 +111,13 @@ data_dir: "/app/data"
 # Env var: METADATA_SERVICE_WIREGUARD_STATE_FILE
 #wireguard_state_file: "/data/wireguard/state.yaml"
 
-# When true, the service rejects all requests that do not originate from the
-# configured WireGuard CIDR.  Set to false to allow regular network access.
+# When true, the service rejects API and cloud-init requests that do not
+# originate from the configured WireGuard CIDR.  Set to false to allow regular
+# network access.
+#
+# Public routes are NOT covered and stay reachable from any address: /health,
+# /service/status, /.well-known/api-catalog, /openapi.json, /docs, and /metrics.
+# Block them at the network or reverse proxy if they must stay private.
 #
 # Flag:    --wireguard-only
 # Env var: METADATA_SERVICE_WIREGUARD_ONLY

@@ -23,7 +23,12 @@ RPM_RELEASE ?= 1
 RPM_TOPDIR ?= $(CURDIR)/dist/rpmbuild
 RPM_NAME ?= metadata-service-quadlet
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
-FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@latest
+# Default generator matches the Fabrica runtime pinned in go.mod, so generated
+# code and runtime never drift apart. Override FABRICA_VERSION to test another release.
+# The version is injected because `go run pkg@version` builds report "dev",
+# which would otherwise be embedded in the generated version files.
+FABRICA_VERSION ?= $(shell $(GO) list -m -f '{{.Version}}' github.com/openchami/fabrica)
+FABRICA_CMD ?= $(GO) run -ldflags "-X main.version=$(FABRICA_VERSION)" github.com/openchami/fabrica/cmd/fabrica@$(FABRICA_VERSION)
 FABRICA_SOURCE_ARG ?=
 FABRICA_FORCE_FLAG ?=
 FABRICA_ENV ?=

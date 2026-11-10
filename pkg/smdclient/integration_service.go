@@ -54,6 +54,10 @@ type SMDIntegrationService struct {
 	tokenReadyOnce sync.Once
 }
 
+// InitialRefreshPendingReason is the health reason reported before the first
+// background SMD sync has completed.
+const InitialRefreshPendingReason = "smd initial refresh pending"
+
 // InitialSyncStatus reports whether the initial background sync requirement has
 // been satisfied for health checks.
 func (s *SMDIntegrationService) InitialSyncStatus() (bool, string) {
@@ -66,7 +70,7 @@ func (s *SMDIntegrationService) InitialSyncStatus() (bool, string) {
 	s.mu.RUnlock()
 
 	if lastRun.IsZero() {
-		return false, "smd initial refresh pending"
+		return false, InitialRefreshPendingReason
 	}
 
 	return true, ""
