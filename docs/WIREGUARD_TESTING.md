@@ -151,6 +151,7 @@ curl -s $METADATA_SERVICE_HOST/wg-init -w "\nHTTP %{http_code}\n"               
 curl -s -H "X-Forwarded-For: 100.97.0.5" $METADATA_SERVICE_HOST/wg-init \
   -H "Content-Type: application/json" \
   -d "{\"public_key\": \"$(wg genkey | wg pubkey)\"}" | jq .                                         # 202
+curl -s $METADATA_SERVICE_HOST/metrics -o /dev/null -w "HTTP %{http_code}\n"                         # 200: public routes bypass wireguard-only
 ```
 
 ---
