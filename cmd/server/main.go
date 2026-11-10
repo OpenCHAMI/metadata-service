@@ -244,6 +244,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	// Public service endpoints (outside WG middleware).
 	r.Get("/health", healthHandler)
+	RegisterGeneratedPublicRoutes(r)
 	r.Get("/openapi.json", ServeOpenAPISpec)
 	r.Get("/docs", ServeSwaggerUI)
 	if config.EnableMetrics && metrics != nil {
