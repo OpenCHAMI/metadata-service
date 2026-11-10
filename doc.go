@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: © 2025 OpenCHAMI a Series of LF Projects, LLC
 
 /*
-Package cloud-init provides a cloud-init metadata service built on the OpenCHAMI Fabrica framework.
+Package metadataservice documents the OpenCHAMI cloud-init metadata service built on the OpenCHAMI Fabrica framework.
 
 It serves as a modern replacement for the legacy OpenCHAMI/cloud-init service, with generated REST APIs,
 resource validation, and integration with the State Management Database (SMD).
@@ -184,4 +184,4 @@ For production deployment:
 
 See README.md and CLOUDINIT.md for endpoint details and deployment usage.
 */
-package main
+package metadataservice
