@@ -15,7 +15,11 @@ builds:
     goarch:
       - amd64
       - arm64
+    # v1 is the portable baseline that dockers_v2 places under the bare
+    # linux/amd64 platform (goreleaser >= 2.20); v3 targets newer CPUs and
+    # is published under linux/amd64/v3.
     goamd64:
+      - v1
       - v3
     env:
       - CGO_ENABLED=0
@@ -38,7 +42,11 @@ builds:
     goarch:
       - amd64
       - arm64
+    # v1 is the portable baseline that dockers_v2 places under the bare
+    # linux/amd64 platform (goreleaser >= 2.20); v3 targets newer CPUs and
+    # is published under linux/amd64/v3.
     goamd64:
+      - v1
       - v3
     env:
       - CGO_ENABLED=0
@@ -73,6 +81,7 @@ dockers_v2:
       "org.opencontainers.image.version": "{{.Version}}"
     platforms:
       - "linux/amd64"
+      - "linux/amd64/v3"
       - "linux/arm64"
     flags:
       - "--pull"
@@ -90,6 +99,7 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
+      {{- if and .Amd64 (ne .Amd64 "v1") }}_{{ .Amd64 }}{{ end }}
     files:
       - LICENSES/MIT.txt
       - README.md
