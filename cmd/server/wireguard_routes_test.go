@@ -12,6 +12,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
+	"sync"
 	"testing"
 	"time"
 
@@ -56,20 +58,20 @@ func TestPhoneHomeNoController(t *testing.T) {
 	}
 }
 
-func TestWireGuardPeerUIDFromPublicKeyDeterministic(t *testing.T) {
+func TestLegacyWireGuardPeerUIDDeterministic(t *testing.T) {
 	t.Parallel()
 
-	uidA1, err := wireGuardPeerUIDFromPublicKey(testPublicKeyA)
+	uidA1, err := legacyWireGuardPeerUID(testPublicKeyA)
 	if err != nil {
-		t.Fatalf("wireGuardPeerUIDFromPublicKey() failed: %v", err)
+		t.Fatalf("legacyWireGuardPeerUID() failed: %v", err)
 	}
-	uidA2, err := wireGuardPeerUIDFromPublicKey(testPublicKeyA)
+	uidA2, err := legacyWireGuardPeerUID(testPublicKeyA)
 	if err != nil {
-		t.Fatalf("wireGuardPeerUIDFromPublicKey() failed: %v", err)
+		t.Fatalf("legacyWireGuardPeerUID() failed: %v", err)
 	}
-	uidB, err := wireGuardPeerUIDFromPublicKey(testPublicKeyB)
+	uidB, err := legacyWireGuardPeerUID(testPublicKeyB)
 	if err != nil {
-		t.Fatalf("wireGuardPeerUIDFromPublicKey() failed: %v", err)
+		t.Fatalf("legacyWireGuardPeerUID() failed: %v", err)
 	}
 
 	if uidA1 != uidA2 {
@@ -80,16 +82,16 @@ func TestWireGuardPeerUIDFromPublicKeyDeterministic(t *testing.T) {
 	}
 }
 
-func TestWireGuardPeerUIDFromPublicKeyRejectsInvalidKey(t *testing.T) {
+func TestLegacyWireGuardPeerUIDRejectsInvalidKey(t *testing.T) {
 	t.Parallel()
 
-	if _, err := wireGuardPeerUIDFromPublicKey("not-base64"); err == nil {
+	if _, err := legacyWireGuardPeerUID("not-base64"); err == nil {
 		t.Fatal("expected invalid public key error")
 	}
 }
 
 func TestWGInitIdempotentForSamePublicKey(t *testing.T) {
-	initTestStorageBackend(t)
+	initWGInitTest(t)
 
 	router := chi.NewRouter()
 	controller := newTestWireGuardController(t)
@@ -122,7 +124,7 @@ func TestWGInitIdempotentForSamePublicKey(t *testing.T) {
 }
 
 func TestWGInitPersistsWireGuardPeer(t *testing.T) {
-	initTestStorageBackend(t)
+	initWGInitTest(t)
 
 	router := chi.NewRouter()
 	controller := newTestWireGuardController(t)
@@ -149,6 +151,166 @@ func TestWGInitPersistsWireGuardPeer(t *testing.T) {
 	}
 }
 
+func TestWGInitAssignsTypeIDToNewPeer(t *testing.T) {
+	initWGInitTest(t)
+
+	router := chi.NewRouter()
+	registerWireGuardRoutes(router, newTestWireGuardController(t), nil)
+
+	payload := decodeWGInitResponse(t, callWGInit(t, router, testPublicKeyA, "10.0.0.8:1234"))
+
+	if !typeIDPeerUID.MatchString(payload.PeerUID) {
+		t.Fatalf("expected TypeID peer UID matching %s, got %q", typeIDPeerUID, payload.PeerUID)
+	}
+	legacyUID, err := legacyWireGuardPeerUID(testPublicKeyA)
+	if err != nil {
+		t.Fatalf("legacyWireGuardPeerUID() failed: %v", err)
+	}
+	if _, err := storage.LoadWireGuardPeer(context.Background(), legacyUID); !errors.Is(err, fabricaStorage.ErrNotFound) {
+		t.Fatalf("expected no peer under legacy UID %q, got err=%v", legacyUID, err)
+	}
+}
+
+func TestWGInitReturnsExistingLegacyPeer(t *testing.T) {
+	initWGInitTest(t)
+
+	router := chi.NewRouter()
+	registerWireGuardRoutes(router, newTestWireGuardController(t), nil)
+
+	legacyUID, err := legacyWireGuardPeerUID(testPublicKeyA)
+	if err != nil {
+		t.Fatalf("legacyWireGuardPeerUID() failed: %v", err)
+	}
+	saveWireGuardPeerFixture(t, legacyUID, "node-a", testPublicKeyA, "100.97.0.42/32")
+
+	payload := decodeWGInitResponse(t, callWGInit(t, router, testPublicKeyA, "10.0.0.8:1234"))
+
+	if payload.PeerUID != legacyUID {
+		t.Fatalf("expected existing legacy UID %q, got %q", legacyUID, payload.PeerUID)
+	}
+	if payload.ClientVPNIP != "100.97.0.42" {
+		t.Fatalf("expected existing VPN IP 100.97.0.42, got %q", payload.ClientVPNIP)
+	}
+	assertWireGuardPeerCount(t, 1)
+}
+
+func TestWGInitReturnsPeerCreatedThroughAPI(t *testing.T) {
+	initWGInitTest(t)
+
+	router := chi.NewRouter()
+	registerWireGuardRoutes(router, newTestWireGuardController(t), nil)
+
+	// Peers created through /wireguardpeers keep the key as the client sent it,
+	// which may be an equivalent but unnormalized encoding.
+	const apiUID = "wireguardpeer_01jbz7t1v3e8x9q2w4r6y8a0cd"
+	saveWireGuardPeerFixture(t, apiUID, "node-b", "  "+testPublicKeyB+"\n", "100.97.0.43/32")
+
+	payload := decodeWGInitResponse(t, callWGInit(t, router, testPublicKeyB, "10.0.0.9:1234"))
+
+	if payload.PeerUID != apiUID {
+		t.Fatalf("expected API-created peer UID %q, got %q", apiUID, payload.PeerUID)
+	}
+	if payload.ClientVPNIP != "100.97.0.43" {
+		t.Fatalf("expected existing VPN IP 100.97.0.43, got %q", payload.ClientVPNIP)
+	}
+	assertWireGuardPeerCount(t, 1)
+}
+
+func TestWGInitPicksOldestPeerWhenKeyIsDuplicated(t *testing.T) {
+	initWGInitTest(t)
+
+	router := chi.NewRouter()
+	registerWireGuardRoutes(router, newTestWireGuardController(t), nil)
+
+	const (
+		olderUID = "wireguardpeer_01jbz7t1v3e8x9q2w4r6y8a0cd"
+		newerUID = "wireguardpeer_01jbz7t1v3e8x9q2w4r6y8a0ce"
+	)
+	saveWireGuardPeerFixtureAt(t, newerUID, "node-new", testPublicKeyA, "100.97.0.51/32", time.Now().UTC())
+	saveWireGuardPeerFixtureAt(t, olderUID, "node-old", testPublicKeyA, "100.97.0.50/32", time.Now().UTC().Add(-time.Hour))
+
+	for range 3 {
+		payload := decodeWGInitResponse(t, callWGInit(t, router, testPublicKeyA, "10.0.0.8:1234"))
+		if payload.PeerUID != olderUID {
+			t.Fatalf("expected oldest peer UID %q, got %q", olderUID, payload.PeerUID)
+		}
+	}
+}
+
+func TestWGInitConcurrentCallsCreateOnePeer(t *testing.T) {
+	initWGInitTest(t)
+
+	router := chi.NewRouter()
+	registerWireGuardRoutes(router, newTestWireGuardController(t), nil)
+
+	const callers = 16
+	responses := make([]wgInitResponse, callers)
+	var wg sync.WaitGroup
+	for i := range callers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			w := callWGInit(t, router, testPublicKeyA, fmt.Sprintf("10.0.0.%d:1234", i+1))
+			if w.Code != http.StatusAccepted {
+				t.Errorf("caller %d: expected 202, got %d: %s", i, w.Code, w.Body.String())
+				return
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &responses[i]); err != nil {
+				t.Errorf("caller %d: decode response: %v", i, err)
+			}
+		}()
+	}
+	wg.Wait()
+	if t.Failed() {
+		return
+	}
+
+	for i, resp := range responses[1:] {
+		if resp.PeerUID != responses[0].PeerUID || resp.ClientVPNIP != responses[0].ClientVPNIP {
+			t.Fatalf("caller %d got %q/%q, caller 0 got %q/%q",
+				i+1, resp.PeerUID, resp.ClientVPNIP, responses[0].PeerUID, responses[0].ClientVPNIP)
+		}
+	}
+	assertWireGuardPeerCount(t, 1)
+}
+
+func TestKeyedMutexSerializesSameKeyAndReleasesEntries(t *testing.T) {
+	t.Parallel()
+
+	var km keyedMutex
+	unlockA := km.lock("a")
+
+	// A different key must not block.
+	unlockB := km.lock("b")
+	unlockB()
+
+	acquired := make(chan struct{})
+	go func() {
+		unlock := km.lock("a")
+		close(acquired)
+		unlock()
+	}()
+
+	select {
+	case <-acquired:
+		t.Fatal("second lock on the same key acquired while the first was held")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	unlockA()
+	select {
+	case <-acquired:
+	case <-time.After(5 * time.Second):
+		t.Fatal("second lock on the same key was never acquired")
+	}
+
+	km.mu.Lock()
+	defer km.mu.Unlock()
+	if len(km.locks) != 0 {
+		t.Fatalf("expected no lock entries after release, got %d", len(km.locks))
+	}
+}
+
 func TestPhoneHomeDeletesByUIDAndIsIdempotent(t *testing.T) {
 	initTestStorageBackend(t)
 
@@ -156,9 +318,9 @@ func TestPhoneHomeDeletesByUIDAndIsIdempotent(t *testing.T) {
 	controller := newTestWireGuardController(t)
 	registerWireGuardRoutes(router, controller, nil)
 
-	uid, err := wireGuardPeerUIDFromPublicKey(testPublicKeyA)
+	uid, err := legacyWireGuardPeerUID(testPublicKeyA)
 	if err != nil {
-		t.Fatalf("wireGuardPeerUIDFromPublicKey() failed: %v", err)
+		t.Fatalf("legacyWireGuardPeerUID() failed: %v", err)
 	}
 	saveWireGuardPeerFixture(t, uid, "node-a", testPublicKeyA, "100.97.0.8/32")
 
@@ -193,9 +355,9 @@ func TestPhoneHomeResolvesUIDFromClientIPFallback(t *testing.T) {
 	_ = smd.AddWGIP("x1000c0s0b0n9", "100.97.0.39")
 	registerWireGuardRoutes(router, controller, smd)
 
-	uid, err := wireGuardPeerUIDFromPublicKey(testPublicKeyB)
+	uid, err := legacyWireGuardPeerUID(testPublicKeyB)
 	if err != nil {
-		t.Fatalf("wireGuardPeerUIDFromPublicKey() failed: %v", err)
+		t.Fatalf("legacyWireGuardPeerUID() failed: %v", err)
 	}
 	saveWireGuardPeerFixture(t, uid, "node-b", testPublicKeyB, "100.97.0.39/32")
 
@@ -223,10 +385,54 @@ func callWGInit(t *testing.T, router chi.Router, publicKey, remoteAddr string) *
 	return w
 }
 
+// typeIDPeerUID matches a WireGuardPeer TypeID UID.
+var typeIDPeerUID = regexp.MustCompile(`^wireguardpeer_[0-7][0-9a-hjkmnp-tv-z]{25}$`)
+
+// initWGInitTest gives the test a fresh file backend and registers the UID
+// prefixes that /wg-init needs to generate peer UIDs.
+func initWGInitTest(t *testing.T) {
+	t.Helper()
+
+	initTestStorageBackend(t)
+	if err := registerResourcePrefixesSafely(); err != nil {
+		t.Fatalf("registerResourcePrefixesSafely() failed: %v", err)
+	}
+}
+
+func decodeWGInitResponse(t *testing.T, w *httptest.ResponseRecorder) wgInitResponse {
+	t.Helper()
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("expected 202 for wg-init call, got %d: %s", w.Code, w.Body.String())
+	}
+	var payload wgInitResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("failed to decode wg-init response: %v", err)
+	}
+	return payload
+}
+
+func assertWireGuardPeerCount(t *testing.T, want int) {
+	t.Helper()
+
+	uids, err := storage.ListWireGuardPeerUIDs(context.Background())
+	if err != nil {
+		t.Fatalf("ListWireGuardPeerUIDs() failed: %v", err)
+	}
+	if len(uids) != want {
+		t.Fatalf("expected %d stored WireGuard peers, got %d: %v", want, len(uids), uids)
+	}
+}
+
 func saveWireGuardPeerFixture(t *testing.T, uid, name, publicKey, allowedIP string) {
 	t.Helper()
 
-	now := time.Now().UTC()
+	saveWireGuardPeerFixtureAt(t, uid, name, publicKey, allowedIP, time.Now().UTC())
+}
+
+func saveWireGuardPeerFixtureAt(t *testing.T, uid, name, publicKey, allowedIP string, now time.Time) {
+	t.Helper()
+
 	peer := &v1.WireGuardPeer{
 		APIVersion: "v1",
 		Kind:       "WireGuardPeer",
@@ -328,6 +534,7 @@ func newTestWireGuardController(t *testing.T) *wireguard.Controller {
 }
 
 func TestWireGuardRoutesHappyPathWithSMDIntegration(t *testing.T) {
+	initWGInitTest(t)
 	controller := newTestController(t)
 	mockSMD := smdclient.NewMockSMDClient()
 	mockSMD.AddComponent(&smdclient.Component{

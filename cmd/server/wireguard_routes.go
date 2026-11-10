@@ -15,11 +15,13 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/openchami/fabrica/pkg/events"
 	"github.com/openchami/fabrica/pkg/fabrica"
+	"github.com/openchami/fabrica/pkg/resource"
 	fabricaStorage "github.com/openchami/fabrica/pkg/storage"
 	v1 "github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
 	"github.com/openchami/metadata-service/internal/storage"
@@ -78,22 +80,27 @@ func registerWireGuardRoutes(r chi.Router, controller *wireguard.Controller, smd
 			return
 		}
 
-		peerUID, err := wireGuardPeerUIDFromPublicKey(normalizedPublicKey)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+		// Hold the per-key lock from lookup through save so concurrent calls for
+		// the same key cannot create two peers or allocate two VPN IPs.
+		unlock := wgInitLocks.lock(normalizedPublicKey)
+		defer unlock()
 
-		if existing, err := storage.LoadWireGuardPeer(r.Context(), peerUID); err == nil {
+		if existing, found, err := findWireGuardPeerByPublicKey(r.Context(), normalizedPublicKey); err != nil {
+			http.Error(w, fmt.Sprintf("failed to check existing peer: %v", err), http.StatusInternalServerError)
+			return
+		} else if found {
 			vpnIP, parseErr := vpnIPFromAllowedCIDR(existing.Spec.AllowedIP)
 			if parseErr != nil {
 				http.Error(w, parseErr.Error(), http.StatusInternalServerError)
 				return
 			}
-			writeWGInitResponse(w, controller, peerUID, vpnIP)
+			writeWGInitResponse(w, controller, existing.Metadata.UID, vpnIP)
 			return
-		} else if !errors.Is(err, fabricaStorage.ErrNotFound) {
-			http.Error(w, fmt.Sprintf("failed to check existing peer: %v", err), http.StatusInternalServerError)
+		}
+
+		peerUID, err := resource.GenerateUIDForResource("WireGuardPeer")
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to generate WireGuard peer UID: %v", err), http.StatusInternalServerError)
 			return
 		}
 
@@ -215,13 +222,105 @@ func normalizeWireGuardPublicKey(publicKey string) (string, error) {
 	return base64.StdEncoding.EncodeToString(decoded), nil
 }
 
-func wireGuardPeerUIDFromPublicKey(publicKey string) (string, error) {
+// legacyWireGuardPeerUID returns the deterministic UID that /wg-init assigned
+// before it switched to TypeIDs: "wireguardpeer-" plus the first 16 hex
+// characters of the SHA-256 of the normalized public key. It is used only to
+// find peers created by earlier releases without scanning storage.
+func legacyWireGuardPeerUID(publicKey string) (string, error) {
 	normalized, err := normalizeWireGuardPublicKey(publicKey)
 	if err != nil {
 		return "", err
 	}
 	hash := sha256.Sum256([]byte(normalized))
 	return "wireguardpeer-" + hex.EncodeToString(hash[:8]), nil
+}
+
+// findWireGuardPeerByPublicKey returns the stored peer whose spec.public_key
+// matches publicKey, which must already be normalized. Stored keys are
+// normalized before comparison, so peers created through /wireguardpeers with
+// equivalent encodings also match.
+//
+// A peer stored under the legacy deterministic UID is checked first, without
+// a scan. Otherwise every peer is loaded. If several peers share the key, the
+// oldest one wins, with ties broken by UID, so repeated calls agree.
+func findWireGuardPeerByPublicKey(ctx context.Context, publicKey string) (*v1.WireGuardPeer, bool, error) {
+	if legacyUID, err := legacyWireGuardPeerUID(publicKey); err == nil {
+		peer, loadErr := storage.LoadWireGuardPeer(ctx, legacyUID)
+		switch {
+		case loadErr == nil && wireGuardPublicKeysEqual(peer.Spec.PublicKey, publicKey):
+			return peer, true, nil
+		case loadErr != nil && !errors.Is(loadErr, fabricaStorage.ErrNotFound):
+			return nil, false, loadErr
+		}
+	}
+
+	peers, err := storage.LoadAllWireGuardPeers(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var match *v1.WireGuardPeer
+	for _, peer := range peers {
+		if !wireGuardPublicKeysEqual(peer.Spec.PublicKey, publicKey) {
+			continue
+		}
+		if match == nil ||
+			peer.Metadata.CreatedAt.Before(match.Metadata.CreatedAt) ||
+			(peer.Metadata.CreatedAt.Equal(match.Metadata.CreatedAt) && peer.Metadata.UID < match.Metadata.UID) {
+			match = peer
+		}
+	}
+	return match, match != nil, nil
+}
+
+// wireGuardPublicKeysEqual reports whether stored, a public key as stored in a
+// peer's spec, encodes the same key as normalized.
+func wireGuardPublicKeysEqual(stored, normalized string) bool {
+	if candidate, err := normalizeWireGuardPublicKey(stored); err == nil {
+		return candidate == normalized
+	}
+	return strings.TrimSpace(stored) == normalized
+}
+
+// keyedMutex serializes work per key. Entries are removed once no caller
+// holds or waits for them, so memory stays bounded by in-flight keys.
+type keyedMutex struct {
+	mu    sync.Mutex
+	locks map[string]*keyedMutexEntry
+}
+
+type keyedMutexEntry struct {
+	mu   sync.Mutex
+	refs int
+}
+
+// wgInitLocks serializes /wg-init peer creation per normalized public key.
+var wgInitLocks = &keyedMutex{}
+
+// lock acquires the mutex for key and returns a function that releases it.
+func (k *keyedMutex) lock(key string) func() {
+	k.mu.Lock()
+	if k.locks == nil {
+		k.locks = make(map[string]*keyedMutexEntry)
+	}
+	entry, ok := k.locks[key]
+	if !ok {
+		entry = &keyedMutexEntry{}
+		k.locks[key] = entry
+	}
+	entry.refs++
+	k.mu.Unlock()
+
+	entry.mu.Lock()
+	return func() {
+		entry.mu.Unlock()
+		k.mu.Lock()
+		entry.refs--
+		if entry.refs == 0 {
+			delete(k.locks, key)
+		}
+		k.mu.Unlock()
+	}
 }
 
 func allocateWireGuardPeerCIDR(controller *wireguard.Controller) (allowedCIDR string, vpnIP string, err error) {
