@@ -147,43 +147,6 @@ func registerWireGuardRoutes(r chi.Router, controller *wireguard.Controller, smd
 
 		writeWGInitResponse(w, controller, peerUID, vpnIP)
 	})
-
-	r.Post("/phone-home/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if controller == nil {
-			http.Error(w, "wireguard disabled", http.StatusServiceUnavailable)
-			return
-		}
-
-		targetID := chi.URLParam(r, "id")
-		clientIP := getClientIPFromRequest(r)
-		peerUID, err := resolvePhoneHomePeerUID(r.Context(), targetID, clientIP, smd)
-		if err != nil {
-			log.Printf("Warning: unable to resolve phone-home UID for id=%q clientIP=%q: %v", targetID, clientIP, err)
-			peerUID = targetID
-		}
-
-		if peerUID != "" {
-			existing, loadErr := storage.LoadWireGuardPeer(r.Context(), peerUID)
-			if loadErr != nil && !errors.Is(loadErr, fabricaStorage.ErrNotFound) {
-				http.Error(w, fmt.Sprintf("failed to load WireGuard peer intent: %v", loadErr), http.StatusInternalServerError)
-				return
-			}
-
-			if delErr := storage.DeleteWireGuardPeer(r.Context(), peerUID); delErr != nil && !errors.Is(delErr, fabricaStorage.ErrNotFound) {
-				http.Error(w, fmt.Sprintf("failed to delete WireGuard peer intent: %v", delErr), http.StatusInternalServerError)
-				return
-			}
-
-			if existing != nil {
-				deleteMetadata := map[string]interface{}{"phoneHomeID": targetID}
-				if err := events.PublishResourceDeleted(r.Context(), "WireGuardPeer", existing.Metadata.UID, existing.Metadata.Name, deleteMetadata); err != nil {
-					log.Printf("Warning: failed to publish WireGuardPeer deleted event for %s: %v", existing.Metadata.UID, err)
-				}
-			}
-		}
-
-		w.WriteHeader(http.StatusOK)
-	})
 }
 
 func writeWGInitResponse(w http.ResponseWriter, controller *wireguard.Controller, peerUID, vpnIP string) {
@@ -266,7 +229,7 @@ func resolveRequesterIdentity(smd smdclient.SMDClient, clientIP string) string {
 	return clientIP
 }
 
-func resolvePhoneHomePeerUID(ctx context.Context, routeID, clientIP string, smd smdclient.SMDClient) (string, error) {
+func resolvePhoneHomePeerUID(ctx context.Context, routeID string, smd smdclient.SMDClient) (string, error) {
 	if routeID != "" {
 		if _, err := storage.LoadWireGuardPeer(ctx, routeID); err == nil {
 			return routeID, nil
@@ -281,18 +244,6 @@ func resolvePhoneHomePeerUID(ctx context.Context, routeID, clientIP string, smd 
 				return "", err
 			} else if found {
 				return uid, nil
-			}
-		}
-	}
-
-	if smd != nil {
-		if componentID, err := smdclient.ResolveComponentID(smd, clientIP); err == nil && componentID != "" {
-			if wgIP, err := smd.WGIPfromID(componentID); err == nil && wgIP != "" {
-				if uid, found, err := findWireGuardPeerUIDByVPNIP(ctx, wgIP); err != nil {
-					return "", err
-				} else if found {
-					return uid, nil
-				}
 			}
 		}
 	}

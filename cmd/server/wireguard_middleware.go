@@ -4,7 +4,6 @@
 package main
 
 import (
-	"net"
 	"net/http"
 
 	"github.com/openchami/metadata-service/pkg/wireguard"
@@ -18,11 +17,7 @@ func wireGuardOnlyMiddleware(controller *wireguard.Controller) func(http.Handler
 				next.ServeHTTP(w, r)
 				return
 			}
-			host, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err != nil {
-				host = r.RemoteAddr
-			}
-			ip := net.ParseIP(host)
+			ip := transportPeerIP(r)
 			if ip == nil || !controller.Network.Contains(ip) {
 				http.Error(w, "wireguard-only access required", http.StatusForbidden)
 				return

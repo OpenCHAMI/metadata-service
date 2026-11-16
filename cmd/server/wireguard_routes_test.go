@@ -34,6 +34,7 @@ const (
 func TestWGInitNoController(t *testing.T) {
 	router := chi.NewRouter()
 	registerWireGuardRoutes(router, nil, nil)
+	registerPhoneHomeRoute(router, nil, nil)
 
 	body := bytes.NewBufferString(`{"public_key":"` + testPublicKeyA + `"}`)
 	req := httptest.NewRequest("POST", "/wg-init", body)
@@ -44,15 +45,16 @@ func TestWGInitNoController(t *testing.T) {
 	}
 }
 
-func TestPhoneHomeNoController(t *testing.T) {
+func TestPhoneHomeWithoutWireGuardAcceptsReport(t *testing.T) {
 	router := chi.NewRouter()
 	registerWireGuardRoutes(router, nil, nil)
+	registerPhoneHomeRoute(router, nil, nil)
 
 	req := httptest.NewRequest("POST", "/phone-home/node1", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("expected 503, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
 	}
 }
 
@@ -94,6 +96,7 @@ func TestWGInitIdempotentForSamePublicKey(t *testing.T) {
 	router := chi.NewRouter()
 	controller := newTestWireGuardController(t)
 	registerWireGuardRoutes(router, controller, nil)
+	registerPhoneHomeRoute(router, controller, nil)
 
 	first := callWGInit(t, router, testPublicKeyA, "10.0.0.8:1234")
 	if first.Code != http.StatusAccepted {
@@ -127,6 +130,7 @@ func TestWGInitPersistsWireGuardPeer(t *testing.T) {
 	router := chi.NewRouter()
 	controller := newTestWireGuardController(t)
 	registerWireGuardRoutes(router, controller, nil)
+	registerPhoneHomeRoute(router, controller, nil)
 
 	response := callWGInit(t, router, testPublicKeyB, "10.0.0.10:1234")
 	if response.Code != http.StatusAccepted {
@@ -150,20 +154,25 @@ func TestWGInitPersistsWireGuardPeer(t *testing.T) {
 }
 
 func TestPhoneHomeDeletesByUIDAndIsIdempotent(t *testing.T) {
+	newNotificationCapture(t)
 	initTestStorageBackend(t)
 
 	router := chi.NewRouter()
 	controller := newTestWireGuardController(t)
 	registerWireGuardRoutes(router, controller, nil)
+	registerPhoneHomeRoute(router, controller, nil)
 
 	uid, err := wireGuardPeerUIDFromPublicKey(testPublicKeyA)
 	if err != nil {
 		t.Fatalf("wireGuardPeerUIDFromPublicKey() failed: %v", err)
 	}
 	saveWireGuardPeerFixture(t, uid, "node-a", testPublicKeyA, "100.97.0.8/32")
+	if err := controller.UpsertPeer(uid, testPublicKeyA, "100.97.0.8/32"); err != nil {
+		t.Fatal(err)
+	}
 
 	request := httptest.NewRequest("POST", "/phone-home/"+uid, nil)
-	request.RemoteAddr = "10.0.0.8:1234"
+	request.RemoteAddr = "100.97.0.8:1234"
 	first := httptest.NewRecorder()
 	router.ServeHTTP(first, request)
 	if first.Code != http.StatusOK {
@@ -175,7 +184,7 @@ func TestPhoneHomeDeletesByUIDAndIsIdempotent(t *testing.T) {
 	}
 
 	secondReq := httptest.NewRequest("POST", "/phone-home/"+uid, nil)
-	secondReq.RemoteAddr = "10.0.0.8:1234"
+	secondReq.RemoteAddr = "100.97.0.8:1234"
 	second := httptest.NewRecorder()
 	router.ServeHTTP(second, secondReq)
 	if second.Code != http.StatusOK {
@@ -183,7 +192,7 @@ func TestPhoneHomeDeletesByUIDAndIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestPhoneHomeResolvesUIDFromClientIPFallback(t *testing.T) {
+func TestPhoneHomeUnknownIDDoesNotDeleteCallerPeer(t *testing.T) {
 	initTestStorageBackend(t)
 
 	router := chi.NewRouter()
@@ -192,6 +201,7 @@ func TestPhoneHomeResolvesUIDFromClientIPFallback(t *testing.T) {
 	smd.AddComponent(&smdclient.Component{ID: "x1000c0s0b0n9", IP: "10.252.0.39"})
 	_ = smd.AddWGIP("x1000c0s0b0n9", "100.97.0.39")
 	registerWireGuardRoutes(router, controller, smd)
+	registerPhoneHomeRoute(router, controller, smd)
 
 	uid, err := wireGuardPeerUIDFromPublicKey(testPublicKeyB)
 	if err != nil {
@@ -200,15 +210,15 @@ func TestPhoneHomeResolvesUIDFromClientIPFallback(t *testing.T) {
 	saveWireGuardPeerFixture(t, uid, "node-b", testPublicKeyB, "100.97.0.39/32")
 
 	req := httptest.NewRequest("POST", "/phone-home/not-a-wireguardpeer-uid", nil)
-	req.RemoteAddr = "10.252.0.39:2000"
+	req.RemoteAddr = "100.97.0.39:2000"
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 for phone-home fallback path, got %d", w.Code)
 	}
 
-	if _, err := storage.LoadWireGuardPeer(context.Background(), uid); !errors.Is(err, fabricaStorage.ErrNotFound) {
-		t.Fatalf("expected fallback path to delete resource, got err=%v", err)
+	if _, err := storage.LoadWireGuardPeer(context.Background(), uid); err != nil {
+		t.Fatalf("unknown ID must not delete caller peer: %v", err)
 	}
 }
 
@@ -338,6 +348,7 @@ func TestWireGuardRoutesHappyPathWithSMDIntegration(t *testing.T) {
 
 	router := chi.NewRouter()
 	registerWireGuardRoutes(router, controller, mockSMD)
+	registerPhoneHomeRoute(router, controller, mockSMD)
 
 	req := httptest.NewRequest(http.MethodPost, "/wg-init", bytes.NewBufferString(`{"public_key":"`+testPublicKeyA+`"}`))
 	req.Header.Set("X-Forwarded-For", "10.0.0.7")

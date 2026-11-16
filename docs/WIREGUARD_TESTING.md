@@ -106,12 +106,19 @@ Expected: Status shows `"phase": "Ready"` if reconciliation succeeded. `"Degrade
 
 ### 5. Test phone-home de-registration (`POST /phone-home/{id}`)
 
+Run this request from the matching peer through its WireGuard tunnel, using the
+service tunnel address. A physical-network or reverse-proxy request now records a
+report without removing the peer. Forwarding headers do not authorize removal.
+See [Phone-home events](PHONE_HOME.md) for receipt and shutdown-result events.
+
 ```bash
 curl -s -X POST $METADATA_SERVICE_HOST/phone-home/wireguardpeer-<hex> -w "\nHTTP %{http_code}\n"
 curl -s $METADATA_SERVICE_HOST/wireguardpeers/wireguardpeer-<hex>
 ```
 
-Expected: HTTP 200, then 404 (peer deleted).
+Expected: HTTP 200, then 404 (peer intent deleted). Wait for the correlated
+shutdown event with `outcome: removed` to confirm controller removal. The deletion
+event by itself is not confirmation of tunnel shutdown.
 
 ---
 

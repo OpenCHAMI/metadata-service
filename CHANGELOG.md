@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Phone-home reports without WireGuard, emitted as bounded JSON CloudEvents to
+  stdout and the existing event bus; no notification store or query API (#68).
+- Correlated WireGuard shutdown-result events distinguish removal, an already
+  absent peer, controller failure, and disabled-controller skips.
+
+### Security
+
+- Phone-home can only request deletion of the peer matching the caller's original
+  tunnel address. Physical-network and reverse-proxy callbacks are report-only;
+  unknown IDs no longer fall back to deleting a peer based on caller IP.
+- WireGuard-only admission uses the transport peer before RealIP rewriting and
+  fails startup without a working controller. Forwarding headers cannot bypass it.
+
 ### Fixed
 
 - Fixed the container image build failing with goreleaser 2.20 and later by

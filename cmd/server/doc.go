@@ -62,10 +62,10 @@ The server exposes:
   - /vendor-data
   - /network-config
   - /{group}.yaml
+  - /phone-home/{id} (reporting also works without WireGuard)
 
 4. Optional WireGuard routes (when enabled):
   - /wg-init
-  - /phone-home/{id}
 
 # Cloud-Init Endpoint Behavior
 

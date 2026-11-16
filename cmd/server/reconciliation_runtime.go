@@ -15,6 +15,7 @@ import (
 	"github.com/openchami/fabrica/pkg/events"
 	fabricaStorage "github.com/openchami/fabrica/pkg/storage"
 	"github.com/openchami/metadata-service/internal/storage"
+	"github.com/openchami/metadata-service/pkg/notifications"
 	"github.com/openchami/metadata-service/pkg/reconcilers"
 	"github.com/openchami/metadata-service/pkg/wireguard"
 )
@@ -132,6 +133,14 @@ func (r *reconciliationRuntime) handleResourceEvent(ctx context.Context, event e
 
 	switch action {
 	case "delete", "deleted":
+		var change struct {
+			Metadata struct {
+				Shutdown notifications.Shutdown `json:"shutdown"`
+			} `json:"metadata"`
+		}
+		if err := event.DataAs(&change); err == nil && change.Metadata.Shutdown.Reason == "phone_home" {
+			ctx = notifications.WithShutdown(ctx, change.Metadata.Shutdown)
+		}
 		return r.wireGuardPeerReconciler.Delete(ctx, uid)
 	default:
 		resource, err := r.storageClient.Get(ctx, "WireGuardPeer", uid)

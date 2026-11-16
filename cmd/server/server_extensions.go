@@ -26,6 +26,9 @@ func registerCustomServerIntegrations(serverCtx context.Context, r chi.Router) e
 	wgController := setupWireGuardController()
 
 	currentWGController = wgController
+	if viper.GetBool("wireguard_only") && wgController == nil {
+		return fmt.Errorf("wireguard_only requires a working WireGuard controller")
+	}
 	if wgController != nil {
 		r.Use(wireGuardControllerMiddleware(wgController))
 		if viper.GetBool("wireguard_only") {
@@ -48,6 +51,7 @@ func registerCustomServerIntegrations(serverCtx context.Context, r chi.Router) e
 		registerWireGuardRoutes(r, wgController, smdClient)
 	}
 
+	registerPhoneHomeRoute(r, wgController, smdClient)
 	RegisterCloudInitRoutes(r, smdClient, storeAdapter)
 	if smdRuntime.startWorkers != nil {
 		smdRuntime.startWorkers(serverCtx)
