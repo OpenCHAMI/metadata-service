@@ -13,7 +13,8 @@ Key capabilities
 - Generated resource APIs and client commands for `clusterdefaults`, `group`, `instanceinfo`, and `wireguardpeer`
 - Server-side template validation for group cloud-config templates using Pongo2 plus YAML validation
 - OpenAPI output at `/openapi.json` and Swagger UI at `/docs`
-- Optional userspace WireGuard bootstrap endpoints at `/wg-init` and `/phone-home/{id}`
+- Phone-home reports at `/phone-home/{id}`, with or without WireGuard; JSON CloudEvent notifications for receipts and tunnel shutdown outcomes
+- Optional userspace WireGuard bootstrap at `/wg-init`
 
 ## Quick Start
 
@@ -268,7 +269,34 @@ curl \
 	http://localhost:8888/wg-init
 ```
 
-If you also pass `--wireguard-only`, the server will reject requests whose remote address is not inside the configured WireGuard CIDR.
+If you also pass `--wireguard-only`, the integration routes (including phone-home)
+require a transport peer in the configured WireGuard CIDR. Public health/docs
+routes remain outside that restriction. Forwarding headers cannot satisfy
+WireGuard admission. Startup fails if WireGuard-only mode has no working controller.
+
+## Phone-home reports and notifications
+
+`POST /phone-home/{id}` is available without a WireGuard controller or operator JWT.
+It accepts cloud-init's form POST, or an empty POST for existing callers:
+
+```bash
+curl --data 'instance_id=node-1&hostname=node1' http://localhost:8888/phone-home/node-1
+```
+
+A report emits a JSON CloudEvent to stdout and offers the same event to the existing
+in-process event bus. Metadata-service does not retain notification history or
+provide a status/query API. Receipt means a report was received, not that node
+identity was authenticated or all cloud-init modules succeeded.
+
+With WireGuard enabled, peer cleanup requires the original transport address to
+match the named peer's assigned tunnel IP. Outside/proxied callbacks remain
+report-only; another tunnel peer cannot remove the target peer. Use the service's
+WireGuard address directly for cleanup. Forwarding headers are never a substitute
+for this transport check. This intentionally tightens the previous behavior that
+allowed a caller to select a peer for removal by ID or forwarding headers.
+
+See [Phone-home events](docs/PHONE_HOME.md) for the event schema, limits, delivery
+semantics, and upgrade/collection guidance.
 
 ## Documentation
 

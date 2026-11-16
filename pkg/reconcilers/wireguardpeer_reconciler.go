@@ -7,12 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"reflect"
 	"strings"
 
 	"github.com/openchami/fabrica/pkg/reconcile"
 	v1 "github.com/openchami/metadata-service/apis/cloud-init.openchami.io/v1"
+	"github.com/openchami/metadata-service/pkg/notifications"
 )
 
 const (
@@ -83,16 +85,30 @@ func (r *WireGuardPeerReconciler) Reconcile(ctx context.Context, resource interf
 }
 
 // Delete removes a WireGuard peer from controller state.
-func (r *WireGuardPeerReconciler) Delete(_ context.Context, uid string) error {
-	if !r.controllerConfigured() || uid == "" {
+func (r *WireGuardPeerReconciler) Delete(ctx context.Context, uid string) error {
+	if uid == "" {
 		return nil
 	}
-
-	if err := r.controller.RemovePeerByID(uid); err != nil {
-		if isPeerNotFound(err) {
-			return nil
+	details := notifications.ShutdownFromContext(ctx, uid)
+	details.Outcome = "skipped_controller_disabled"
+	var removeErr error
+	if r.controllerConfigured() {
+		removeErr = r.controller.RemovePeerByID(uid)
+		switch {
+		case removeErr == nil:
+			details.Outcome = "removed"
+		case isPeerNotFound(removeErr):
+			details.Outcome = "already_absent"
+			removeErr = nil
+		default:
+			details.Outcome = "failed"
 		}
-		return fmt.Errorf("remove peer %q: %w", uid, err)
+	}
+	if _, err := notifications.Emit(ctx, notifications.WireGuardShutdown, "wireguardpeers/"+uid, details); err != nil {
+		log.Printf("WireGuard shutdown notification enqueue failed: %v", err)
+	}
+	if removeErr != nil {
+		return fmt.Errorf("remove peer %q: %w", uid, removeErr)
 	}
 	return nil
 }
