@@ -8,7 +8,7 @@ go 1.26.5
 
 require (
 	github.com/getkin/kin-openapi v0.144.0
-	github.com/go-chi/chi/v5 v5.2.4
+	github.com/go-chi/chi/v5 v5.4.0
 	github.com/openchami/fabrica v0.4.10
 	github.com/openchami/tokensmith v0.4.1
 	github.com/prometheus/client_golang v1.23.2
